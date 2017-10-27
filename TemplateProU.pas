@@ -50,7 +50,7 @@ type
   TTPDatasetDictionary = class(TDictionary<string, TDataSet>)
   end;
 
-  TTPObjectListDictionary = class(TObjectDictionary<string, TObjectList<TObject>>)
+  TTPObjectListDictionary = class(TObjectDictionary < string, TObjectList < TObject >> )
   end;
 
   TTPDatasetAdapter = class(TInterfacedObject, ITPDataSourceAdapter)
@@ -87,49 +87,58 @@ type
 
   TTemplateProEngine = class
   strict private
-    FOutput: string;
-    FVariables: TDictionary<string, string>;
+    fOutput: string;
+    fVariables: TDictionary<string, string>;
     function MatchStartTag: Boolean;
     function MatchEndTag: Boolean;
     function MatchIdentifier(var aIdentifier: string): Boolean;
     function MatchValue(var aValue: string): Boolean;
     function MatchReset(var aDataSet: string): Boolean;
     function MatchField(var aDataSet: string; var aFieldName: string): Boolean;
-    function MatchSymbol(const Symbol: string): Boolean;
+    function MatchSymbol(const aSymbol: string): Boolean;
   private
     fDataSources: TDictionary<string, ITPDataSourceAdapter>;
-    FInputString: string;
-    FCharIndex: Int64;
-    FCurrentLine: Integer;
-    FCurrentColumn: Integer;
-    FLoopStack: TStack<Integer>;
-    FLoopIdentStack: TStack<TTPLoopControl>;
+    fInputString: string;
+    fCharIndex: Int64;
+    fCurrentLine: Integer;
+    fCurrentColumn: Integer;
+    fLoopStack: TStack<Integer>;
+    fLoopIdentStack: TStack<TTPLoopControl>;
     fCurrentDataSource: ITPDataSourceAdapter;
-    FOutputStreamWriter: TStreamWriter;
-    procedure Error(const Message: string);
-    function ExecuteFunction(AFunctionName: string; aParameters: TArray<string>; AValue: string): string;
-    function SetDataSourceByName(const Name: string): Boolean;
-    function GetFieldText(const FieldName: string): string;
-    function ExecuteFieldFunction(AFunctionName: string;
+    fOutputStreamWriter: TStreamWriter;
+    procedure Error(const aMessage: string);
+    procedure ErrorFmt(const aMessage: string; aParameters: array of const);
+
+    function ExecuteFunction(aFunctionName: string;
+      aParameters: TArray<string>;
+      aValue: string): string;
+
+    function ExecuteFieldFunction(aFunctionName: string;
       aParameters: TArray<string>;
       aValue: TValue): string;
-    procedure CheckParNumber(const HowManyPars: Integer;
+
+    function SetDataSourceByName(const aName: string): Boolean;
+    function GetFieldText(const aFieldName: string): string;
+    procedure CheckParNumber(const aHowManyPars: Integer;
       const aParameters: TArray<string>); overload;
-    procedure CheckParNumber(const MinParNumber, MaxParNumber: Integer;
+    procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
       const aParameters: TArray<string>); overload;
-    procedure AppendOutput(const AValue: string);
+    procedure AppendOutput(const aValue: string);
     procedure LoadDataSources(const aObjectDictionary: TTPObjectListDictionary; const aDatasetDictionary: TTPDatasetDictionary);
   public
-    procedure Execute(const InputString: string; const ObjectDictionary: TTPObjectListDictionary; const DatasetDictionary: TTPDatasetDictionary; aStream: TStream);
+    procedure Execute(const aTemplateString: string; const aObjectDictionary: TTPObjectListDictionary; const aDatasetDictionary: TTPDatasetDictionary; aStream: TStream); overload;
+    procedure Execute(const aTemplateString: string;
+      const aObjectNames: array of string; aObjects: array of TObjectList<TObject>;
+      const aDataSetNames: array of string; aDataSets: array of TDataSet;
+      aStream: TStream); overload;
     constructor Create;
     destructor Destroy; override;
-    procedure SetVar(const AName: string; AValue: string);
-    function GetVar(const AName: string): string;
+    procedure SetVar(const aName: string; aValue: string);
+    function GetVar(const aName: string): string;
     procedure ClearVariables;
   end;
 
 implementation
-
 
 uses
   System.StrUtils;
@@ -143,89 +152,77 @@ const
 
   { TParser }
 
-procedure TTemplateProEngine.AppendOutput(const AValue: string);
+procedure TTemplateProEngine.AppendOutput(const aValue: string);
 begin
-  FOutputStreamWriter.Write(AValue);
+  fOutputStreamWriter.Write(aValue);
 end;
 
-procedure TTemplateProEngine.CheckParNumber(const MinParNumber,
-  MaxParNumber: Integer; const aParameters: TArray<string>);
+procedure TTemplateProEngine.CheckParNumber(const aMinParNumber,
+  aMaxParNumber: Integer; const aParameters: TArray<string>);
 var
   lParNumber: Integer;
 begin
   lParNumber := Length(aParameters);
-  if (lParNumber < MinParNumber) or (lParNumber > MaxParNumber) then
+  if (lParNumber < aMinParNumber) or (lParNumber > aMaxParNumber) then
   begin
-    if MinParNumber = MaxParNumber then
-      Error(Format('Expected %d parameters, got %d', [MinParNumber, lParNumber]))
+    if aMinParNumber = aMaxParNumber then
+      Error(Format('Expected %d parameters, got %d', [aMinParNumber, lParNumber]))
     else
-      Error(Format('Expected from %d to %d parameters, got %d', [MinPArNumber, MaxParNumber, lParNumber]));
+      Error(Format('Expected from %d to %d parameters, got %d', [aMinParNumber, aMaxParNumber, lParNumber]));
   end;
 end;
 
 procedure TTemplateProEngine.ClearVariables;
 begin
-  FVariables.Clear;
+  fVariables.Clear;
 end;
 
 constructor TTemplateProEngine.Create;
 begin
   inherited;
-  FOutput := '';
-  FVariables := TDictionary<string, string>.Create;
-  FLoopStack := TStack<Integer>.Create;
-  FLoopIdentStack := TStack<TTPLoopControl>.Create;
+  fOutput := '';
+  fVariables := TDictionary<string, string>.Create;
+  fLoopStack := TStack<Integer>.Create;
+  fLoopIdentStack := TStack<TTPLoopControl>.Create;
   fDataSources := TDictionary<string, ITPDataSourceAdapter>.Create;
 end;
 
 destructor TTemplateProEngine.Destroy;
 begin
   fDataSources.Free;
-  FLoopIdentStack.Free;
-  FLoopStack.Free;
-  FVariables.Free;
-  FOutputStreamWriter.Free;
+  fLoopIdentStack.Free;
+  fLoopStack.Free;
+  fVariables.Free;
+  fOutputStreamWriter.Free;
   inherited;
 end;
 
-function TTemplateProEngine.SetDataSourceByName(const Name: string): Boolean;
+function TTemplateProEngine.SetDataSourceByName(const aName: string): Boolean;
 var
   ds: TPair<string, ITPDataSourceAdapter>;
 begin
   Result := False;
   for ds in fDataSources do
   begin
-    if SameText(ds.Key, name) then
+    if SameText(ds.Key, aName) then
     begin
       fCurrentDataSource := ds.Value;
       Result := True;
       Break;
     end;
   end;
-
-  // for ds in FDatasets do
-  // begin
-  // if SameText(ds.Name, name) then
-  // begin
-  // FCurrentDataset := ds;
-  // Result := True;
-  // Break;
-  // end;
-  // end;
 end;
 
-function TTemplateProEngine.GetFieldText(const FieldName: string): string;
-var
-  lField: TField;
+function TTemplateProEngine.GetFieldText(const aFieldName: string): string;
 begin
   if not Assigned(fCurrentDataSource) then
     Error('Current datasource not set');
-  Result := fcurrentDataSource.GetMemberValue(FieldName);
+  Result := fcurrentDataSource.GetMemberValue(aFieldName);
 end;
 
-function TTemplateProEngine.GetVar(const AName: string): string;
+function TTemplateProEngine.GetVar(const aName: string): string;
 begin
-  if not FVariables.TryGetValue(AName, Result) then
+  if not fVariables.TryGetValue(aName, Result) then
     Result := '';
 end;
 
@@ -251,9 +248,9 @@ end;
 
 function TTemplateProEngine.MatchEndTag: Boolean;
 begin
-  Result := FInputString.Chars[FCharIndex] = END_TAG_1;
+  Result := fInputString.Chars[fCharIndex] = END_TAG_1;
   if Result then
-    Inc(FCharIndex, 1);
+    Inc(fCharIndex, 1);
 end;
 
 function TTemplateProEngine.MatchField(var aDataSet: string; var aFieldName: string): Boolean;
@@ -275,12 +272,12 @@ function TTemplateProEngine.MatchIdentifier(var aIdentifier: string): Boolean;
 begin
   aIdentifier := '';
   Result := False;
-  if CharInSet(FInputString.Chars[FCharIndex], IdenfierAllowedFirstChars) then
+  if CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedFirstChars) then
   begin
-    while CharInSet(FInputString.Chars[FCharIndex], IdenfierAllowedChars) do
+    while CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) do
     begin
-      aIdentifier := aIdentifier + FInputString.Chars[FCharIndex];
-      Inc(FCharIndex);
+      aIdentifier := aIdentifier + fInputString.Chars[fCharIndex];
+      Inc(fCharIndex);
     end;
     Result := True;
   end
@@ -295,44 +292,44 @@ end;
 
 function TTemplateProEngine.MatchStartTag: Boolean;
 begin
-  Result := FInputString.Chars[FCharIndex] = START_TAG_1;
+  Result := fInputString.Chars[fCharIndex] = START_TAG_1;
   if Result then
-    Inc(FCharIndex, 1);
+    Inc(fCharIndex, 1);
 end;
 
-function TTemplateProEngine.MatchSymbol(const Symbol: string): Boolean;
+function TTemplateProEngine.MatchSymbol(const aSymbol: string): Boolean;
 var
   lSymbolIndex: Integer;
   lSavedCharIndex: Int64;
 begin
-  if Symbol.IsEmpty then
+  if aSymbol.IsEmpty then
     Exit(True);
-  lSavedCharIndex := FCharIndex;
+  lSavedCharIndex := fCharIndex;
   lSymbolIndex := 0;
   // lChar := FInputString.Chars[FCharIndex];
-  while FInputString.Chars[FCharIndex] = Symbol.Chars[lSymbolIndex] do
+  while fInputString.Chars[fCharIndex] = aSymbol.Chars[lSymbolIndex] do
   begin
-    Inc(FCharIndex);
+    Inc(fCharIndex);
     Inc(lSymbolIndex);
     // lChar := FInputString.Chars[FCharIndex]
   end;
-  Result := (lSymbolIndex > 0) and (lSymbolIndex = Length(Symbol));
+  Result := (lSymbolIndex > 0) and (lSymbolIndex = Length(aSymbol));
   if not Result then
-    FCharIndex := lSavedCharIndex;
+    fCharIndex := lSavedCharIndex;
 end;
 
 function TTemplateProEngine.MatchValue(var aValue: string): Boolean;
 begin
   aValue := '';
-  while CharInSet(FInputString.Chars[FCharIndex], ValueAllowedChars) do
+  while CharInSet(fInputString.Chars[fCharIndex], ValueAllowedChars) do
   begin
-    aValue := aValue + FInputString.Chars[FCharIndex];
-    Inc(FCharIndex);
+    aValue := aValue + fInputString.Chars[fCharIndex];
+    Inc(fCharIndex);
   end;
   Result := not aValue.IsEmpty;
 end;
 
-procedure TTemplateProEngine.Execute(const InputString: string; const ObjectDictionary: TTPObjectListDictionary; const DatasetDictionary: TTPDatasetDictionary; aStream: TStream);
+procedure TTemplateProEngine.Execute(const aTemplateString: string; const aObjectDictionary: TTPObjectListDictionary; const aDatasetDictionary: TTPDatasetDictionary; aStream: TStream);
 var
   lChar: Char;
   lVarName: string;
@@ -359,26 +356,26 @@ var
 
 begin
   lIgnoreOutput := False;
-  FreeAndNil(FOutputStreamWriter);
-  FOutputStreamWriter := TStreamWriter.Create(aStream);
-  LoadDataSources(ObjectDictionary, DataSetDictionary);
-  FLoopStack.Clear;
-  FLoopIdentStack.Clear;
-  FCharIndex := 0;
-  FCurrentLine := 1;
-  FCurrentColumn := 0;
-  FInputString := InputString;
-  while FCharIndex < InputString.Length do
+  FreeAndNil(fOutputStreamWriter);
+  fOutputStreamWriter := TStreamWriter.Create(aStream);
+  LoadDataSources(aObjectDictionary, aDatasetDictionary);
+  fLoopStack.Clear;
+  fLoopIdentStack.Clear;
+  fCharIndex := 0;
+  fCurrentLine := 1;
+  fCurrentColumn := 0;
+  fInputString := aTemplateString;
+  while fCharIndex < aTemplateString.Length do
   begin
-    lChar := InputString.Chars[FCharIndex];
+    lChar := aTemplateString.Chars[fCharIndex];
     if lChar = #13 then
     begin
-      Inc(FCurrentLine);
-      FCurrentColumn := 1;
+      Inc(fCurrentLine);
+      fCurrentColumn := 1;
     end
     else
     begin
-      Inc(FCurrentColumn);
+      Inc(fCurrentColumn);
     end;
 
     // starttag
@@ -397,8 +394,8 @@ begin
           Error('Expected closing tag for "loop(' + lIdentifier + ')"');
         if not SetDataSourceByName(lIdentifier) then
           Error('Unknown dataset: ' + lIdentifier);
-        FLoopStack.Push(FCharIndex);
-        FLoopIdentStack.Push(TTPLoopControl.Create(lIdentifier));
+        fLoopStack.Push(fCharIndex);
+        fLoopIdentStack.Push(TTPLoopControl.Create(lIdentifier));
         lIgnoreOutput := false; // FCurrentDataset.Eof;
         Continue;
       end;
@@ -408,20 +405,20 @@ begin
       begin
         if not MatchEndTag then
           Error('Expected closing tag');
-        lIdentifier := FLoopIdentStack.Peek.Identifier;
+        lIdentifier := fLoopIdentStack.Peek.Identifier;
         if not SetDataSourceByName(lIdentifier) then
           Error('Invalid datasource name: ' + lIdentifier);
 
         FCurrentDataSource.Next;
         if FCurrentDataSource.Eof then
         begin
-          FLoopIdentStack.Pop;
-          FLoopStack.Pop;
+          fLoopIdentStack.Pop;
+          fLoopStack.Pop;
           lIgnoreOutput := False;
         end
         else
         begin
-          FCharIndex := FLoopStack.Peek;
+          fCharIndex := fLoopStack.Peek;
         end;
         Continue;
       end;
@@ -491,18 +488,18 @@ begin
       // output verbatim
       if not lIgnoreOutput then
         AppendOutput(lChar);
-      Inc(FCharIndex);
+      Inc(fCharIndex);
     end;
   end;
-  FOutputStreamWriter.BaseStream.Position := 0;
+  fOutputStreamWriter.BaseStream.Position := 0;
 end;
 
 procedure TTemplateProEngine.SetVar(
   const
-  AName: string;
-  AValue: string);
+  aName: string;
+  aValue: string);
 begin
-  FVariables.AddOrSetValue(AName, AValue);
+  fVariables.AddOrSetValue(aName, aValue);
 end;
 
 function CapitalizeString(
@@ -535,33 +532,39 @@ begin
   end; // if
 end;
 
-procedure TTemplateProEngine.Error(const message: string);
+procedure TTemplateProEngine.Error(const aMessage: string);
 begin
   raise EParserException.CreateFmt('%s - at line %d col %d',
-    [message, FCurrentLine, FCurrentColumn]);
+    [aMessage, fCurrentLine, fCurrentColumn]);
 end;
 
-procedure TTemplateProEngine.CheckParNumber(const HowManyPars: Integer; const aParameters: TArray<string>);
+procedure TTemplateProEngine.ErrorFmt(const aMessage: string;
+  aParameters: array of const);
 begin
-  CheckParNumber(HowManyPars, HowManyPars, aParameters);
+  Error(Format(aMessage, aParameters));
 end;
 
-function TTemplateProEngine.ExecuteFunction(AFunctionName: string; aParameters: TArray<string>; AValue: string): string;
+procedure TTemplateProEngine.CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>);
 begin
-  AFunctionName := lowercase(AFunctionName);
-  if AFunctionName = 'uppercase' then
+  CheckParNumber(aHowManyPars, aHowManyPars, aParameters);
+end;
+
+function TTemplateProEngine.ExecuteFunction(aFunctionName: string; aParameters: TArray<string>; aValue: string): string;
+begin
+  aFunctionName := lowercase(aFunctionName);
+  if aFunctionName = 'uppercase' then
   begin
-    Exit(UpperCase(AValue));
+    Exit(UpperCase(aValue));
   end;
-  if AFunctionName = 'lowercase' then
+  if aFunctionName = 'lowercase' then
   begin
-    Exit(lowercase(AValue));
+    Exit(lowercase(aValue));
   end;
-  if AFunctionName = 'capitalize' then
+  if aFunctionName = 'capitalize' then
   begin
-    Exit(CapitalizeString(AValue, True));
+    Exit(CapitalizeString(aValue, True));
   end;
-  if AFunctionName = 'rpad' then
+  if aFunctionName = 'rpad' then
   begin
     CheckParNumber(1, 2, aParameters);
     if Length(aParameters) = 1 then
@@ -569,7 +572,7 @@ begin
     else
       Exit(aValue.PadRight(aParameters[0].ToInteger, aParameters[1].Chars[0]));
   end;
-  if AFunctionName = 'lpad' then
+  if aFunctionName = 'lpad' then
   begin
     if Length(aParameters) = 1 then
       Exit(aValue.PadLeft(aParameters[0].ToInteger))
@@ -577,38 +580,128 @@ begin
       Exit(aValue.PadLeft(aParameters[0].ToInteger, aParameters[1].Chars[0]));
   end;
 
-  raise EParserException.CreateFmt('Unknown function [%s]', [AFunctionName]);
+  raise EParserException.CreateFmt('Unknown function [%s]', [aFunctionName]);
 end;
 
-function TTemplateProEngine.ExecuteFieldFunction(AFunctionName: string;
+procedure TTemplateProEngine.Execute(const aTemplateString: string;
+  const aObjectNames: array of string; aObjects: array of TObjectList<TObject>;
+  const aDataSetNames: array of string; aDataSets: array of TDataSet;
+  aStream: TStream);
+var
+  lDatasets: TTPDataSetDictionary;
+  lObjects: TTPObjectListDictionary;
+  I: Integer;
+begin
+  if Length(aObjectNames) <> Length(aObjects) then
+    ErrorFmt('Wrong Names/Objects count. Names: %d, Objects: %d', [Length(aObjectNames), Length(aObjects)]);
+  if Length(aDataSetNames) <> Length(aDataSets) then
+    ErrorFmt('Wrong Names/DataSets count. Names: %d, DataSets: %d', [Length(aDataSetNames), Length(aDataSets)]);
+
+  lDatasets := TTPDatasetDictionary.Create;
+  try
+    for I := 0 to Length(aDataSetNames) - 1 do
+    begin
+      lDatasets.Add(aDataSetNames[i], aDataSets[i]);
+    end;
+
+    lObjects := TTPObjectListDictionary.Create([]);
+    try
+      for I := 0 to Length(aObjectNames) - 1 do
+      begin
+        lObjects.Add(aObjectNames[i], aObjects[i]);
+      end;
+
+      Execute(aTemplateString, lObjects, lDatasets, aStream);
+    finally
+      lObjects.Free;
+    end;
+  finally
+    lDatasets.Free;
+  end;
+end;
+
+function TTemplateProEngine.ExecuteFieldFunction(aFunctionName: string;
   aParameters: TArray<string>;
   aValue: TValue): string;
 var
   lDateValue: TDate;
   lDateTimeValue: TDateTime;
+  lStrValue: string;
 begin
-  AFunctionName := lowercase(AFunctionName);
-  if AFunctionName = 'datetostr' then
+  aFunctionName := lowercase(aFunctionName);
+
+  if aFunctionName = 'uppercase' then
+  begin
+    Exit(UpperCase(aValue.AsString));
+  end;
+  if aFunctionName = 'lowercase' then
+  begin
+    Exit(lowercase(aValue.AsString));
+  end;
+  if aFunctionName = 'capitalize' then
+  begin
+    Exit(CapitalizeString(aValue.AsString, True));
+  end;
+  if aFunctionName = 'rpad' then
+  begin
+    if aValue.IsType<Integer> then
+      lStrValue := aValue.AsInteger.ToString
+    else if aValue.IsType<string> then
+      lStrValue := aValue.AsString
+    else
+      ErrorFmt('Invalid parameter/s for function: %s', [aFunctionName]);
+
+    CheckParNumber(1, 2, aParameters);
+    if Length(aParameters) = 1 then
+    begin
+      Exit(lStrValue.PadRight(aParameters[0].ToInteger));
+    end
+    else
+    begin
+      Exit(lStrValue.PadRight(aParameters[0].ToInteger, aParameters[1].Chars[0]));
+    end;
+  end;
+  if aFunctionName = 'lpad' then
+  begin
+    if aValue.IsType<Integer> then
+      lStrValue := aValue.AsInteger.ToString
+    else if aValue.IsType<string> then
+      lStrValue := aValue.AsString
+    else
+      ErrorFmt('Invalid parameter/s for function: ', [aFunctionName]);
+
+    CheckParNumber(1, 2, aParameters);
+    if Length(aParameters) = 1 then
+    begin
+      Exit(lStrValue.PadLeft(aParameters[0].ToInteger));
+    end
+    else
+    begin
+      Exit(lStrValue.PadLeft(aParameters[0].ToInteger, aParameters[1].Chars[0]));
+    end;
+  end;
+
+  if aFunctionName = 'datetostr' then
   begin
     if not aValue.TryAsType<TDate>(lDateValue) then
-      raise Exception.Create('Invalid Date');
+      Error('Invalid Date');
     Exit(DateToStr(lDateValue));
   end;
-  if AFunctionName = 'datetimetostr' then
+  if aFunctionName = 'datetimetostr' then
   begin
     if not aValue.TryAsType<TDateTime>(lDateTimeValue) then
-      raise Exception.Create('Invalid DateTime');
+      Error('Invalid DateTime');
     Exit(DateTimeToStr(lDateTimeValue));
   end;
-  if AFunctionName = 'formatdatetime' then
+  if aFunctionName = 'formatdatetime' then
   begin
     CheckParNumber(1, aParameters);
     if not aValue.TryAsType<TDateTime>(lDateTimeValue) then
-      raise Exception.Create('Invalid DateTime');
+      Error('Invalid DateTime');
     Exit(FormatDateTime(aParameters[0], lDateTimeValue));
   end;
 
-  Result := ExecuteFunction(AFunctionName, aParameters, aValue.AsString);
+  ErrorFmt('Unknown function [%s]', [aFunctionName]);
 end;
 
 class

@@ -108,7 +108,6 @@ object MainForm: TMainForm
         Font.Style = []
         ParentFont = False
         TabOrder = 0
-        ExplicitLeft = -1
       end
     end
     object TabSheet3: TTabSheet

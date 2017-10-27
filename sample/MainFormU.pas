@@ -17,11 +17,13 @@ type
     fProp2: string;
     fProp3: string;
     fProp1: string;
+    fPropInt: Integer;
   public
-    constructor Create(const Value1, Value2, Value3: string);
+    constructor Create(const Value1, Value2, Value3: string; const IntValue: Integer);
     property Prop1: string read fProp1 write fProp1;
     property Prop2: string read fProp2 write fProp2;
     property Prop3: string read fProp3 write fProp3;
+    property PropInt: Integer read fPropInt write fPropInt;
   end;
 
   TMainForm = class(TForm)
@@ -55,7 +57,7 @@ type
     procedure FileListBox1DblClick(Sender: TObject);
   private
     function GetItems: TObjectList<TObject>;
-    procedure GenerateReport(const aReport: string);
+    procedure GenerateReport(const aTemplateString: string);
   public
     { Public declarations }
   end;
@@ -139,19 +141,18 @@ begin
   end;
 end;
 
-procedure TMainForm.GenerateReport(const aReport: string);
+procedure TMainForm.GenerateReport(const aTemplateString: string);
 var
   lTPEngine: TTemplateProEngine;
   lTemplate: string;
   lOutputFileName: string;
   lOutput: string;
   lOutputStream: TStringStream;
-  lDatasets: TTPDatasetDictionary;
-  lObjects: TTPObjectListDictionary;
+  lItems: TObjectList<TObject>;
 begin
   // MemoTemplate.Lines.LoadFromFile(aReport);
   ds1.First;
-  lTemplate := aReport;
+  lTemplate := aTemplateString;
 
   lTPEngine := TTemplateProEngine.Create;
   try
@@ -161,19 +162,15 @@ begin
 
     lOutputStream := TStringStream.Create;
     try
-      lDatasets := TTPDatasetDictionary.Create;
+      lItems := GetItems;
       try
-        lDatasets.Add('people', ds1);
-        lDatasets.Add('contacts', ds2);
-        lObjects := TTPObjectListDictionary.Create([doOwnsValues]);
-        try
-          lObjects.Add('items', GetItems);
-          lTPEngine.Execute(aReport, lObjects, lDatasets, lOutputStream);
-        finally
-          lObjects.Free;
-        end;
+        lTPEngine.Execute(
+          aTemplateString,
+          ['items'], [lItems],
+          ['people', 'contacts'], [ds1, ds2],
+          lOutputStream);
       finally
-        lDatasets.Free;
+        lItems.Free;
       end;
       TDirectory.CreateDirectory(ExtractFilePath(Application.ExeName) + 'output');
       lOutputFileName := ExtractFilePath(Application.ExeName) + 'output\' +
@@ -196,19 +193,20 @@ end;
 function TMainForm.GetItems: TObjectList<TObject>;
 begin
   Result := TObjectList<TObject>.Create(True);
-  Result.Add(TDataItem.Create('value1.1', 'value2.1', 'value3.1'));
-  Result.Add(TDataItem.Create('value1.2', 'value2.2', 'value3.2'));
-  Result.Add(TDataItem.Create('value1.3', 'value2.3', 'value3.3'));
+  Result.Add(TDataItem.Create('value1.1', 'value2.1', 'value3.1', 1));
+  Result.Add(TDataItem.Create('value1.2', 'value2.2', 'value3.2', 2));
+  Result.Add(TDataItem.Create('value1.3', 'value2.3', 'value3.3', 3));
 end;
 
 { TDataItem }
 
-constructor TDataItem.Create(const Value1, Value2, Value3: string);
+constructor TDataItem.Create(const Value1, Value2, Value3: string; const IntValue: Integer);
 begin
   inherited Create;
   fProp1 := Value1;
   fProp2 := Value2;
   fProp3 := Value3;
+  fPropInt := IntValue;
 end;
 
 end.
