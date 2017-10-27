@@ -8,9 +8,22 @@ uses
   Data.DB, Vcl.ExtCtrls, Vcl.FileCtrl, Vcl.ComCtrls, Vcl.Grids,
   Vcl.DBGrids, FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Param,
   FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf, FireDAC.DApt.Intf,
-  FireDAC.Comp.DataSet, FireDAC.Comp.Client, Vcl.OleCtrls, SHDocVw;
+  FireDAC.Comp.DataSet, FireDAC.Comp.Client, Vcl.OleCtrls, SHDocVw,
+  System.Generics.Collections;
 
 type
+  TDataItem = class
+  private
+    fProp2: string;
+    fProp3: string;
+    fProp1: string;
+  public
+    constructor Create(const Value1, Value2, Value3: string);
+    property Prop1: string read fProp1 write fProp1;
+    property Prop2: string read fProp2 write fProp2;
+    property Prop3: string read fProp3 write fProp3;
+  end;
+
   TMainForm = class(TForm)
     ds1: TFDMemTable;
     ds1name: TStringField;
@@ -41,7 +54,7 @@ type
     procedure FormCreate(Sender: TObject);
     procedure FileListBox1DblClick(Sender: TObject);
   private
-    function ReadReport(const FileName: string): string;
+    function GetItems: TObjectList<TObject>;
     procedure GenerateReport(const aReport: string);
   public
     { Public declarations }
@@ -56,7 +69,7 @@ implementation
 
 
 uses System.IOUtils, Winapi.Shellapi, RandomTextUtilsU, TemplateProU,
-  Winapi.ActiveX, System.Generics.Collections;
+  Winapi.ActiveX;
 
 procedure TMainForm.Button1Click(Sender: TObject);
 begin
@@ -133,7 +146,8 @@ var
   lOutputFileName: string;
   lOutput: string;
   lOutputStream: TStringStream;
-  lDatasets: TObjectDictionary<string, TDataset>;
+  lDatasets: TTPDatasetDictionary;
+  lObjects: TTPObjectListDictionary;
 begin
   // MemoTemplate.Lines.LoadFromFile(aReport);
   ds1.First;
@@ -147,11 +161,17 @@ begin
 
     lOutputStream := TStringStream.Create;
     try
-      lDatasets := TObjectDictionary<string, TDataset>.Create;
+      lDatasets := TTPDatasetDictionary.Create;
       try
         lDatasets.Add('people', ds1);
         lDatasets.Add('contacts', ds2);
-        lTPEngine.Execute(aReport, lDatasets, lOutputStream);
+        lObjects := TTPObjectListDictionary.Create([doOwnsValues]);
+        try
+          lObjects.Add('items', GetItems);
+          lTPEngine.Execute(aReport, lObjects, lDatasets, lOutputStream);
+        finally
+          lObjects.Free;
+        end;
       finally
         lDatasets.Free;
       end;
@@ -173,15 +193,22 @@ begin
   PageControl1.ActivePageIndex := 0;
 end;
 
-function TMainForm.ReadReport(const FileName: string): string;
+function TMainForm.GetItems: TObjectList<TObject>;
 begin
-  with TStreamReader.Create(TFileStream.Create(FileName, fmOpenRead, fmShareDenyNone),
-    TEncoding.ANSI) do
-  begin
-    OwnStream;
-    Result := ReadToEnd;
-    Free;
-  end;
+  Result := TObjectList<TObject>.Create(True);
+  Result.Add(TDataItem.Create('value1.1', 'value2.1', 'value3.1'));
+  Result.Add(TDataItem.Create('value1.2', 'value2.2', 'value3.2'));
+  Result.Add(TDataItem.Create('value1.3', 'value2.3', 'value3.3'));
+end;
+
+{ TDataItem }
+
+constructor TDataItem.Create(const Value1, Value2, Value3: string);
+begin
+  inherited Create;
+  fProp1 := Value1;
+  fProp2 := Value2;
+  fProp3 := Value3;
 end;
 
 end.

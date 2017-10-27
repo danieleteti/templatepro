@@ -24,16 +24,65 @@ interface
 uses
   System.Generics.Collections,
   Classes,
-  SysUtils, Data.DB;
+  SysUtils,
+  Data.DB,
+  System.RTTI;
 
 type
   EParserException = class(Exception)
 
   end;
 
+  ITPDataSourceAdapter = interface
+    ['{9A0E5797-A8D2-413F-A8B0-5D6E67DD1701}']
+    function CurrentIndex: Int64;
+    procedure Reset;
+    function GetMemberValue(const aMemberName: string): string;
+    procedure Next;
+    function Eof: Boolean;
+  end;
+
   TTPLoopControl = record
     Identifier: string;
     class function Create(aIdentifier: string): TTPLoopControl; static;
+  end;
+
+  TTPDatasetDictionary = class(TDictionary<string, TDataSet>)
+  end;
+
+  TTPObjectListDictionary = class(TObjectDictionary<string, TObjectList<TObject>>)
+  end;
+
+  TTPDatasetAdapter = class(TInterfacedObject, ITPDataSourceAdapter)
+  private
+    fDataSet: TDataSet;
+  public
+    constructor Create(const aDataSet: TDataSet);
+  protected
+    function CurrentIndex: Int64;
+    procedure Reset;
+    function GetMemberValue(const aMemberName: string): string;
+    procedure Next;
+    function Eof: Boolean;
+  end;
+
+  TTPObjectListAdapter = class(TInterfacedObject, ITPDataSourceAdapter)
+  private
+  class var
+    CTX: TRttiContext;
+    fObjectList: TObjectList<TObject>;
+    fIndex: Integer;
+  public
+    constructor Create(const aObjectList: TObjectList<TObject>);
+    class constructor Create;
+    class destructor Destroy;
+  protected
+    function Current: TObject;
+    function CurrentIndex: Int64;
+    procedure Reset;
+    function GetMemberValue(const aMemberName: string): string;
+    procedure Next;
+    function Eof: Boolean;
   end;
 
   TTemplateProEngine = class
@@ -48,30 +97,30 @@ type
     function MatchField(var aDataSet: string; var aFieldName: string): Boolean;
     function MatchSymbol(const Symbol: string): Boolean;
   private
+    fDataSources: TDictionary<string, ITPDataSourceAdapter>;
     FInputString: string;
     FCharIndex: Int64;
     FCurrentLine: Integer;
     FCurrentColumn: Integer;
     FLoopStack: TStack<Integer>;
     FLoopIdentStack: TStack<TTPLoopControl>;
-    FDatasets: TObjectDictionary<string, TDataSet>;
-    FCurrentDataset: TDataSet;
+    fCurrentDataSource: ITPDataSourceAdapter;
     FOutputStreamWriter: TStreamWriter;
     procedure Error(const Message: string);
     function ExecuteFunction(AFunctionName: string; aParameters: TArray<string>; AValue: string): string;
-    function SetDataSetByName(const Name: string): Boolean;
+    function SetDataSourceByName(const Name: string): Boolean;
     function GetFieldText(const FieldName: string): string;
-    function GetFieldByName(const FieldName: string): TField;
     function ExecuteFieldFunction(AFunctionName: string;
       aParameters: TArray<string>;
-      aField: TField): string;
+      aValue: TValue): string;
     procedure CheckParNumber(const HowManyPars: Integer;
       const aParameters: TArray<string>); overload;
     procedure CheckParNumber(const MinParNumber, MaxParNumber: Integer;
       const aParameters: TArray<string>); overload;
     procedure AppendOutput(const AValue: string);
+    procedure LoadDataSources(const aObjectDictionary: TTPObjectListDictionary; const aDatasetDictionary: TTPDatasetDictionary);
   public
-    procedure Execute(const InputString: string; const DataSetDictionary: TObjectDictionary<string, TDataSet>; aStream: TStream);
+    procedure Execute(const InputString: string; const ObjectDictionary: TTPObjectListDictionary; const DatasetDictionary: TTPDatasetDictionary; aStream: TStream);
     constructor Create;
     destructor Destroy; override;
     procedure SetVar(const AName: string; AValue: string);
@@ -126,10 +175,12 @@ begin
   FVariables := TDictionary<string, string>.Create;
   FLoopStack := TStack<Integer>.Create;
   FLoopIdentStack := TStack<TTPLoopControl>.Create;
+  fDataSources := TDictionary<string, ITPDataSourceAdapter>.Create;
 end;
 
 destructor TTemplateProEngine.Destroy;
 begin
+  fDataSources.Free;
   FLoopIdentStack.Free;
   FLoopStack.Free;
   FVariables.Free;
@@ -137,16 +188,16 @@ begin
   inherited;
 end;
 
-function TTemplateProEngine.SetDataSetByName(const Name: string): Boolean;
+function TTemplateProEngine.SetDataSourceByName(const Name: string): Boolean;
 var
-  ds: TPair<string, TDataSet>;
+  ds: TPair<string, ITPDataSourceAdapter>;
 begin
   Result := False;
-  for ds in FDatasets do
+  for ds in fDataSources do
   begin
     if SameText(ds.Key, name) then
     begin
-      FCurrentDataset := ds.Value;
+      fCurrentDataSource := ds.Value;
       Result := True;
       Break;
     end;
@@ -163,33 +214,39 @@ begin
   // end;
 end;
 
-function TTemplateProEngine.GetFieldByName(const FieldName: string): TField;
-var
-  lField: TField;
-begin
-  if not Assigned(FCurrentDataset) then
-    Error('Current dataset not set');
-  lField := FCurrentDataset.FieldByName(FieldName);
-  Result := lField;
-end;
-
 function TTemplateProEngine.GetFieldText(const FieldName: string): string;
 var
   lField: TField;
 begin
-  if not Assigned(FCurrentDataset) then
-    Error('Current dataset not set');
-  lField := FCurrentDataset.FieldByName(FieldName);
-  // if not Assigned(lField) then
-  // Error(Format('Fieldname not found: "%s.%s"',
-  // [FCurrentDataset.Name, FieldName]));
-  Result := lField.AsWideString;
+  if not Assigned(fCurrentDataSource) then
+    Error('Current datasource not set');
+  Result := fcurrentDataSource.GetMemberValue(FieldName);
 end;
 
 function TTemplateProEngine.GetVar(const AName: string): string;
 begin
   if not FVariables.TryGetValue(AName, Result) then
     Result := '';
+end;
+
+procedure TTemplateProEngine.LoadDataSources(
+  const aObjectDictionary: TTPObjectListDictionary;
+  const aDatasetDictionary: TTPDatasetDictionary);
+var
+  lDatasetPair: TPair<string, TDataset>;
+  lObjectPair: TPair<string, TObjectList<TObject>>;
+begin
+  fDataSources.Clear;
+
+  for lDatasetPair in aDatasetDictionary do
+  begin
+    fDataSources.Add(lDatasetPair.Key, TTPDatasetAdapter.Create(lDatasetPair.Value));
+  end;
+
+  for lObjectPair in aObjectDictionary do
+  begin
+    fDataSources.Add(lObjectPair.Key, TTPObjectListAdapter.Create(lObjectPair.Value));
+  end;
 end;
 
 function TTemplateProEngine.MatchEndTag: Boolean;
@@ -275,7 +332,7 @@ begin
   Result := not aValue.IsEmpty;
 end;
 
-procedure TTemplateProEngine.Execute(const InputString: string; const DataSetDictionary: TObjectDictionary<string, TDataSet>; aStream: TStream);
+procedure TTemplateProEngine.Execute(const InputString: string; const ObjectDictionary: TTPObjectListDictionary; const DatasetDictionary: TTPDatasetDictionary; aStream: TStream);
 var
   lChar: Char;
   lVarName: string;
@@ -285,6 +342,7 @@ var
   lFieldName: string;
   lIgnoreOutput: Boolean;
   lFuncParams: TArray<string>;
+  lDataSourceName: string;
   function GetFunctionParameters: TArray<string>;
   var
     lFuncPar: string;
@@ -303,7 +361,7 @@ begin
   lIgnoreOutput := False;
   FreeAndNil(FOutputStreamWriter);
   FOutputStreamWriter := TStreamWriter.Create(aStream);
-  FDatasets := DataSetDictionary;
+  LoadDataSources(ObjectDictionary, DataSetDictionary);
   FLoopStack.Clear;
   FLoopIdentStack.Clear;
   FCharIndex := 0;
@@ -337,7 +395,7 @@ begin
           Error('Expected ")" after "' + lIdentifier + '"');
         if not MatchEndTag then
           Error('Expected closing tag for "loop(' + lIdentifier + ')"');
-        if not SetDataSetByName(lIdentifier) then
+        if not SetDataSourceByName(lIdentifier) then
           Error('Unknown dataset: ' + lIdentifier);
         FLoopStack.Push(FCharIndex);
         FLoopIdentStack.Push(TTPLoopControl.Create(lIdentifier));
@@ -351,11 +409,11 @@ begin
         if not MatchEndTag then
           Error('Expected closing tag');
         lIdentifier := FLoopIdentStack.Peek.Identifier;
-        if not SetDataSetByName(lIdentifier) then
-          Error('Invalid dataset name: ' + lIdentifier);
+        if not SetDataSourceByName(lIdentifier) then
+          Error('Invalid datasource name: ' + lIdentifier);
 
-        FCurrentDataset.Next;
-        if FCurrentDataset.Eof then
+        FCurrentDataSource.Next;
+        if FCurrentDataSource.Eof then
         begin
           FLoopIdentStack.Pop;
           FLoopStack.Pop;
@@ -369,7 +427,7 @@ begin
       end;
 
       // dataset field
-      if not lIgnoreOutput and MatchField(lDataSet, lFieldName) then
+      if not lIgnoreOutput and MatchField(lDataSourceName, lFieldName) then
       begin
         if lFieldName.IsEmpty then
           Error('Invalid field name');
@@ -386,13 +444,13 @@ begin
         begin
           if not MatchEndTag then
             Error('Expected closing tag');
-          if not SetDataSetByName(lDataSet) then
-            Error('Unknown dataset: ' + lDataSet);
+          if not SetDataSourceByName(lDataSourceName) then
+            Error('Unknown datasource: ' + lDataSourceName);
         end;
         if lFuncName.IsEmpty then
           AppendOutput(GetFieldText(lFieldName))
         else
-          AppendOutput(ExecuteFieldFunction(lFuncName, lFuncParams, GetFieldByName(lFieldName)));
+          AppendOutput(ExecuteFieldFunction(lFuncName, lFuncParams, GetFieldText(lFieldName)));
       end;
 
       // reset
@@ -400,8 +458,8 @@ begin
       begin
         if not MatchEndTag then
           Error('Expected closing tag');
-        SetDataSetByName(lDataSet);
-        FCurrentDataset.First;
+        SetDataSourceByName(lDataSet);
+        fCurrentDataSource.Reset;
         Continue;
       end;
 
@@ -524,25 +582,140 @@ end;
 
 function TTemplateProEngine.ExecuteFieldFunction(AFunctionName: string;
   aParameters: TArray<string>;
-  aField: TField): string;
+  aValue: TValue): string;
+var
+  lDateValue: TDate;
+  lDateTimeValue: TDateTime;
 begin
   AFunctionName := lowercase(AFunctionName);
   if AFunctionName = 'datetostr' then
-    Exit(DateToStr(aField.AsDateTime));
+  begin
+    if not aValue.TryAsType<TDate>(lDateValue) then
+      raise Exception.Create('Invalid Date');
+    Exit(DateToStr(lDateValue));
+  end;
   if AFunctionName = 'datetimetostr' then
-    Exit(DateTimeToStr(aField.AsDateTime));
+  begin
+    if not aValue.TryAsType<TDateTime>(lDateTimeValue) then
+      raise Exception.Create('Invalid DateTime');
+    Exit(DateTimeToStr(lDateTimeValue));
+  end;
   if AFunctionName = 'formatdatetime' then
   begin
     CheckParNumber(1, aParameters);
-    Exit(FormatDateTime(aParameters[0], aField.AsDateTime));
+    if not aValue.TryAsType<TDateTime>(lDateTimeValue) then
+      raise Exception.Create('Invalid DateTime');
+    Exit(FormatDateTime(aParameters[0], lDateTimeValue));
   end;
 
-  Result := ExecuteFunction(AFunctionName, aParameters, aField.Text);
+  Result := ExecuteFunction(AFunctionName, aParameters, aValue.AsString);
 end;
 
-class function TTPLoopControl.Create(aIdentifier: string): TTPLoopControl;
+class
+  function TTPLoopControl.Create(aIdentifier: string): TTPLoopControl;
 begin
   Result.Identifier := aIdentifier;
+end;
+
+{ TTPDatasetAdapter }
+
+constructor TTPDatasetAdapter.Create(const aDataSet: TDataSet);
+begin
+  inherited Create;
+  fDataSet := aDataSet;
+end;
+
+function TTPDatasetAdapter.CurrentIndex: Int64;
+begin
+  fDataSet.RecNo;
+end;
+
+function TTPDatasetAdapter.Eof: Boolean;
+begin
+  Result := fDataSet.Eof;
+end;
+
+function TTPDatasetAdapter.GetMemberValue(const aMemberName: string): string;
+begin
+  Result := fDataSet.FieldByName(aMemberName).AsWideString;
+end;
+
+procedure TTPDatasetAdapter.Next;
+begin
+  fDataSet.Next;
+end;
+
+procedure TTPDatasetAdapter.Reset;
+begin
+  fDataSet.First;
+end;
+
+{ TTPObjectListAdapter }
+
+constructor TTPObjectListAdapter.Create(
+  const aObjectList: TObjectList<TObject>);
+begin
+  inherited Create;
+  fObjectList := aObjectList;
+  if fObjectList.Count > 0 then
+    fIndex := 0
+  else
+    fIndex := -1;
+end;
+
+class constructor TTPObjectListAdapter.Create;
+begin
+  TTPObjectListAdapter.CTX := TRttiContext.Create;
+end;
+
+function TTPObjectListAdapter.Current: TObject;
+begin
+  if fIndex <> -1 then
+    Result := fObjectList[fIndex]
+  else
+    raise Exception.Create('Empty DataSource');
+end;
+
+function TTPObjectListAdapter.CurrentIndex: Int64;
+begin
+  Result := fIndex;
+end;
+
+class destructor TTPObjectListAdapter.Destroy;
+begin
+  TTPObjectListAdapter.CTX.Free;
+end;
+
+function TTPObjectListAdapter.Eof: Boolean;
+begin
+  Result := fIndex = fObjectList.Count - 1;
+end;
+
+function TTPObjectListAdapter.GetMemberValue(const aMemberName: string): string;
+var
+  lRttiType: TRttiType;
+  lRttiProp: TRttiProperty;
+  lCurrentObj: TObject;
+begin
+  lCurrentObj := Current;
+  lRttiType := CTX.GetType(lCurrentObj.ClassInfo);
+  lRttiProp := lRttiType.GetProperty(aMemberName);
+  Result := lRttiProp.GetValue(lCurrentObj).AsString;
+end;
+
+procedure TTPObjectListAdapter.Next;
+begin
+  if Eof then
+    raise Exception.Create('DataSource is already at EOF');
+  Inc(fIndex);
+end;
+
+procedure TTPObjectListAdapter.Reset;
+begin
+  if fObjectList.Count > 0 then
+    fIndex := 0
+  else
+    fIndex := -1;
 end;
 
 end.

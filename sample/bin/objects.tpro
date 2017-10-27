@@ -1,0 +1,3 @@
+{loop(items)}{:items.prop1}|{:items.prop2}|{:items.prop3}
+--
+{endloop}

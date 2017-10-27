@@ -76,10 +76,6 @@ object MainForm: TMainForm
     TabOrder = 2
     object TabSheet1: TTabSheet
       Caption = 'Output'
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 433
-      ExplicitHeight = 366
       object MemoOutput: TMemo
         Left = 0
         Top = 0
@@ -94,7 +90,6 @@ object MainForm: TMainForm
         ParentFont = False
         ReadOnly = True
         TabOrder = 0
-        ExplicitLeft = -1
       end
     end
     object TabSheet2: TTabSheet
@@ -113,15 +108,12 @@ object MainForm: TMainForm
         Font.Style = []
         ParentFont = False
         TabOrder = 0
+        ExplicitLeft = -1
       end
     end
     object TabSheet3: TTabSheet
       Caption = 'Data'
       ImageIndex = 2
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 433
-      ExplicitHeight = 366
       object Splitter1: TSplitter
         Left = 0
         Top = 153
