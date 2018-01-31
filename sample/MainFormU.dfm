@@ -1,7 +1,7 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'TemplatePRo Sample - Copyright 2017 Daniele Teti'
+  Caption = 'TemplatePro Sample - Copyright 2017-2018 Daniele Teti'
   ClientHeight = 515
   ClientWidth = 838
   Color = clBtnFace
@@ -71,7 +71,7 @@ object MainForm: TMainForm
     Top = 57
     Width = 626
     Height = 458
-    ActivePage = TabSheet2
+    ActivePage = TabSheet1
     Align = alClient
     TabOrder = 2
     object TabSheet1: TTabSheet
@@ -89,7 +89,9 @@ object MainForm: TMainForm
         Font.Style = []
         ParentFont = False
         ReadOnly = True
+        ScrollBars = ssBoth
         TabOrder = 0
+        WordWrap = False
       end
     end
     object TabSheet2: TTabSheet

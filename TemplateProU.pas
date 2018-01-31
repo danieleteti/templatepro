@@ -1,5 +1,6 @@
+// ***************************************************************************
 //
-// Copyright (c) 2017 Daniele Teti
+// Copyright (c) 2018 Daniele Teti
 //
 // ***************************************************************************
 //
@@ -47,11 +48,9 @@ type
     class function Create(aIdentifier: string): TTPLoopControl; static;
   end;
 
-  TTPDatasetDictionary = class(TDictionary<string, TDataSet>)
-  end;
+  TTPDatasetDictionary = class(TDictionary<string, TDataSet>);
 
-  TTPObjectListDictionary = class(TObjectDictionary < string, TObjectList < TObject >> )
-  end;
+  TTPObjectListDictionary = class(TObjectDictionary < string, TObjectList < TObject >> );
 
   TTPDatasetAdapter = class(TInterfacedObject, ITPDataSourceAdapter)
   private
@@ -106,6 +105,7 @@ type
     fLoopIdentStack: TStack<TTPLoopControl>;
     fCurrentDataSource: ITPDataSourceAdapter;
     fOutputStreamWriter: TStreamWriter;
+    fEncoding: TEncoding;
     procedure Error(const aMessage: string);
     procedure ErrorFmt(const aMessage: string; aParameters: array of const);
 
@@ -131,7 +131,7 @@ type
       const aObjectNames: array of string; aObjects: array of TObjectList<TObject>;
       const aDataSetNames: array of string; aDataSets: array of TDataSet;
       aStream: TStream); overload;
-    constructor Create;
+    constructor Create(aEncoding: TEncoding = nil);
     destructor Destroy; override;
     procedure SetVar(const aName: string; aValue: string);
     function GetVar(const aName: string): string;
@@ -177,9 +177,13 @@ begin
   fVariables.Clear;
 end;
 
-constructor TTemplateProEngine.Create;
+constructor TTemplateProEngine.Create(aEncoding: TEncoding = nil);
 begin
-  inherited;
+  inherited Create;
+  if aEncoding = nil then
+    fEncoding := TEncoding.UTF8 { default encoding }
+  else
+    fEncoding := aEncoding;
   fOutput := '';
   fVariables := TDictionary<string, string>.Create;
   fLoopStack := TStack<Integer>.Create;
@@ -357,7 +361,7 @@ var
 begin
   lIgnoreOutput := False;
   FreeAndNil(fOutputStreamWriter);
-  fOutputStreamWriter := TStreamWriter.Create(aStream);
+  fOutputStreamWriter := TStreamWriter.Create(aStream, fEncoding);
   LoadDataSources(aObjectDictionary, aDatasetDictionary);
   fLoopStack.Clear;
   fLoopIdentStack.Clear;
@@ -491,7 +495,6 @@ begin
       Inc(fCharIndex);
     end;
   end;
-  fOutputStreamWriter.BaseStream.Position := 0;
 end;
 
 procedure TTemplateProEngine.SetVar(
@@ -720,7 +723,7 @@ end;
 
 function TTPDatasetAdapter.CurrentIndex: Int64;
 begin
-  fDataSet.RecNo;
+  Result := fDataSet.RecNo;
 end;
 
 function TTPDatasetAdapter.Eof: Boolean;

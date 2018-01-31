@@ -82,7 +82,7 @@ procedure TMainForm.FileListBox1DblClick(Sender: TObject);
 begin
   PageControl1.ActivePageIndex := 1;
   if tfile.Exists(FileListBox1.FileName) then
-    MemoTemplate.Lines.LoadFromFile(FileListBox1.FileName);
+    MemoTemplate.Lines.LoadFromFile(FileListBox1.FileName, TEncoding.UTF8);
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
@@ -154,13 +154,12 @@ begin
   ds1.First;
   lTemplate := aTemplateString;
 
-  lTPEngine := TTemplateProEngine.Create;
+  lTPEngine := TTemplateProEngine.Create(TEncoding.UTF8);
   try
     lTPEngine.SetVar('first_name', 'Daniele');
     lTPEngine.SetVar('last_name', 'Teti');
     lTPEngine.SetVar('today', DateToStr(date));
-
-    lOutputStream := TStringStream.Create;
+    lOutputStream := TStringStream.Create('', TEncoding.UTF8);
     try
       lItems := GetItems;
       try
