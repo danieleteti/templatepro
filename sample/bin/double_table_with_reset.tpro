@@ -1,5 +1,5 @@
-{loop(people)}{:people.name} ({:people.country})
-{endloop}
+{{loop(people)}}{{:people.name}} ({{:people.country}})
+{{endloop}}
 
-{reset(people)}{loop(people)}{:people.name} [{:people.country}]
-{endloop}
+{{reset(people)}}{{loop(people)}}{{:people.name}} [{{:people.country}}]
+{{endloop}}

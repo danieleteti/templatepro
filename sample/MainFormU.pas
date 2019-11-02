@@ -3,12 +3,33 @@ unit MainFormU;
 interface
 
 uses
-  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
-  Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls,
-  Data.DB, Vcl.ExtCtrls, Vcl.FileCtrl, Vcl.ComCtrls, Vcl.Grids,
-  Vcl.DBGrids, FireDAC.Stan.Intf, FireDAC.Stan.Option, FireDAC.Stan.Param,
-  FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf, FireDAC.DApt.Intf,
-  FireDAC.Comp.DataSet, FireDAC.Comp.Client, Vcl.OleCtrls, SHDocVw,
+  Winapi.Windows,
+  Winapi.Messages,
+  System.SysUtils,
+  System.Variants,
+  System.Classes,
+  Vcl.Graphics,
+  Vcl.Controls,
+  Vcl.Forms,
+  Vcl.Dialogs,
+  Vcl.StdCtrls,
+  Data.DB,
+  Vcl.ExtCtrls,
+  Vcl.FileCtrl,
+  Vcl.ComCtrls,
+  Vcl.Grids,
+  Vcl.DBGrids,
+  FireDAC.Stan.Intf,
+  FireDAC.Stan.Option,
+  FireDAC.Stan.Param,
+  FireDAC.Stan.Error,
+  FireDAC.DatS,
+  FireDAC.Phys.Intf,
+  FireDAC.DApt.Intf,
+  FireDAC.Comp.DataSet,
+  FireDAC.Comp.Client,
+  Vcl.OleCtrls,
+  SHDocVw,
   System.Generics.Collections;
 
 type
@@ -70,7 +91,11 @@ implementation
 {$R *.dfm}
 
 
-uses System.IOUtils, Winapi.Shellapi, RandomTextUtilsU, TemplateProU,
+uses
+  System.IOUtils,
+  Winapi.Shellapi,
+  RandomTextUtilsU,
+  TemplateProU,
   Winapi.ActiveX;
 
 procedure TMainForm.Button1Click(Sender: TObject);

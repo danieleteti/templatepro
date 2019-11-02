@@ -1,15 +1,24 @@
 <!DOCTYPE html>
 <html>
+<head>
 <title>HTML Tutorial</title>
+<link rel="stylesheet" href="milligram.min.css">
+</head>
 <body>
 
 <h1>This is an heading</h1>
+<p>
+This is plain text
+<code>This is code</code>
+</p>
+<h2>Unicode test</h2>
 <p>This is a Unicode Text: "Manutenção"</p>
 <p>This is a Chinese Text: 義、禮、說、選</p>
 <p>This is a paragraph.</p>
+<h2>Here's a list!</h2>
 <ul>
-{loop(people)}  <li>{:people.name}</li>
-{endloop}
+{{loop(people)}}  <li>{{:people.name}}</li>
+{{endloop}}
 </ul>
 
 </body>

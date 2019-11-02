@@ -1,0 +1,48 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{C6B7CFF4-7886-4D36-8187-5034A43DC672}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="..\sample\templateprosample.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="templateprotests.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="templateprosample">
+        <MSBuild Projects="..\sample\templateprosample.dproj"/>
+    </Target>
+    <Target Name="templateprosample:Clean">
+        <MSBuild Projects="..\sample\templateprosample.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="templateprosample:Make">
+        <MSBuild Projects="..\sample\templateprosample.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="templateprotests">
+        <MSBuild Projects="templateprotests.dproj"/>
+    </Target>
+    <Target Name="templateprotests:Clean">
+        <MSBuild Projects="templateprotests.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="templateprotests:Make">
+        <MSBuild Projects="templateprotests.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="templateprosample;templateprotests"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="templateprosample:Clean;templateprotests:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="templateprosample:Make;templateprotests:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

@@ -1,6 +1,6 @@
 // ***************************************************************************
 //
-// Copyright (c) 2018 Daniele Teti
+// Copyright (c) 2016-2019 Daniele Teti
 //
 // ***************************************************************************
 //
@@ -43,9 +43,9 @@ type
     function Eof: Boolean;
   end;
 
-  TTPLoopControl = record
+  TTPIdentifierControl = record
     Identifier: string;
-    class function Create(aIdentifier: string): TTPLoopControl; static;
+    class function Create(aIdentifier: string): TTPIdentifierControl; static;
   end;
 
   TTPDatasetDictionary = class(TDictionary<string, TDataSet>);
@@ -84,6 +84,8 @@ type
     function Eof: Boolean;
   end;
 
+  TTemplateFunction = reference to function(aParameters: TArray<string>; const aValue: string): string;
+
   TTemplateProEngine = class
   strict private
     fOutput: string;
@@ -102,41 +104,44 @@ type
     fCurrentLine: Integer;
     fCurrentColumn: Integer;
     fLoopStack: TStack<Integer>;
-    fLoopIdentStack: TStack<TTPLoopControl>;
+    fLoopIdentStack: TStack<TTPIdentifierControl>;
+    fIfIdentStack: TStack<TTPIdentifierControl>;
     fCurrentDataSource: ITPDataSourceAdapter;
     fOutputStreamWriter: TStreamWriter;
     fEncoding: TEncoding;
+    fTemplateFunctions: TDictionary<string, TTemplateFunction>;
     procedure Error(const aMessage: string);
     procedure ErrorFmt(const aMessage: string; aParameters: array of const);
 
-    function ExecuteFunction(aFunctionName: string;
-      aParameters: TArray<string>;
-      aValue: string): string;
+    function ExecuteFunction(aFunctionName: string; aParameters: TArray<string>; aValue: string): string;
 
-    function ExecuteFieldFunction(aFunctionName: string;
-      aParameters: TArray<string>;
-      aValue: TValue): string;
+    function ExecuteFieldFunction(aFunctionName: string; aParameters: TArray<string>; aValue: TValue): string;
 
     function SetDataSourceByName(const aName: string): Boolean;
+    function GetDataSourceByName(const aName: string; out aDataSource: ITPDataSourceAdapter): Boolean;
     function GetFieldText(const aFieldName: string): string;
-    procedure CheckParNumber(const aHowManyPars: Integer;
-      const aParameters: TArray<string>); overload;
-    procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
-      const aParameters: TArray<string>); overload;
+    procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
+    procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
     procedure AppendOutput(const aValue: string);
-    procedure LoadDataSources(const aObjectDictionary: TTPObjectListDictionary; const aDatasetDictionary: TTPDatasetDictionary);
+    procedure LoadDataSources(const aObjectDictionary: TTPObjectListDictionary;
+      const aDatasetDictionary: TTPDatasetDictionary);
   public
-    procedure Execute(const aTemplateString: string; const aObjectDictionary: TTPObjectListDictionary; const aDatasetDictionary: TTPDatasetDictionary; aStream: TStream); overload;
-    procedure Execute(const aTemplateString: string;
-      const aObjectNames: array of string; aObjects: array of TObjectList<TObject>;
-      const aDataSetNames: array of string; aDataSets: array of TDataSet;
+    procedure Execute(const aTemplateString: string; const aObjectDictionary: TTPObjectListDictionary;
+      const aDatasetDictionary: TTPDatasetDictionary; aStream: TStream); overload;
+    procedure Execute(const aTemplateString: string; const aObjectNames: array of string;
+      aObjects: array of TObjectList<TObject>; const aDataSetNames: array of string; aDataSets: array of TDataSet;
       aStream: TStream); overload;
+    procedure Execute(const aTemplateString: string; aStream: TStream); overload;
     constructor Create(aEncoding: TEncoding = nil);
     destructor Destroy; override;
     procedure SetVar(const aName: string; aValue: string);
     function GetVar(const aName: string): string;
     procedure ClearVariables;
+    function IsIndentifierTrue(const aIdentifier: string): Boolean;
+    procedure AddTemplateFunction(const FunctionName: String; const FunctionImpl: TTemplateFunction);
   end;
+
+function HTMLEntitiesEncode(s: string): string;
 
 implementation
 
@@ -147,18 +152,23 @@ const
   IdenfierAllowedFirstChars = ['a' .. 'z', 'A' .. 'Z', '_'];
   IdenfierAllowedChars = IdenfierAllowedFirstChars + ['0' .. '9'];
   ValueAllowedChars = IdenfierAllowedChars + [' ', '-', '+', '*', '.', '@', '/', '\']; // maybe a lot others
-  START_TAG_1 = '{';
-  END_TAG_1 = '}';
+  START_TAG_1 = '{{';
+  END_TAG_1 = '}}';
 
   { TParser }
+
+procedure TTemplateProEngine.AddTemplateFunction(const FunctionName: String; const FunctionImpl: TTemplateFunction);
+begin
+  fTemplateFunctions.Add(FunctionName.ToLower, FunctionImpl);
+end;
 
 procedure TTemplateProEngine.AppendOutput(const aValue: string);
 begin
   fOutputStreamWriter.Write(aValue);
 end;
 
-procedure TTemplateProEngine.CheckParNumber(const aMinParNumber,
-  aMaxParNumber: Integer; const aParameters: TArray<string>);
+procedure TTemplateProEngine.CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
+  const aParameters: TArray<string>);
 var
   lParNumber: Integer;
 begin
@@ -187,12 +197,14 @@ begin
   fOutput := '';
   fVariables := TDictionary<string, string>.Create;
   fLoopStack := TStack<Integer>.Create;
-  fLoopIdentStack := TStack<TTPLoopControl>.Create;
+  fLoopIdentStack := TStack<TTPIdentifierControl>.Create;
   fDataSources := TDictionary<string, ITPDataSourceAdapter>.Create;
+  fTemplateFunctions := TDictionary<string, TTemplateFunction>.Create;
 end;
 
 destructor TTemplateProEngine.Destroy;
 begin
+  fTemplateFunctions.Free;
   fDataSources.Free;
   fLoopIdentStack.Free;
   fLoopStack.Free;
@@ -205,6 +217,7 @@ function TTemplateProEngine.SetDataSourceByName(const aName: string): Boolean;
 var
   ds: TPair<string, ITPDataSourceAdapter>;
 begin
+  { TODO -oDanieleT -cGeneral : Refactor this method to use GetDataSourceByName }
   Result := False;
   for ds in fDataSources do
   begin
@@ -217,11 +230,27 @@ begin
   end;
 end;
 
+function TTemplateProEngine.GetDataSourceByName(const aName: string; out aDataSource: ITPDataSourceAdapter): Boolean;
+var
+  ds: TPair<string, ITPDataSourceAdapter>;
+begin
+  Result := False;
+  for ds in fDataSources do
+  begin
+    if SameText(ds.Key, aName) then
+    begin
+      aDataSource := ds.Value;
+      Result := True;
+      Break;
+    end;
+  end;
+end;
+
 function TTemplateProEngine.GetFieldText(const aFieldName: string): string;
 begin
   if not Assigned(fCurrentDataSource) then
     Error('Current datasource not set');
-  Result := fcurrentDataSource.GetMemberValue(aFieldName);
+  Result := fCurrentDataSource.GetMemberValue(aFieldName);
 end;
 
 function TTemplateProEngine.GetVar(const aName: string): string;
@@ -230,11 +259,27 @@ begin
     Result := '';
 end;
 
-procedure TTemplateProEngine.LoadDataSources(
-  const aObjectDictionary: TTPObjectListDictionary;
+function TTemplateProEngine.IsIndentifierTrue(const aIdentifier: string): Boolean;
+var
+  lDataSource: ITPDataSourceAdapter;
+begin
+  Result := not GetVar(aIdentifier).IsEmpty;
+  if Result then
+    Exit;
+  if GetDataSourceByName(aIdentifier, lDataSource) then
+  begin
+    Result := not lDataSource.Eof;
+  end
+  else
+  begin
+    Result := False;
+  end;
+end;
+
+procedure TTemplateProEngine.LoadDataSources(const aObjectDictionary: TTPObjectListDictionary;
   const aDatasetDictionary: TTPDatasetDictionary);
 var
-  lDatasetPair: TPair<string, TDataset>;
+  lDatasetPair: TPair<string, TDataSet>;
   lObjectPair: TPair<string, TObjectList<TObject>>;
 begin
   fDataSources.Clear;
@@ -252,9 +297,9 @@ end;
 
 function TTemplateProEngine.MatchEndTag: Boolean;
 begin
-  Result := fInputString.Chars[fCharIndex] = END_TAG_1;
+  Result := END_TAG_1 = fInputString.Substring(fCharIndex, Length(END_TAG_1));
   if Result then
-    Inc(fCharIndex, 1);
+    Inc(fCharIndex, END_TAG_1.Length);
 end;
 
 function TTemplateProEngine.MatchField(var aDataSet: string; var aFieldName: string): Boolean;
@@ -296,9 +341,9 @@ end;
 
 function TTemplateProEngine.MatchStartTag: Boolean;
 begin
-  Result := fInputString.Chars[fCharIndex] = START_TAG_1;
+  Result := START_TAG_1 = fInputString.Substring(fCharIndex, Length(START_TAG_1));
   if Result then
-    Inc(fCharIndex, 1);
+    Inc(fCharIndex, START_TAG_1.Length);
 end;
 
 function TTemplateProEngine.MatchSymbol(const aSymbol: string): Boolean;
@@ -333,7 +378,8 @@ begin
   Result := not aValue.IsEmpty;
 end;
 
-procedure TTemplateProEngine.Execute(const aTemplateString: string; const aObjectDictionary: TTPObjectListDictionary; const aDatasetDictionary: TTPDatasetDictionary; aStream: TStream);
+procedure TTemplateProEngine.Execute(const aTemplateString: string; const aObjectDictionary: TTPObjectListDictionary;
+  const aDatasetDictionary: TTPDatasetDictionary; aStream: TStream);
 var
   lChar: Char;
   lVarName: string;
@@ -341,7 +387,6 @@ var
   lIdentifier: string;
   lDataSet: string;
   lFieldName: string;
-  lIgnoreOutput: Boolean;
   lFuncParams: TArray<string>;
   lDataSourceName: string;
   function GetFunctionParameters: TArray<string>;
@@ -359,7 +404,6 @@ var
   end;
 
 begin
-  lIgnoreOutput := False;
   FreeAndNil(fOutputStreamWriter);
   fOutputStreamWriter := TStreamWriter.Create(aStream, fEncoding);
   LoadDataSources(aObjectDictionary, aDatasetDictionary);
@@ -386,7 +430,7 @@ begin
     if MatchStartTag then
     begin
       // loop
-      if not lIgnoreOutput and MatchSymbol('loop') then
+      if MatchSymbol('loop') then
       begin
         if not MatchSymbol('(') then
           Error('Expected "("');
@@ -399,8 +443,7 @@ begin
         if not SetDataSourceByName(lIdentifier) then
           Error('Unknown dataset: ' + lIdentifier);
         fLoopStack.Push(fCharIndex);
-        fLoopIdentStack.Push(TTPLoopControl.Create(lIdentifier));
-        lIgnoreOutput := false; // FCurrentDataset.Eof;
+        fLoopIdentStack.Push(TTPIdentifierControl.Create(lIdentifier));
         Continue;
       end;
 
@@ -413,22 +456,55 @@ begin
         if not SetDataSourceByName(lIdentifier) then
           Error('Invalid datasource name: ' + lIdentifier);
 
-        FCurrentDataSource.Next;
-        if FCurrentDataSource.Eof then
+        // fCurrentDataSource.Next;
+        if fCurrentDataSource.Eof then
         begin
           fLoopIdentStack.Pop;
           fLoopStack.Pop;
-          lIgnoreOutput := False;
         end
         else
         begin
+          fCurrentDataSource.Next;
           fCharIndex := fLoopStack.Peek;
         end;
         Continue;
       end;
 
+      if MatchSymbol('endif') then
+      begin
+        if fIfIdentStack.Count = 0 then
+        begin
+          Error('"endif" without "if"');
+        end;
+        fIfIdentStack.Pop;
+        if not MatchEndTag then
+          Error('Expected closing tag for "endif(' + lIdentifier + ')"');
+      end;
+
+      if MatchSymbol('if') then
+      begin
+        if not MatchSymbol('(') then
+          Error('Expected "("');
+        if not MatchIdentifier(lIdentifier) then
+          Error('Expected identifier after "if("');
+        if not MatchSymbol(')') then
+          Error('Expected ")" after "' + lIdentifier + '"');
+        if not MatchEndTag then
+          Error('Expected closing tag for "if(' + lIdentifier + ')"');
+        if IsIndentifierTrue(lIdentifier) then
+        begin
+          fIfIdentStack.Push(TTPIdentifierControl.Create(lIdentifier));
+          Continue;
+        end
+        else
+        begin
+          // salta all'endif
+        end;
+        Continue;
+      end;
+
       // dataset field
-      if not lIgnoreOutput and MatchField(lDataSourceName, lFieldName) then
+      if MatchField(lDataSourceName, lFieldName) then
       begin
         if lFieldName.IsEmpty then
           Error('Invalid field name');
@@ -455,7 +531,7 @@ begin
       end;
 
       // reset
-      if not lIgnoreOutput and MatchReset(lDataSet) then
+      if MatchReset(lDataSet) then
       begin
         if not MatchEndTag then
           Error('Expected closing tag');
@@ -465,7 +541,7 @@ begin
       end;
 
       // identifier
-      if not lIgnoreOutput and MatchIdentifier(lVarName) then
+      if MatchIdentifier(lVarName) then
       begin
         if lVarName.IsEmpty then
           Error('Invalid variable name');
@@ -490,26 +566,18 @@ begin
     else
     begin
       // output verbatim
-      if not lIgnoreOutput then
-        AppendOutput(lChar);
+      AppendOutput(lChar);
       Inc(fCharIndex);
     end;
   end;
 end;
 
-procedure TTemplateProEngine.SetVar(
-  const
-  aName: string;
-  aValue: string);
+procedure TTemplateProEngine.SetVar(const aName: string; aValue: string);
 begin
   fVariables.AddOrSetValue(aName, aValue);
 end;
 
-function CapitalizeString(
-  const
-  s: string;
-  const
-  CapitalizeFirst: Boolean): string;
+function CapitalizeString(const s: string; const CapitalizeFirst: Boolean): string;
 const
   ALLOWEDCHARS = ['a' .. 'z', '_'];
 var
@@ -537,12 +605,10 @@ end;
 
 procedure TTemplateProEngine.Error(const aMessage: string);
 begin
-  raise EParserException.CreateFmt('%s - at line %d col %d',
-    [aMessage, fCurrentLine, fCurrentColumn]);
+  raise EParserException.CreateFmt('%s - at line %d col %d', [aMessage, fCurrentLine, fCurrentColumn]);
 end;
 
-procedure TTemplateProEngine.ErrorFmt(const aMessage: string;
-  aParameters: array of const);
+procedure TTemplateProEngine.ErrorFmt(const aMessage: string; aParameters: array of const);
 begin
   Error(Format(aMessage, aParameters));
 end;
@@ -553,8 +619,14 @@ begin
 end;
 
 function TTemplateProEngine.ExecuteFunction(aFunctionName: string; aParameters: TArray<string>; aValue: string): string;
+var
+  lFunc: TTemplateFunction;
 begin
   aFunctionName := lowercase(aFunctionName);
+  if aFunctionName = 'tohtml' then
+  begin
+    Exit(HTMLEntitiesEncode(aValue));
+  end;
   if aFunctionName = 'uppercase' then
   begin
     Exit(UpperCase(aValue));
@@ -583,15 +655,18 @@ begin
       Exit(aValue.PadLeft(aParameters[0].ToInteger, aParameters[1].Chars[0]));
   end;
 
-  raise EParserException.CreateFmt('Unknown function [%s]', [aFunctionName]);
+  if not fTemplateFunctions.TryGetValue(aFunctionName, lFunc) then
+  begin
+    raise EParserException.CreateFmt('Unknown function [%s]', [aFunctionName]);
+  end;
+  Result := lFunc(aParameters, aValue);
 end;
 
-procedure TTemplateProEngine.Execute(const aTemplateString: string;
-  const aObjectNames: array of string; aObjects: array of TObjectList<TObject>;
-  const aDataSetNames: array of string; aDataSets: array of TDataSet;
+procedure TTemplateProEngine.Execute(const aTemplateString: string; const aObjectNames: array of string;
+  aObjects: array of TObjectList<TObject>; const aDataSetNames: array of string; aDataSets: array of TDataSet;
   aStream: TStream);
 var
-  lDatasets: TTPDataSetDictionary;
+  lDatasets: TTPDatasetDictionary;
   lObjects: TTPObjectListDictionary;
   I: Integer;
 begin
@@ -604,14 +679,14 @@ begin
   try
     for I := 0 to Length(aDataSetNames) - 1 do
     begin
-      lDatasets.Add(aDataSetNames[i], aDataSets[i]);
+      lDatasets.Add(aDataSetNames[I], aDataSets[I]);
     end;
 
     lObjects := TTPObjectListDictionary.Create([]);
     try
       for I := 0 to Length(aObjectNames) - 1 do
       begin
-        lObjects.Add(aObjectNames[i], aObjects[i]);
+        lObjects.Add(aObjectNames[I], aObjects[I]);
       end;
 
       Execute(aTemplateString, lObjects, lDatasets, aStream);
@@ -623,8 +698,12 @@ begin
   end;
 end;
 
-function TTemplateProEngine.ExecuteFieldFunction(aFunctionName: string;
-  aParameters: TArray<string>;
+procedure TTemplateProEngine.Execute(const aTemplateString: string; aStream: TStream);
+begin
+  Execute(aTemplateString, [], [], [], [], aStream);
+end;
+
+function TTemplateProEngine.ExecuteFieldFunction(aFunctionName: string; aParameters: TArray<string>;
   aValue: TValue): string;
 var
   lDateValue: TDate;
@@ -632,7 +711,10 @@ var
   lStrValue: string;
 begin
   aFunctionName := lowercase(aFunctionName);
-
+  if aFunctionName = 'tohtml' then
+  begin
+    Exit(HTMLEntitiesEncode(aValue.AsString));
+  end;
   if aFunctionName = 'uppercase' then
   begin
     Exit(UpperCase(aValue.AsString));
@@ -707,8 +789,7 @@ begin
   ErrorFmt('Unknown function [%s]', [aFunctionName]);
 end;
 
-class
-  function TTPLoopControl.Create(aIdentifier: string): TTPLoopControl;
+class function TTPIdentifierControl.Create(aIdentifier: string): TTPIdentifierControl;
 begin
   Result.Identifier := aIdentifier;
 end;
@@ -748,8 +829,7 @@ end;
 
 { TTPObjectListAdapter }
 
-constructor TTPObjectListAdapter.Create(
-  const aObjectList: TObjectList<TObject>);
+constructor TTPObjectListAdapter.Create(const aObjectList: TObjectList<TObject>);
 begin
   inherited Create;
   fObjectList := aObjectList;
@@ -812,6 +892,224 @@ begin
     fIndex := 0
   else
     fIndex := -1;
+end;
+
+function HTMLEntitiesEncode(s: string): string;
+  procedure repl(var s: string; r: string; posi: Integer);
+  begin
+    delete(s, posi, 1);
+    insert(r, s, posi);
+  end;
+
+var
+  I: Integer;
+  r: string;
+begin
+  I := 0;
+  while I < Length(s) do
+  begin
+    r := '';
+    case ord(s[I]) of
+      160:
+        r := 'nbsp';
+      161:
+        r := 'excl';
+      162:
+        r := 'cent';
+      163:
+        r := 'ound';
+      164:
+        r := 'curren';
+      165:
+        r := 'yen';
+      166:
+        r := 'brvbar';
+      167:
+        r := 'sect';
+      168:
+        r := 'uml';
+      169:
+        r := 'copy';
+      170:
+        r := 'ordf';
+      171:
+        r := 'laquo';
+      172:
+        r := 'not';
+      173:
+        r := 'shy';
+      174:
+        r := 'reg';
+      175:
+        r := 'macr';
+      176:
+        r := 'deg';
+      177:
+        r := 'plusmn';
+      178:
+        r := 'sup2';
+      179:
+        r := 'sup3';
+      180:
+        r := 'acute';
+      181:
+        r := 'micro';
+      182:
+        r := 'para';
+      183:
+        r := 'middot';
+      184:
+        r := 'cedil';
+      185:
+        r := 'sup1';
+      186:
+        r := 'ordm';
+      187:
+        r := 'raquo';
+      188:
+        r := 'frac14';
+      189:
+        r := 'frac12';
+      190:
+        r := 'frac34';
+      191:
+        r := 'iquest';
+      192:
+        r := 'Agrave';
+      193:
+        r := 'Aacute';
+      194:
+        r := 'Acirc';
+      195:
+        r := 'Atilde';
+      196:
+        r := 'Auml';
+      197:
+        r := 'Aring';
+      198:
+        r := 'AElig';
+      199:
+        r := 'Ccedil';
+      200:
+        r := 'Egrave';
+      201:
+        r := 'Eacute';
+      202:
+        r := 'Ecirc';
+      203:
+        r := 'Euml';
+      204:
+        r := 'Igrave';
+      205:
+        r := 'Iacute';
+      206:
+        r := 'Icirc';
+      207:
+        r := 'Iuml';
+      208:
+        r := 'ETH';
+      209:
+        r := 'Ntilde';
+      210:
+        r := 'Ograve';
+      211:
+        r := 'Oacute';
+      212:
+        r := 'Ocirc';
+      213:
+        r := 'Otilde';
+      214:
+        r := 'Ouml';
+      215:
+        r := 'times';
+      216:
+        r := 'Oslash';
+      217:
+        r := 'Ugrave';
+      218:
+        r := 'Uacute';
+      219:
+        r := 'Ucirc';
+      220:
+        r := 'Uuml';
+      221:
+        r := 'Yacute';
+      222:
+        r := 'THORN';
+      223:
+        r := 'szlig';
+      224:
+        r := 'agrave';
+      225:
+        r := 'aacute';
+      226:
+        r := 'acirc';
+      227:
+        r := 'atilde';
+      228:
+        r := 'auml';
+      229:
+        r := 'aring';
+      230:
+        r := 'aelig';
+      231:
+        r := 'ccedil';
+      232:
+        r := 'egrave';
+      233:
+        r := 'eacute';
+      234:
+        r := 'ecirc';
+      235:
+        r := 'euml';
+      236:
+        r := 'igrave';
+      237:
+        r := 'iacute';
+      238:
+        r := 'icirc';
+      239:
+        r := 'iuml';
+      240:
+        r := 'eth';
+      241:
+        r := 'ntilde';
+      242:
+        r := 'ograve';
+      243:
+        r := 'oacute';
+      244:
+        r := 'ocirc';
+      245:
+        r := 'otilde';
+      246:
+        r := 'ouml';
+      247:
+        r := 'divide';
+      248:
+        r := 'oslash';
+      249:
+        r := 'ugrave';
+      250:
+        r := 'uacute';
+      251:
+        r := 'ucirc';
+      252:
+        r := 'uuml';
+      253:
+        r := 'yacute';
+      254:
+        r := 'thorn';
+      255:
+        r := 'yuml';
+    end;
+    if r <> '' then
+    begin
+      repl(s, '&' + r + ';', I);
+    end;
+    Inc(I)
+  end;
+  Result := s;
 end;
 
 end.

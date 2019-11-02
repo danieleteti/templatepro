@@ -71,11 +71,15 @@ object MainForm: TMainForm
     Top = 57
     Width = 626
     Height = 458
-    ActivePage = TabSheet1
+    ActivePage = TabSheet2
     Align = alClient
     TabOrder = 2
     object TabSheet1: TTabSheet
       Caption = 'Output'
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
       object MemoOutput: TMemo
         Left = 0
         Top = 0
@@ -105,7 +109,7 @@ object MainForm: TMainForm
         Align = alClient
         Font.Charset = ANSI_CHARSET
         Font.Color = clWindowText
-        Font.Height = -16
+        Font.Height = 22
         Font.Name = 'Courier New'
         Font.Style = []
         ParentFont = False
@@ -115,6 +119,10 @@ object MainForm: TMainForm
     object TabSheet3: TTabSheet
       Caption = 'Data'
       ImageIndex = 2
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
       object Splitter1: TSplitter
         Left = 0
         Top = 153
