@@ -110,6 +110,8 @@ type
     fOutputStreamWriter: TStreamWriter;
     fEncoding: TEncoding;
     fTemplateFunctions: TDictionary<string, TTemplateFunction>;
+    fInThen: Boolean;
+    fInElse: Boolean;
     procedure Error(const aMessage: string);
     procedure ErrorFmt(const aMessage: string; aParameters: array of const);
 
@@ -138,7 +140,7 @@ type
     function GetVar(const aName: string): string;
     procedure ClearVariables;
     function IsIndentifierTrue(const aIdentifier: string): Boolean;
-    procedure AddTemplateFunction(const FunctionName: String; const FunctionImpl: TTemplateFunction);
+    procedure AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
   end;
 
 function HTMLEntitiesEncode(s: string): string;
@@ -157,7 +159,7 @@ const
 
   { TParser }
 
-procedure TTemplateProEngine.AddTemplateFunction(const FunctionName: String; const FunctionImpl: TTemplateFunction);
+procedure TTemplateProEngine.AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
 begin
   fTemplateFunctions.Add(FunctionName.ToLower, FunctionImpl);
 end;
@@ -198,6 +200,7 @@ begin
   fVariables := TDictionary<string, string>.Create;
   fLoopStack := TStack<Integer>.Create;
   fLoopIdentStack := TStack<TTPIdentifierControl>.Create;
+  fIfIdentStack := TStack<TTPIdentifierControl>.Create;
   fDataSources := TDictionary<string, ITPDataSourceAdapter>.Create;
   fTemplateFunctions := TDictionary<string, TTemplateFunction>.Create;
 end;
@@ -207,6 +210,7 @@ begin
   fTemplateFunctions.Free;
   fDataSources.Free;
   fLoopIdentStack.Free;
+  fIfIdentStack.Free;
   fLoopStack.Free;
   fVariables.Free;
   fOutputStreamWriter.Free;
@@ -263,6 +267,18 @@ function TTemplateProEngine.IsIndentifierTrue(const aIdentifier: string): Boolea
 var
   lDataSource: ITPDataSourceAdapter;
 begin
+  if SameText(aIdentifier, 'true') then
+    Exit(True);
+  if SameText(aIdentifier, 'false') then
+    Exit(False);
+  if SameText(GetVar(aIdentifier), 'true') then
+  begin
+    Exit(True);
+  end;
+  if SameText(GetVar(aIdentifier), 'false') then
+  begin
+    Exit(False);
+  end;
   Result := not GetVar(aIdentifier).IsEmpty;
   if Result then
     Exit;
@@ -299,7 +315,14 @@ function TTemplateProEngine.MatchEndTag: Boolean;
 begin
   Result := END_TAG_1 = fInputString.Substring(fCharIndex, Length(END_TAG_1));
   if Result then
-    Inc(fCharIndex, END_TAG_1.Length);
+  begin
+    Inc(fCharIndex, END_TAG_1.Length - 1);
+    if (fInputString.Substring(fCharIndex + 1, 1) = #13) and
+      (fInputString.Substring(fCharIndex + 2, 1) = #10) then
+    begin
+      Inc(fCharIndex, 2);
+    end;
+  end;
 end;
 
 function TTemplateProEngine.MatchField(var aDataSet: string; var aFieldName: string): Boolean;
@@ -403,18 +426,9 @@ var
     end;
   end;
 
-begin
-  FreeAndNil(fOutputStreamWriter);
-  fOutputStreamWriter := TStreamWriter.Create(aStream, fEncoding);
-  LoadDataSources(aObjectDictionary, aDatasetDictionary);
-  fLoopStack.Clear;
-  fLoopIdentStack.Clear;
-  fCharIndex := 0;
-  fCurrentLine := 1;
-  fCurrentColumn := 0;
-  fInputString := aTemplateString;
-  while fCharIndex < aTemplateString.Length do
+  procedure Step;
   begin
+    Inc(fCharIndex);
     lChar := aTemplateString.Chars[fCharIndex];
     if lChar = #13 then
     begin
@@ -425,6 +439,22 @@ begin
     begin
       Inc(fCurrentColumn);
     end;
+  end;
+
+begin
+  FreeAndNil(fOutputStreamWriter);
+  fOutputStreamWriter := TStreamWriter.Create(aStream, fEncoding);
+  LoadDataSources(aObjectDictionary, aDatasetDictionary);
+  fLoopStack.Clear;
+  fLoopIdentStack.Clear;
+  fCharIndex := -1;
+  fCurrentLine := 1;
+  fCurrentColumn := 0;
+  fInputString := aTemplateString;
+  while fCharIndex < aTemplateString.Length do
+  begin
+    //
+    Step;
 
     // starttag
     if MatchStartTag then
@@ -478,7 +508,7 @@ begin
         end;
         fIfIdentStack.Pop;
         if not MatchEndTag then
-          Error('Expected closing tag for "endif(' + lIdentifier + ')"');
+          Error('Expected closing tag for "endif"');
       end;
 
       if MatchSymbol('if') then
@@ -493,12 +523,51 @@ begin
           Error('Expected closing tag for "if(' + lIdentifier + ')"');
         if IsIndentifierTrue(lIdentifier) then
         begin
-          fIfIdentStack.Push(TTPIdentifierControl.Create(lIdentifier));
+          fIfIdentStack.Push(TTPIdentifierControl.Create(''));
+          fInThen := True;
           Continue;
         end
         else
         begin
-          // salta all'endif
+          // while not(MatchStartTag and MatchSymbol('else') and MatchEndTag) do
+          // begin
+          // Step;
+          // end;
+          while True do
+          begin
+            if not MatchStartTag then
+            begin
+              Step;
+            end
+            else
+            begin
+              if MatchSymbol('else') and MatchEndTag then
+              begin
+                fIfIdentStack.Push(TTPIdentifierControl.Create(''));
+                fInElse := True;
+                Break;
+              end
+              else if MatchSymbol('endif') and MatchEndTag then
+              begin
+                fIfIdentStack.Pop;
+                Break;
+              end;
+            end;
+          end;
+          Continue;
+        end;
+      end;
+
+      if MatchSymbol('else') then
+      begin
+        if not fInThen then
+          Error('"else" without if');
+        fInThen := False;
+        if not MatchEndTag then
+          Error('Expected end-tag');
+        while not(MatchStartTag and MatchSymbol('endif') and MatchEndTag) do
+        begin
+          Step;
         end;
         Continue;
       end;
@@ -567,7 +636,6 @@ begin
     begin
       // output verbatim
       AppendOutput(lChar);
-      Inc(fCharIndex);
     end;
   end;
 end;
@@ -618,7 +686,8 @@ begin
   CheckParNumber(aHowManyPars, aHowManyPars, aParameters);
 end;
 
-function TTemplateProEngine.ExecuteFunction(aFunctionName: string; aParameters: TArray<string>; aValue: string): string;
+function TTemplateProEngine.ExecuteFunction(aFunctionName: string; aParameters: TArray<string>;
+  aValue: string): string;
 var
   lFunc: TTemplateFunction;
 begin
