@@ -1,0 +1,12 @@
+{{if(pippo0)}}
+PAPERINO0
+{{endif}}
+
+{{if(pippo1)}}
+PAPERINO1
+
+{{if(pippo2)}}
+PAPERINO2
+{{endif}}
+
+{{endif}}

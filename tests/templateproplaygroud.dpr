@@ -17,7 +17,7 @@ var
 begin
   lTPro := TTemplateProEngine.Create();
   try
-    lInput := TFile.ReadAllText('test30.tpro');
+    lInput := TFile.ReadAllText('test40.tpro');
     var lCompiledTemplate: ITemplateProCompiledTemplate := lTPro.Compile(lInput);
     lCompiledTemplate.ForEachToken(
       procedure(const Index: Integer; const Token: TToken)
@@ -33,7 +33,8 @@ begin
   end;
   if DebugHook <> 0 then
   begin
-    write('Finished');
+    Writeln;
+    Write('Finished');
     ReadLn;
   end;
 end;

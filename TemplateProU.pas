@@ -43,20 +43,20 @@ type
     function Eof: Boolean;
   end;
 
-  TTokenType = (ttContent, ttLoop, ttEndLoop, ttStartTag, ttEndTag, ttIdentifier, ttDataSetField, ttValue, ttReset, ttField, ttLineBreak);
+  TTokenType = (ttContent, ttLoop, ttEndLoop, ttIfThen, {ttElse,} ttEndIf, ttStartTag, ttEndTag, ttIdentifier, ttDataSetField, ttValue, ttReset, ttField, ttLineBreak);
 
   const
     TOKEN_TYPE_DESCR: array [Low(TTokenType)..High(TTokenType)] of string =
-      ('ttContent', 'ttLoop', 'ttEndLoop', 'ttStartTag', 'ttEndTag',
+      ('ttContent', 'ttLoop', 'ttEndLoop', 'ttIfThen', {'ttElse',} 'ttEndIf', 'ttStartTag', 'ttEndTag',
       'ttIdentifier', 'ttDataSetField', 'ttValue', 'ttReset', 'ttField', 'ttLineBreak');
   type
-  TToken = packed record
-    TokenType: TTokenType;
-    Value: String;
-    Ref: Integer;
-    class function Create(TokType: TTokenType; Value: String; Ref: Integer = -1): TToken; static;
-    function TokenTypeAsString: String;
-  end;
+    TToken = packed record
+      TokenType: TTokenType;
+      Value: String;
+      Ref: Integer;
+      class function Create(TokType: TTokenType; Value: String; Ref: Integer = -1): TToken; static;
+      function TokenTypeAsString: String;
+    end;
 
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
   ITemplateProCompiledTemplate = interface
@@ -136,7 +136,6 @@ type
     fCurrentLine: Integer;
     fLoopStack: TStack<Integer>;
     fLoopIdentStack: TStack<TTPIdentifierControl>;
-    fIfIdentStack: TStack<TTPIdentifierControl>;
     fCurrentDataSource: ITPDataSourceAdapter;
     fEncoding: TEncoding;
     fTemplateFunctions: TDictionary<string, TTemplateFunction>;
@@ -224,7 +223,6 @@ begin
   fVariables := TDictionary<string, string>.Create;
   fLoopStack := TStack<Integer>.Create;
   fLoopIdentStack := TStack<TTPIdentifierControl>.Create;
-  fIfIdentStack := TStack<TTPIdentifierControl>.Create;
   fDataSources := TDictionary<string, ITPDataSourceAdapter>.Create;
   fTemplateFunctions := TDictionary<string, TTemplateFunction>.Create;
 end;
@@ -234,7 +232,6 @@ begin
   fTemplateFunctions.Free;
   fDataSources.Free;
   fLoopIdentStack.Free;
-  fIfIdentStack.Free;
   fLoopStack.Free;
   fVariables.Free;
   inherited;
@@ -425,6 +422,10 @@ function TTemplateProEngine.Compile(const aTemplateString: string): ITemplatePro
 var
   lSectionStack: array [0..49] of Integer; //max 50 nested loops
   lCurrentSectionIndex: Integer;
+
+  lIfStatementStack: array [0..49] of Integer; //max 50 nested ifs
+  lCurrentIfIndex: Integer;
+
   lChar: Char;
   lVarName: string;
   lFuncName: string;
@@ -436,6 +437,7 @@ var
   lStartVerbatim: UInt64;
   lEndVerbatim: UInt64;
   lTokens: TList<TToken>;
+  lIndexOfLatestIfStatement: UInt64;
   function GetFunctionParameters: TArray<string>;
   var
     lFuncPar: string;
@@ -467,6 +469,7 @@ begin
   fLoopIdentStack.Clear;
   fCharIndex := -1;
   fCurrentLine := 1;
+  lCurrentIfIndex := -1;
   lCurrentSectionIndex := -1;
   fInputString := aTemplateString;
   lTokens := TList<TToken>.Create;
@@ -527,7 +530,7 @@ begin
           // create another element in the sections stack
           Inc(lCurrentSectionIndex);
           lSectionStack[lCurrentSectionIndex] := lTokens.Count;
-          lTokens.Add(TToken.Create(ttLoop, lIdentifier, lTokens.Count));
+          lTokens.Add(TToken.Create(ttLoop, lIdentifier));
           lStartVerbatim := fCharIndex;
           lEndVerbatim := lStartVerbatim;
         end;
@@ -545,36 +548,30 @@ begin
           Dec(lCurrentSectionIndex);
           lStartVerbatim := fCharIndex;
           lEndVerbatim := lStartVerbatim;
-
-  //        lIdentifier := fLoopIdentStack.Peek.Identifier;
-  //        if not SetDataSourceByName(lIdentifier) then
-  //          Error('Invalid datasource name: ' + lIdentifier);
-
-          // fCurrentDataSource.Next;
-  //        if fCurrentDataSource.Eof then
-  //        begin
-  //          fLoopIdentStack.Pop;
-  //          fLoopStack.Pop;
-  //        end
-  //        else
-  //        begin
-  //          fCurrentDataSource.Next;
-  //          fCharIndex := fLoopStack.Peek;
-  //        end;
           Continue;
         end;
 
-
-        {
         if MatchSymbol('endif') then
         begin
-          if fIfIdentStack.Count = 0 then
+          if lCurrentIfIndex = -1 then
           begin
             Error('"endif" without "if"');
           end;
-          fIfIdentStack.Pop;
           if not MatchEndTag then
+          begin
             Error('Expected closing tag for "endif"');
+          end;
+          lTokens.Add(TToken.Create(ttEndIf, ''));
+
+          // jumps handling...
+          lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex];
+          lTokens[lIndexOfLatestIfStatement] :=
+            TToken.Create(ttIfThen, lTokens[lIndexOfLatestIfStatement].Value, lTokens.Count - 1);
+
+          Dec(lCurrentIfIndex);
+          lStartVerbatim := fCharIndex;
+          lEndVerbatim := lStartVerbatim;
+          Continue;
         end;
 
         if MatchSymbol('if') then
@@ -587,57 +584,32 @@ begin
             Error('Expected ")" after "' + lIdentifier + '"');
           if not MatchEndTag then
             Error('Expected closing tag for "if(' + lIdentifier + ')"');
-          if IsIndentifierTrue(lIdentifier) then
-          begin
-            fIfIdentStack.Push(TTPIdentifierControl.Create(''));
-            fInThen := True;
-            Continue;
-          end
-          else
-          begin
-            // while not(MatchStartTag and MatchSymbol('else') and MatchEndTag) do
-            // begin
-            // Step;
-            // end;
-            while True do
-            begin
-              if not MatchStartTag then
-              begin
-                Step;
-              end
-              else
-              begin
-                if MatchSymbol('else') and MatchEndTag then
-                begin
-                  fIfIdentStack.Push(TTPIdentifierControl.Create(''));
-                  fInElse := True;
-                  Break;
-                end
-                else if MatchSymbol('endif') and MatchEndTag then
-                begin
-                  fIfIdentStack.Pop;
-                  Break;
-                end;
-              end;
-            end;
-            Continue;
-          end;
-        end;
 
-        if MatchSymbol('else') then
-        begin
-          if not fInThen then
-            Error('"else" without if');
-          fInThen := False;
-          if not MatchEndTag then
-            Error('Expected end-tag');
-          while not(MatchStartTag and MatchSymbol('endif') and MatchEndTag) do
-          begin
-            Step;
-          end;
+          lTokens.Add(TToken.Create(ttIfThen, lIdentifier));
+          Inc(lCurrentIfIndex);
+          lIfStatementStack[lCurrentIfIndex] := lTokens.Count - 1;
+          lStartVerbatim := fCharIndex;
+          lEndVerbatim := lStartVerbatim;
           Continue;
         end;
-        }
+
+//        if MatchSymbol('else') then
+//        begin
+//          if lCurrentIfIndex = -1 then
+//          begin
+//            Error('"else" without if');
+//          end;
+//          if not MatchEndTag then
+//          begin
+//            Error('Expected end-tag');
+//          end;
+//
+//          lTokens.Add(TToken.Create(ttElse, '', lIfStatementStack[lCurrentIfIndex]));
+//          Dec(lCurrentIfIndex);
+//          lStartVerbatim := fCharIndex;
+//          lEndVerbatim := lStartVerbatim;
+//          Continue;
+//        end;
 
         // dataset field
         if MatchField(lDataSourceName, lFieldName) then
@@ -721,6 +693,19 @@ begin
           lStartVerbatim := fCharIndex;
           lEndVerbatim := lStartVerbatim;
           lTokens.Add(TToken.Create(ttValue, lVarName));
+        end;
+
+        // comment
+        if MatchSymbol('#') then
+        begin
+          while not MatchEndTag do
+          begin
+            lChar := Step;
+          end;
+          lChar := CurrentChar;
+          lStartVerbatim := fCharIndex;
+          lEndVerbatim := lStartVerbatim;
+          //lTokens.Add(TToken.Create(ttValue, lVarName));
         end;
       end
       else
