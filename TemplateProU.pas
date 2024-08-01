@@ -134,7 +134,6 @@ type
     fInputString: string;
     fCharIndex: Int64;
     fCurrentLine: Integer;
-    fCurrentColumn: Integer;
     fLoopStack: TStack<Integer>;
     fLoopIdentStack: TStack<TTPIdentifierControl>;
     fIfIdentStack: TStack<TTPIdentifierControl>;
@@ -436,7 +435,6 @@ var
   lDataSourceName: string;
   lStartVerbatim: UInt64;
   lEndVerbatim: UInt64;
-  lP: PChar;
   lTokens: TList<TToken>;
   function GetFunctionParameters: TArray<string>;
   var
@@ -460,16 +458,6 @@ var
   function Step: Char;
   begin
     Inc(fCharIndex);
-    lChar := aTemplateString.Chars[fCharIndex];
-    if lChar = #13 then
-    begin
-      Inc(fCurrentLine);
-      fCurrentColumn := 1;
-    end
-    else
-    begin
-      Inc(fCurrentColumn);
-    end;
     Result := CurrentChar;
   end;
 
@@ -479,7 +467,6 @@ begin
   fLoopIdentStack.Clear;
   fCharIndex := -1;
   fCurrentLine := 1;
-  fCurrentColumn := 0;
   lCurrentSectionIndex := -1;
   fInputString := aTemplateString;
   lTokens := TList<TToken>.Create;
@@ -503,6 +490,11 @@ begin
       // linebreak
       if MatchSymbol(sLineBreak) then
       begin
+        lEndVerbatim := fCharIndex - Length(sLineBreak);
+        if lEndVerbatim - lStartVerbatim > 0 then
+        begin
+          lTokens.Add(TToken.Create(ttContent, aTemplateString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
+        end;
         lStartVerbatim := fCharIndex;
         lEndVerbatim := lStartVerbatim;
         lTokens.Add(TToken.Create(ttLineBreak, ''));
@@ -532,16 +524,12 @@ begin
             Error('Expected ")" after "' + lIdentifier + '"');
           if not MatchEndTag then
             Error('Expected closing tag for "loop(' + lIdentifier + ')"');
-  //        if not SetDataSourceByName(lIdentifier) then
-  //          Error('Unknown dataset: ' + lIdentifier);
-
           // create another element in the sections stack
           Inc(lCurrentSectionIndex);
           lSectionStack[lCurrentSectionIndex] := lTokens.Count;
           lTokens.Add(TToken.Create(ttLoop, lIdentifier, lTokens.Count));
           lStartVerbatim := fCharIndex;
           lEndVerbatim := lStartVerbatim;
-          lEndVerbatim := 0;
         end;
 
         if MatchSymbol('endloop') then //endloop
@@ -555,6 +543,9 @@ begin
           end;
           lTokens.Add(TToken.Create(ttEndLoop, '', lSectionStack[lCurrentSectionIndex]));
           Dec(lCurrentSectionIndex);
+          lStartVerbatim := fCharIndex;
+          lEndVerbatim := lStartVerbatim;
+
   //        lIdentifier := fLoopIdentStack.Peek.Identifier;
   //        if not SetDataSourceByName(lIdentifier) then
   //          Error('Invalid datasource name: ' + lIdentifier);
@@ -678,7 +669,12 @@ begin
           else
             AppendOutput(ExecuteFieldFunction(lFuncName, lFuncParams, GetFieldText(lFieldName)));
           }
-          lTokens.Add(TToken.Create(ttDataSetField, lDataSourceName + ':' + lFieldName));
+          if not MatchEndTag then
+            Error('Expected closing tag');
+          lTokens.Add(TToken.Create(ttDataSetField, lDataSourceName + '.' + lFieldName));
+          lStartVerbatim := fCharIndex;
+          lEndVerbatim := lStartVerbatim;
+          Continue;
         end;
 
         // reset
@@ -777,7 +773,7 @@ end;
 
 procedure TTemplateProEngine.Error(const aMessage: string);
 begin
-  raise EParserException.CreateFmt('%s - at line %d col %d', [aMessage, fCurrentLine, fCurrentColumn]);
+  raise EParserException.CreateFmt('%s - at line %d', [aMessage, fCurrentLine]);
 end;
 
 procedure TTemplateProEngine.ErrorFmt(const aMessage: string; aParameters: array of const);

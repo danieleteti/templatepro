@@ -14,21 +14,18 @@ procedure Main;
 var
   lTPro: TTemplateProEngine;
   lInput: string;
-  lOutput: string;
-  lOutputStream: TStringStream;
-  lFileName: string;
-  lOutputWithoutBOM: string;
 begin
   lTPro := TTemplateProEngine.Create();
   try
-    lInput := TFile.ReadAllText('test20.tpro');
+    lInput := TFile.ReadAllText('test30.tpro');
     var lCompiledTemplate: ITemplateProCompiledTemplate := lTPro.Compile(lInput);
     lCompiledTemplate.ForEachToken(
       procedure(const Index: Integer; const Token: TToken)
       begin
-        WriteLn('#' + Index.ToString.PadLeft(3) + ' ' +
-          Token.TokenTypeAsString.PadLeft(13) + ' - VALUE = ' +
-          Token.Value.PadRight(20) + ' - REF = ' + Token.Ref.ToString);
+        WriteLn('[' + Index.ToString.PadLeft(3, '0') + '] ' +
+                      Token.TokenTypeAsString.PadRight(20) + ' - VALUE = ' +
+                      Token.Value.PadRight(30) + ' - REF = ' +
+                      Token.Ref.ToString);
       end);
 
   finally

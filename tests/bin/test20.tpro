@@ -1,8 +1,4 @@
-
-
-{{value0}}ABC{{value1}}DEF{{value2}}
-
-{{value3}}
-
-
-{{value4}}GHI{{value5}}JKL{{value6}}
+HEADER
+{{loop(data)}}
+ABCD{{:data.field1}}EFG{{:data.field2}}
+{{endloop}}

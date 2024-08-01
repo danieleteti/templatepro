@@ -1,0 +1,7 @@
+HEADER
+{{loop(data1)}}
+ABCD{{:data1.field1}}EFG{{:data1.field2}}
+{{loop(data2)}}
+ABCD{{:data1.field3}}EFG{{:data2.field1}}
+{{endloop}}
+{{endloop}}
