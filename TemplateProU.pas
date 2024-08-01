@@ -75,6 +75,7 @@ type
       const aDataSetNames: array of string;
       const aDataSets: array of TDataSet)}: String;
     procedure SetData(const Name: String; Value: TValue); overload;
+    procedure SetData(const Name: String; Value: TObject); overload;
     procedure ForEachToken(const TokenProc: TTokenWalkProc);
   end;
 
@@ -397,7 +398,7 @@ begin
     lStartVerbatim := 0;
     lEndVerbatim := 0;
     lChar := Step;
-    while fCharIndex < aTemplateString.Length do
+    while fCharIndex <= aTemplateString.Length do
     begin
       lChar := CurrentChar;
       if lChar = #0 then //eof
@@ -725,45 +726,6 @@ begin
   end;
   Result := lFunc(aParameters, aValue);
 end;
-
-//function TTemplateProEngine.Compile(const aTemplateString: string): ITemplateProCompiledTemplate;
-//var
-//  lDatasets: TTPDatasetDictionary;
-//  lObjects: TTPObjectListDictionary;
-//  I: Integer;
-//begin
-//  if Length(aObjectNames) <> Length(aObjects) then
-//    ErrorFmt('Wrong Names/Objects count. Names: %d, Objects: %d', [Length(aObjectNames), Length(aObjects)]);
-//  if Length(aDataSetNames) <> Length(aDataSets) then
-//    ErrorFmt('Wrong Names/DataSets count. Names: %d, DataSets: %d', [Length(aDataSetNames), Length(aDataSets)]);
-//
-//  lDatasets := TTPDatasetDictionary.Create;
-//  try
-//    for I := 0 to Length(aDataSetNames) - 1 do
-//    begin
-//      lDatasets.Add(aDataSetNames[I], aDataSets[I]);
-//    end;
-//
-//    lObjects := TTPObjectListDictionary.Create([]);
-//    try
-//      for I := 0 to Length(aObjectNames) - 1 do
-//      begin
-//        lObjects.Add(aObjectNames[I], aObjects[I]);
-//      end;
-//
-//      Compile(aTemplateString, lObjects, lDatasets, aStream);
-//    finally
-//      lObjects.Free;
-//    end;
-//  finally
-//    lDatasets.Free;
-//  end;
-//end;
-
-//function TTemplateProEngine.Compile(const aTemplateString: string; aStream: TStream): ITemplateProCompiledTemplate;
-//begin
-//  Result := Compile(aTemplateString, [], [], [], [], aStream);
-//end;
 
 function TTemplateProEngine.ExecuteFieldFunction(aFunctionName: string; aParameters: TArray<string>;
   aValue: TValue): string;
@@ -1212,7 +1174,11 @@ function TTemplateProCompiledTemplate.InternalRender: String;
 var
   lIdx: UInt64;
   lBuff: TStringBuilder;
+  lDataSource: ITPDataSourceAdapter;
+  lSectionStack: array[0..49] of String;
+  lSectionStackIndex: Integer;
 begin
+  lSectionStackIndex := -1;
   lBuff := TStringBuilder.Create;
   try
     lIdx := 0;
@@ -1222,8 +1188,29 @@ begin
         ttContent: begin
           lBuff.Append(fTokens[lIdx].Value);
         end;
-        ttLoop: begin end;
-        ttEndLoop: begin end;
+        ttLoop: begin
+          if GetDataSource.TryGetValue(fTokens[lIdx].Value, lDataSource) then
+          begin
+            if lDataSource.Eof then
+            begin
+              lIdx := fTokens[lIdx].Ref;
+              Continue;
+            end;
+            Inc(lSectionStackIndex);
+            lSectionStack[lSectionStackIndex] := fTokens[lIdx].Value;
+          end;
+        end;
+        ttEndLoop: begin
+          if GetDataSource.TryGetValue(lSectionStack[lSectionStackIndex], lDataSource) then
+          begin
+            lDataSource.Next;
+            if not lDataSource.Eof then
+            begin
+              lIdx := fTokens[lIdx].Ref;
+              Continue;
+            end;
+          end;
+        end;
         ttIfThen: begin
           if not EvaluateIfExpression(fTokens[lIdx].Value) then
           begin
@@ -1259,11 +1246,7 @@ begin
   end;
 end;
 
-function TTemplateProCompiledTemplate.Render{(
-  const aObjectNames: array of string;
-  const aObjects: array of TObjectList<TObject>;
-  const aDataSetNames: array of string;
-  const aDataSets: array of TDataSet)}: String;
+function TTemplateProCompiledTemplate.Render: String;
 begin
   Result := InternalRender();
 end;
@@ -1316,31 +1299,17 @@ end;
 
 function TTemplateProCompiledTemplate.EvaluateIfExpression(const aIdentifier: string): Boolean;
 var
-  lDataSource: ITPDataSourceAdapter;
+  lVarValue: String;
 begin
-  if SameText(aIdentifier, 'true') then
-    Exit(True);
-  if SameText(aIdentifier, 'false') then
+  lVarValue := GetVarAsString(aIdentifier);
+  if SameText(lVarValue, 'false') or (lVarValue = '0') or lVarValue.IsEmpty then
+  begin
     Exit(False);
-  if SameText(GetVarAsString(aIdentifier), 'true') then
+  end
+  else
   begin
     Exit(True);
   end;
-  if SameText(GetVarAsString(aIdentifier), 'false') then
-  begin
-    Exit(False);
-  end;
-  Result := not GetVarAsString(aIdentifier).IsEmpty;
-  if Result then
-    Exit;
-//  if GetDataSourceByName(aIdentifier, lDataSource) then
-//  begin
-//    Result := not lDataSource.Eof;
-//  end
-//  else
-//  begin
-//    Result := False;
-//  end;
 end;
 
 
@@ -1353,7 +1322,7 @@ end;
 procedure TTemplateProCompiledTemplate.SetData(const Name: String;
   Value: TObject);
 begin
-
+  GetVariables.Add(Name, Value);
 end;
 
 procedure TTemplateProCompiledTemplate.SetVar(const aName: string; aValue: string);

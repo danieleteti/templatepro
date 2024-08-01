@@ -1,4 +1,4 @@
 HEADER
 {{loop(data)}}
-ABCD{{:data.field1}}EFG{{:data.field2}}
+ABCD{{:data.Prop1}}EFG{{:data.Prop2}}
 {{endloop}}

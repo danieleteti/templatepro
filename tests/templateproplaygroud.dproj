@@ -210,6 +210,7 @@
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
         <DCCReference Include="..\TemplateProU.pas"/>
+        <DCCReference Include="UtilsU.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -253,7 +254,7 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="Win32\Debug\templateproplaygroud.exe" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="bin\templateproplaygroud.exe" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
                         <RemoteName>templateproplaygroud.exe</RemoteName>
                         <Overwrite>true</Overwrite>

@@ -1,13 +1,1 @@
-1PAPERINO
-{{if(value0)}}
-2PAPERINO0
-{{endif}}
-3
-{{if(value1)}}
-4PAPERINO1
-5
-{{if(value2)}}
-PAPERINO2
-{{endif}}
-PAPERINO3
-{{endif}}
+A{{if(value0)}}B{{endif}}C{{if(value1)}}D{{if(value2)}}E{{endif}}F{{endif}}G
