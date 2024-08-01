@@ -43,6 +43,28 @@ type
     function Eof: Boolean;
   end;
 
+  TTokenType = (ttContent, ttLoop, ttEndLoop, ttStartTag, ttEndTag, ttIdentifier, ttDataSetField, ttValue, ttReset, ttField, ttLineBreak);
+
+  const
+    TOKEN_TYPE_DESCR: array [Low(TTokenType)..High(TTokenType)] of string =
+      ('ttContent', 'ttLoop', 'ttEndLoop', 'ttStartTag', 'ttEndTag',
+      'ttIdentifier', 'ttDataSetField', 'ttValue', 'ttReset', 'ttField', 'ttLineBreak');
+  type
+  TToken = packed record
+    TokenType: TTokenType;
+    Value: String;
+    Ref: Integer;
+    class function Create(TokType: TTokenType; Value: String; Ref: Integer = -1): TToken; static;
+    function TokenTypeAsString: String;
+  end;
+
+  TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
+  ITemplateProCompiledTemplate = interface
+    ['{39479EBA-3558-4293-8C5F-B36C0F849F55}']
+    function Render: String;
+    procedure ForEachToken(const TokenProc: TTokenWalkProc);
+  end;
+
   TTPIdentifierControl = record
     Identifier: string;
     class function Create(aIdentifier: string): TTPIdentifierControl; static;
@@ -86,6 +108,16 @@ type
 
   TTemplateFunction = reference to function(aParameters: TArray<string>; const aValue: string): string;
 
+
+  TTemplateProCompiledTemplate = class(TInterfacedObject, ITemplateProCompiledTemplate)
+  private
+    fTokens: TList<TToken>;
+    constructor Create(Tokens: TList<TToken>);
+  protected
+    function Render: String;
+    procedure ForEachToken(const TokenProc: TTokenWalkProc);
+  end;
+
   TTemplateProEngine = class
   strict private
     fOutput: string;
@@ -107,11 +139,11 @@ type
     fLoopIdentStack: TStack<TTPIdentifierControl>;
     fIfIdentStack: TStack<TTPIdentifierControl>;
     fCurrentDataSource: ITPDataSourceAdapter;
-    fOutputStreamWriter: TStreamWriter;
     fEncoding: TEncoding;
     fTemplateFunctions: TDictionary<string, TTemplateFunction>;
     fInThen: Boolean;
     fInElse: Boolean;
+
     procedure Error(const aMessage: string);
     procedure ErrorFmt(const aMessage: string; aParameters: array of const);
 
@@ -124,16 +156,14 @@ type
     function GetFieldText(const aFieldName: string): string;
     procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
     procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
-    procedure AppendOutput(const aValue: string);
     procedure LoadDataSources(const aObjectDictionary: TTPObjectListDictionary;
       const aDatasetDictionary: TTPDatasetDictionary);
   public
-    procedure Execute(const aTemplateString: string; const aObjectDictionary: TTPObjectListDictionary;
-      const aDatasetDictionary: TTPDatasetDictionary; aStream: TStream); overload;
-    procedure Execute(const aTemplateString: string; const aObjectNames: array of string;
-      aObjects: array of TObjectList<TObject>; const aDataSetNames: array of string; aDataSets: array of TDataSet;
-      aStream: TStream); overload;
-    procedure Execute(const aTemplateString: string; aStream: TStream); overload;
+    function Compile(const aTemplateString: string): ITemplateProCompiledTemplate; overload;
+//    function Compile(const aTemplateString: string; const aObjectNames: array of string;
+//      aObjects: array of TObjectList<TObject>; const aDataSetNames: array of string; aDataSets: array of TDataSet;
+//      aStream: TStream): ITemplateProCompiledTemplate; overload;
+//    function Compile(const aTemplateString: string; aStream: TStream): ITemplateProCompiledTemplate; overload;
     constructor Create(aEncoding: TEncoding = nil);
     destructor Destroy; override;
     procedure SetVar(const aName: string; aValue: string);
@@ -162,11 +192,6 @@ const
 procedure TTemplateProEngine.AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
 begin
   fTemplateFunctions.Add(FunctionName.ToLower, FunctionImpl);
-end;
-
-procedure TTemplateProEngine.AppendOutput(const aValue: string);
-begin
-  fOutputStreamWriter.Write(aValue);
 end;
 
 procedure TTemplateProEngine.CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
@@ -213,7 +238,6 @@ begin
   fIfIdentStack.Free;
   fLoopStack.Free;
   fVariables.Free;
-  fOutputStreamWriter.Free;
   inherited;
 end;
 
@@ -313,16 +337,17 @@ end;
 
 function TTemplateProEngine.MatchEndTag: Boolean;
 begin
-  Result := END_TAG_1 = fInputString.Substring(fCharIndex, Length(END_TAG_1));
-  if Result then
-  begin
-    Inc(fCharIndex, END_TAG_1.Length - 1);
-    if (fInputString.Substring(fCharIndex + 1, 1) = #13) and
-      (fInputString.Substring(fCharIndex + 2, 1) = #10) then
-    begin
-      Inc(fCharIndex, 2);
-    end;
-  end;
+  Result := MatchSymbol(END_TAG_1);
+//  Result := END_TAG_1 = fInputString.Substring(fCharIndex, Length(END_TAG_1));
+//  if Result then
+//  begin
+//    Inc(fCharIndex, END_TAG_1.Length);
+////    if (fInputString.Substring(fCharIndex + 1, 1) = #13) and
+////      (fInputString.Substring(fCharIndex + 2, 1) = #10) then
+////    begin
+////      Inc(fCharIndex, 2);
+////    end;
+//  end;
 end;
 
 function TTemplateProEngine.MatchField(var aDataSet: string; var aFieldName: string): Boolean;
@@ -364,9 +389,7 @@ end;
 
 function TTemplateProEngine.MatchStartTag: Boolean;
 begin
-  Result := START_TAG_1 = fInputString.Substring(fCharIndex, Length(START_TAG_1));
-  if Result then
-    Inc(fCharIndex, START_TAG_1.Length);
+  Result := MatchSymbol(START_TAG_1);
 end;
 
 function TTemplateProEngine.MatchSymbol(const aSymbol: string): Boolean;
@@ -378,12 +401,10 @@ begin
     Exit(True);
   lSavedCharIndex := fCharIndex;
   lSymbolIndex := 0;
-  // lChar := FInputString.Chars[FCharIndex];
-  while fInputString.Chars[fCharIndex] = aSymbol.Chars[lSymbolIndex] do
+  while (fInputString.Chars[fCharIndex] = aSymbol.Chars[lSymbolIndex]) and (lSymbolIndex < Length(aSymbol)) do
   begin
     Inc(fCharIndex);
     Inc(lSymbolIndex);
-    // lChar := FInputString.Chars[FCharIndex]
   end;
   Result := (lSymbolIndex > 0) and (lSymbolIndex = Length(aSymbol));
   if not Result then
@@ -401,9 +422,10 @@ begin
   Result := not aValue.IsEmpty;
 end;
 
-procedure TTemplateProEngine.Execute(const aTemplateString: string; const aObjectDictionary: TTPObjectListDictionary;
-  const aDatasetDictionary: TTPDatasetDictionary; aStream: TStream);
+function TTemplateProEngine.Compile(const aTemplateString: string): ITemplateProCompiledTemplate;
 var
+  lSectionStack: array [0..49] of Integer; //max 50 nested loops
+  lCurrentSectionIndex: Integer;
   lChar: Char;
   lVarName: string;
   lFuncName: string;
@@ -412,6 +434,10 @@ var
   lFieldName: string;
   lFuncParams: TArray<string>;
   lDataSourceName: string;
+  lStartVerbatim: UInt64;
+  lEndVerbatim: UInt64;
+  lP: PChar;
+  lTokens: TList<TToken>;
   function GetFunctionParameters: TArray<string>;
   var
     lFuncPar: string;
@@ -426,7 +452,12 @@ var
     end;
   end;
 
-  procedure Step;
+  function CurrentChar: Char;
+  begin
+    Result := aTemplateString.Chars[fCharIndex];
+  end;
+
+  function Step: Char;
   begin
     Inc(fCharIndex);
     lChar := aTemplateString.Chars[fCharIndex];
@@ -439,203 +470,276 @@ var
     begin
       Inc(fCurrentColumn);
     end;
+    Result := CurrentChar;
   end;
 
 begin
-  FreeAndNil(fOutputStreamWriter);
-  fOutputStreamWriter := TStreamWriter.Create(aStream, fEncoding);
-  LoadDataSources(aObjectDictionary, aDatasetDictionary);
+//  LoadDataSources(aObjectDictionary, aDatasetDictionary);
   fLoopStack.Clear;
   fLoopIdentStack.Clear;
   fCharIndex := -1;
   fCurrentLine := 1;
   fCurrentColumn := 0;
+  lCurrentSectionIndex := -1;
   fInputString := aTemplateString;
-  while fCharIndex < aTemplateString.Length do
-  begin
-    //
-    Step;
-
-    // starttag
-    if MatchStartTag then
+  lTokens := TList<TToken>.Create;
+  try
+    lStartVerbatim := 0;
+    lEndVerbatim := 0;
+    lChar := Step;
+    while fCharIndex < aTemplateString.Length do
     begin
-      // loop
-      if MatchSymbol('loop') then
+      lChar := CurrentChar;
+      if lChar = #0 then //eof
       begin
-        if not MatchSymbol('(') then
-          Error('Expected "("');
-        if not MatchIdentifier(lIdentifier) then
-          Error('Expected identifier after "loop("');
-        if not MatchSymbol(')') then
-          Error('Expected ")" after "' + lIdentifier + '"');
-        if not MatchEndTag then
-          Error('Expected closing tag for "loop(' + lIdentifier + ')"');
-        if not SetDataSourceByName(lIdentifier) then
-          Error('Unknown dataset: ' + lIdentifier);
-        fLoopStack.Push(fCharIndex);
-        fLoopIdentStack.Push(TTPIdentifierControl.Create(lIdentifier));
+        lEndVerbatim := fCharIndex;
+        if lEndVerbatim - lStartVerbatim > 0 then
+        begin
+          lTokens.Add(TToken.Create(ttContent, aTemplateString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
+        end;
+        Break;
+      end;
+
+      // linebreak
+      if MatchSymbol(sLineBreak) then
+      begin
+        lStartVerbatim := fCharIndex;
+        lEndVerbatim := lStartVerbatim;
+        lTokens.Add(TToken.Create(ttLineBreak, ''));
+        lChar := CurrentChar;
         Continue;
       end;
 
-      // endloop
-      if MatchSymbol('endloop') then
+      // starttag
+      if MatchStartTag then
       begin
-        if not MatchEndTag then
-          Error('Expected closing tag');
-        lIdentifier := fLoopIdentStack.Peek.Identifier;
-        if not SetDataSourceByName(lIdentifier) then
-          Error('Invalid datasource name: ' + lIdentifier);
-
-        // fCurrentDataSource.Next;
-        if fCurrentDataSource.Eof then
+        lChar := CurrentChar;
+        lEndVerbatim := fCharIndex - Length(START_TAG_1);
+        if lEndVerbatim - lStartVerbatim > 0 then
         begin
-          fLoopIdentStack.Pop;
-          fLoopStack.Pop;
-        end
-        else
-        begin
-          fCurrentDataSource.Next;
-          fCharIndex := fLoopStack.Peek;
+          lTokens.Add(TToken.Create(ttContent, aTemplateString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
         end;
-        Continue;
-      end;
 
-      if MatchSymbol('endif') then
-      begin
-        if fIfIdentStack.Count = 0 then
+        // loop
+        if MatchSymbol('loop') then
         begin
-          Error('"endif" without "if"');
+          lChar := CurrentChar;
+          if not MatchSymbol('(') then
+            Error('Expected "("');
+          if not MatchIdentifier(lIdentifier) then
+            Error('Expected identifier after "loop("');
+          if not MatchSymbol(')') then
+            Error('Expected ")" after "' + lIdentifier + '"');
+          if not MatchEndTag then
+            Error('Expected closing tag for "loop(' + lIdentifier + ')"');
+  //        if not SetDataSourceByName(lIdentifier) then
+  //          Error('Unknown dataset: ' + lIdentifier);
+
+          // create another element in the sections stack
+          Inc(lCurrentSectionIndex);
+          lSectionStack[lCurrentSectionIndex] := lTokens.Count;
+          lTokens.Add(TToken.Create(ttLoop, lIdentifier, lTokens.Count));
+          lStartVerbatim := fCharIndex;
+          lEndVerbatim := lStartVerbatim;
+          lEndVerbatim := 0;
         end;
-        fIfIdentStack.Pop;
-        if not MatchEndTag then
-          Error('Expected closing tag for "endif"');
-      end;
 
-      if MatchSymbol('if') then
-      begin
-        if not MatchSymbol('(') then
-          Error('Expected "("');
-        if not MatchIdentifier(lIdentifier) then
-          Error('Expected identifier after "if("');
-        if not MatchSymbol(')') then
-          Error('Expected ")" after "' + lIdentifier + '"');
-        if not MatchEndTag then
-          Error('Expected closing tag for "if(' + lIdentifier + ')"');
-        if IsIndentifierTrue(lIdentifier) then
+        if MatchSymbol('endloop') then //endloop
         begin
-          fIfIdentStack.Push(TTPIdentifierControl.Create(''));
-          fInThen := True;
-          Continue;
-        end
-        else
-        begin
-          // while not(MatchStartTag and MatchSymbol('else') and MatchEndTag) do
-          // begin
-          // Step;
-          // end;
-          while True do
+          lChar := CurrentChar;
+          if not MatchEndTag then
+            Error('Expected closing tag');
+          if lCurrentSectionIndex = -1 then
           begin
-            if not MatchStartTag then
+            Error('endloop without loop');
+          end;
+          lTokens.Add(TToken.Create(ttEndLoop, '', lSectionStack[lCurrentSectionIndex]));
+          Dec(lCurrentSectionIndex);
+  //        lIdentifier := fLoopIdentStack.Peek.Identifier;
+  //        if not SetDataSourceByName(lIdentifier) then
+  //          Error('Invalid datasource name: ' + lIdentifier);
+
+          // fCurrentDataSource.Next;
+  //        if fCurrentDataSource.Eof then
+  //        begin
+  //          fLoopIdentStack.Pop;
+  //          fLoopStack.Pop;
+  //        end
+  //        else
+  //        begin
+  //          fCurrentDataSource.Next;
+  //          fCharIndex := fLoopStack.Peek;
+  //        end;
+          Continue;
+        end;
+
+
+        {
+        if MatchSymbol('endif') then
+        begin
+          if fIfIdentStack.Count = 0 then
+          begin
+            Error('"endif" without "if"');
+          end;
+          fIfIdentStack.Pop;
+          if not MatchEndTag then
+            Error('Expected closing tag for "endif"');
+        end;
+
+        if MatchSymbol('if') then
+        begin
+          if not MatchSymbol('(') then
+            Error('Expected "("');
+          if not MatchIdentifier(lIdentifier) then
+            Error('Expected identifier after "if("');
+          if not MatchSymbol(')') then
+            Error('Expected ")" after "' + lIdentifier + '"');
+          if not MatchEndTag then
+            Error('Expected closing tag for "if(' + lIdentifier + ')"');
+          if IsIndentifierTrue(lIdentifier) then
+          begin
+            fIfIdentStack.Push(TTPIdentifierControl.Create(''));
+            fInThen := True;
+            Continue;
+          end
+          else
+          begin
+            // while not(MatchStartTag and MatchSymbol('else') and MatchEndTag) do
+            // begin
+            // Step;
+            // end;
+            while True do
             begin
-              Step;
-            end
-            else
-            begin
-              if MatchSymbol('else') and MatchEndTag then
+              if not MatchStartTag then
               begin
-                fIfIdentStack.Push(TTPIdentifierControl.Create(''));
-                fInElse := True;
-                Break;
+                Step;
               end
-              else if MatchSymbol('endif') and MatchEndTag then
+              else
               begin
-                fIfIdentStack.Pop;
-                Break;
+                if MatchSymbol('else') and MatchEndTag then
+                begin
+                  fIfIdentStack.Push(TTPIdentifierControl.Create(''));
+                  fInElse := True;
+                  Break;
+                end
+                else if MatchSymbol('endif') and MatchEndTag then
+                begin
+                  fIfIdentStack.Pop;
+                  Break;
+                end;
               end;
             end;
+            Continue;
+          end;
+        end;
+
+        if MatchSymbol('else') then
+        begin
+          if not fInThen then
+            Error('"else" without if');
+          fInThen := False;
+          if not MatchEndTag then
+            Error('Expected end-tag');
+          while not(MatchStartTag and MatchSymbol('endif') and MatchEndTag) do
+          begin
+            Step;
           end;
           Continue;
         end;
-      end;
+        }
 
-      if MatchSymbol('else') then
-      begin
-        if not fInThen then
-          Error('"else" without if');
-        fInThen := False;
-        if not MatchEndTag then
-          Error('Expected end-tag');
-        while not(MatchStartTag and MatchSymbol('endif') and MatchEndTag) do
+        // dataset field
+        if MatchField(lDataSourceName, lFieldName) then
         begin
-          Step;
+          lChar := CurrentChar;
+          if lFieldName.IsEmpty then
+            Error('Invalid field name');
+          lFuncName := '';
+          {
+          if MatchSymbol('|') then
+          begin
+            if not MatchIdentifier(lFuncName) then
+              Error('Invalid function name');
+            lFuncParams := GetFunctionParameters;
+            if not MatchEndTag then
+              Error('Expected end tag');
+          end
+          else
+          begin
+            if not MatchEndTag then
+              Error('Expected closing tag');
+            if not SetDataSourceByName(lDataSourceName) then
+              Error('Unknown datasource: ' + lDataSourceName);
+          end;
+          }
+          {
+          if lFuncName.IsEmpty then
+            AppendOutput(GetFieldText(lFieldName))
+          else
+            AppendOutput(ExecuteFieldFunction(lFuncName, lFuncParams, GetFieldText(lFieldName)));
+          }
+          lTokens.Add(TToken.Create(ttDataSetField, lDataSourceName + ':' + lFieldName));
         end;
-        Continue;
-      end;
 
-      // dataset field
-      if MatchField(lDataSourceName, lFieldName) then
-      begin
-        if lFieldName.IsEmpty then
-          Error('Invalid field name');
-        lFuncName := '';
-        if MatchSymbol('|') then
-        begin
-          if not MatchIdentifier(lFuncName) then
-            Error('Invalid function name');
-          lFuncParams := GetFunctionParameters;
-          if not MatchEndTag then
-            Error('Expected end tag');
-        end
-        else
+        // reset
+        {
+        if MatchReset(lDataSet) then
         begin
           if not MatchEndTag then
             Error('Expected closing tag');
-          if not SetDataSourceByName(lDataSourceName) then
-            Error('Unknown datasource: ' + lDataSourceName);
+          SetDataSourceByName(lDataSet);
+          fCurrentDataSource.Reset;
+          Continue;
         end;
-        if lFuncName.IsEmpty then
-          AppendOutput(GetFieldText(lFieldName))
-        else
-          AppendOutput(ExecuteFieldFunction(lFuncName, lFuncParams, GetFieldText(lFieldName)));
-      end;
+        }
 
-      // reset
-      if MatchReset(lDataSet) then
-      begin
-        if not MatchEndTag then
-          Error('Expected closing tag');
-        SetDataSourceByName(lDataSet);
-        fCurrentDataSource.Reset;
-        Continue;
-      end;
-
-      // identifier
-      if MatchIdentifier(lVarName) then
-      begin
-        if lVarName.IsEmpty then
-          Error('Invalid variable name');
-        lFuncName := '';
-        if MatchSymbol('|') then
+        // identifier
+        if MatchIdentifier(lVarName) then
         begin
-          if not MatchIdentifier(lFuncName) then
-            Error('Invalid function name');
-          lFuncParams := GetFunctionParameters;
+          lChar := CurrentChar;
+          if lVarName.IsEmpty then
+            Error('Invalid variable name');
+          lFuncName := '';
+          {
+          if MatchSymbol('|') then
+          begin
+            if not MatchIdentifier(lFuncName) then
+              Error('Invalid function name');
+            lFuncParams := GetFunctionParameters;
+            if not MatchEndTag then
+              Error('Expected end tag');
+            AppendOutput(ExecuteFunction(lFuncName, lFuncParams, GetVar(lVarName)));
+          end
+          else
+          begin
+            if not MatchEndTag then
+              Error('Expected end tag');
+            AppendOutput(GetVar(lVarName));
+          end;
+          }
           if not MatchEndTag then
-            Error('Expected end tag');
-          AppendOutput(ExecuteFunction(lFuncName, lFuncParams, GetVar(lVarName)));
-        end
-        else
-        begin
-          if not MatchEndTag then
-            Error('Expected end tag');
-          AppendOutput(GetVar(lVarName));
+          begin
+            Error('Expected end tag "' + END_TAG_1 + '"');
+          end;
+          lChar := CurrentChar;
+          lStartVerbatim := fCharIndex;
+          lEndVerbatim := lStartVerbatim;
+          lTokens.Add(TToken.Create(ttValue, lVarName));
         end;
+      end
+      else
+      begin
+        // output verbatim
+        Inc(lEndVerbatim);
+        lChar := Step;
       end;
-    end
-    else
+    end;
+    Result := TTemplateProCompiledTemplate.Create(lTokens);
+  except
+    on E: Exception do
     begin
-      // output verbatim
-      AppendOutput(lChar);
+      lTokens.Free;
+      raise;
     end;
   end;
 end;
@@ -731,46 +835,44 @@ begin
   Result := lFunc(aParameters, aValue);
 end;
 
-procedure TTemplateProEngine.Execute(const aTemplateString: string; const aObjectNames: array of string;
-  aObjects: array of TObjectList<TObject>; const aDataSetNames: array of string; aDataSets: array of TDataSet;
-  aStream: TStream);
-var
-  lDatasets: TTPDatasetDictionary;
-  lObjects: TTPObjectListDictionary;
-  I: Integer;
-begin
-  if Length(aObjectNames) <> Length(aObjects) then
-    ErrorFmt('Wrong Names/Objects count. Names: %d, Objects: %d', [Length(aObjectNames), Length(aObjects)]);
-  if Length(aDataSetNames) <> Length(aDataSets) then
-    ErrorFmt('Wrong Names/DataSets count. Names: %d, DataSets: %d', [Length(aDataSetNames), Length(aDataSets)]);
+//function TTemplateProEngine.Compile(const aTemplateString: string): ITemplateProCompiledTemplate;
+//var
+//  lDatasets: TTPDatasetDictionary;
+//  lObjects: TTPObjectListDictionary;
+//  I: Integer;
+//begin
+//  if Length(aObjectNames) <> Length(aObjects) then
+//    ErrorFmt('Wrong Names/Objects count. Names: %d, Objects: %d', [Length(aObjectNames), Length(aObjects)]);
+//  if Length(aDataSetNames) <> Length(aDataSets) then
+//    ErrorFmt('Wrong Names/DataSets count. Names: %d, DataSets: %d', [Length(aDataSetNames), Length(aDataSets)]);
+//
+//  lDatasets := TTPDatasetDictionary.Create;
+//  try
+//    for I := 0 to Length(aDataSetNames) - 1 do
+//    begin
+//      lDatasets.Add(aDataSetNames[I], aDataSets[I]);
+//    end;
+//
+//    lObjects := TTPObjectListDictionary.Create([]);
+//    try
+//      for I := 0 to Length(aObjectNames) - 1 do
+//      begin
+//        lObjects.Add(aObjectNames[I], aObjects[I]);
+//      end;
+//
+//      Compile(aTemplateString, lObjects, lDatasets, aStream);
+//    finally
+//      lObjects.Free;
+//    end;
+//  finally
+//    lDatasets.Free;
+//  end;
+//end;
 
-  lDatasets := TTPDatasetDictionary.Create;
-  try
-    for I := 0 to Length(aDataSetNames) - 1 do
-    begin
-      lDatasets.Add(aDataSetNames[I], aDataSets[I]);
-    end;
-
-    lObjects := TTPObjectListDictionary.Create([]);
-    try
-      for I := 0 to Length(aObjectNames) - 1 do
-      begin
-        lObjects.Add(aObjectNames[I], aObjects[I]);
-      end;
-
-      Execute(aTemplateString, lObjects, lDatasets, aStream);
-    finally
-      lObjects.Free;
-    end;
-  finally
-    lDatasets.Free;
-  end;
-end;
-
-procedure TTemplateProEngine.Execute(const aTemplateString: string; aStream: TStream);
-begin
-  Execute(aTemplateString, [], [], [], [], aStream);
-end;
+//function TTemplateProEngine.Compile(const aTemplateString: string; aStream: TStream): ITemplateProCompiledTemplate;
+//begin
+//  Result := Compile(aTemplateString, [], [], [], [], aStream);
+//end;
 
 function TTemplateProEngine.ExecuteFieldFunction(aFunctionName: string; aParameters: TArray<string>;
   aValue: TValue): string;
@@ -1179,6 +1281,44 @@ begin
     Inc(I)
   end;
   Result := s;
+end;
+
+{ TToken }
+
+class function TToken.Create(TokType: TTokenType; Value: String; Ref: Integer): TToken;
+begin
+  Result.TokenType:= TokType;
+  Result.Value := Value;
+  Result.Ref := Ref;
+end;
+
+function TToken.TokenTypeAsString: String;
+begin
+  Result := TOKEN_TYPE_DESCR[self.TokenType];
+end;
+
+{ TTemplateProCompiledTemplate }
+
+constructor TTemplateProCompiledTemplate.Create(Tokens: TList<TToken>);
+begin
+  inherited Create;
+  fTokens := Tokens;
+end;
+
+procedure TTemplateProCompiledTemplate.ForEachToken(
+  const TokenProc: TTokenWalkProc);
+var
+  I: Integer;
+begin
+  for I := 0 to fTokens.Count - 1 do
+  begin
+    TokenProc(I, fTokens[I]);
+  end;
+end;
+
+function TTemplateProCompiledTemplate.Render: String;
+begin
+
 end;
 
 end.
