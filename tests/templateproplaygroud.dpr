@@ -22,12 +22,21 @@ begin
     lCompiledTemplate.ForEachToken(
       procedure(const Index: Integer; const Token: TToken)
       begin
-        WriteLn('[' + Index.ToString.PadLeft(3, '0') + '] ' +
-                      Token.TokenTypeAsString.PadRight(20) + ' - VALUE = ' +
-                      Token.Value.PadRight(30) + ' - REF = ' +
-                      Token.Ref.ToString);
+//        WriteLn('[' + Index.ToString.PadLeft(3, '0') + '] ' +
+//                      Token.TokenTypeAsString.PadRight(20) + ' - VALUE = ' +
+//                      Token.Value.PadRight(30) + ' - REF = ' +
+//                      Token.Ref.ToString);
       end);
-
+    //Readln;
+    //WriteLn('-------------------------------');
+    lCompiledTemplate.SetData('value0',false);
+    lCompiledTemplate.SetData('value1','DANIELE1');
+    lCompiledTemplate.SetData('value2','DANIELE2');
+    lCompiledTemplate.SetData('value3','DANIELE3');
+    lCompiledTemplate.SetData('value4','DANIELE4');
+    lCompiledTemplate.SetData('value5','DANIELE5');
+    lCompiledTemplate.SetData('value6','DANIELE6');
+    WriteLn(lCompiledTemplate.Render);
   finally
     lTPro.Free;
   end;
