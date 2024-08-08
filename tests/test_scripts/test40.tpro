@@ -1,0 +1,16 @@
+A{{if(value0)}}B{{endif}}C{{if(value1)}}D{{if(value2)}}E{{endif}}F{{endif}}G
+1
+{{if(value0)}}
+2
+{{else}}
+3
+{{endif}}
+4
+---
+1
+{{if(!value0)}}
+2
+{{else}}
+3
+{{endif}}
+4

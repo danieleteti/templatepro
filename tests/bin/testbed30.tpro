@@ -1,0 +1,15 @@
+{{loop(customers)}}
+X
+{{endloop}}
+
+HEADER
+{{reset(customers)}}
+{{# this is a comment }}
+{{loop(customers)}}
+{{# this is a 
+	multi line comment }}
+ABCD{{customers.Code}}EFG{{customers.Name}}
+{{loop(objects)}}
+ABCD{{objects.Prop1}}EFG{{objects.Prop2}}
+{{endloop}}
+{{endloop}}

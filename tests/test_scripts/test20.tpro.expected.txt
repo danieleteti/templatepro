@@ -1,0 +1,22 @@
+DataSets
+Code: 1 - Name: Ford
+Code: 2 - Name: Ferrari
+Code: 3 - Name: Lotus
+Code: 4 - Name: FCA
+Code: 5 - Name: Hyundai
+Code: 6 - Name: De Tomaso
+Code: 7 - Name: Dodge
+Code: 8 - Name: Tesla
+Code: 9 - Name: Kia
+Code: 10 - Name: Tata
+Code: 11 - Name: Volkswagen
+Code: 12 - Name: Audi
+Code: 13 - Name: Skoda
+
+List of objects
+Prop1: value1.1 DANIELE2
+---
+Prop1: value1.2 DANIELE2
+---
+Prop1: value1.3 DANIELE2
+---

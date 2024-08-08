@@ -1,1 +1,0 @@
-A{{if(value0)}}B{{endif}}C{{if(value1)}}D{{if(value2)}}E{{endif}}F{{endif}}G

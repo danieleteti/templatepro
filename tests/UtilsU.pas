@@ -3,7 +3,7 @@ unit UtilsU;
 interface
 
 uses
-  System.Generics.Collections;
+  System.Generics.Collections, Data.DB;
 
 type
   TDataItem = class
@@ -21,8 +21,70 @@ type
   end;
 
 function GetItems: TObjectList<TDataItem>;
+function GetCustomersDataset: TDataSet;
+function GetPeopleDataset: TDataSet;
 
 implementation
+
+uses
+  FireDAC.Stan.Intf, FireDAC.Stan.Option,
+  FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf,
+  FireDAC.DApt.Intf, FireDAC.Comp.DataSet, FireDAC.Comp.Client;
+
+function GetCustomersDataset: TDataSet;
+var
+  lMT: TFDMemTable;
+begin
+  lMT := TFDMemTable.Create(nil);
+  try
+    lMT.FieldDefs.Clear;
+    lMT.FieldDefs.Add('Code', ftInteger);
+    lMT.FieldDefs.Add('Name', ftString, 20);
+    lMT.Active := True;
+    lMT.AppendRecord([1, 'Ford']);
+    lMT.AppendRecord([2, 'Ferrari']);
+    lMT.AppendRecord([3, 'Lotus']);
+    lMT.AppendRecord([4, 'FCA']);
+    lMT.AppendRecord([5, 'Hyundai']);
+    lMT.AppendRecord([6, 'De Tomaso']);
+    lMT.AppendRecord([7, 'Dodge']);
+    lMT.AppendRecord([8, 'Tesla']);
+    lMT.AppendRecord([9, 'Kia']);
+    lMT.AppendRecord([10, 'Tata']);
+    lMT.AppendRecord([11, 'Volkswagen']);
+    lMT.AppendRecord([12, 'Audi']);
+    lMT.AppendRecord([13, 'Skoda']);
+    lMT.First;
+    Result := lMT;
+  except
+    lMT.Free;
+    raise;
+  end;
+end;
+
+function GetPeopleDataset: TDataSet;
+var
+  lMT: TFDMemTable;
+begin
+  lMT := TFDMemTable.Create(nil);
+  try
+    lMT.FieldDefs.Clear;
+    lMT.FieldDefs.Add('first_name', ftString, 20);
+    lMT.FieldDefs.Add('last_name', ftString, 20);
+    lMT.Active := True;
+    lMT.AppendRecord(['Daniele', 'Teti']);
+    lMT.AppendRecord(['Peter', 'Parker']);
+    lMT.AppendRecord(['Bruce', 'Banner']);
+    lMT.AppendRecord(['Scott', 'Summers']);
+    lMT.AppendRecord(['Sue', 'Storm']);
+    lMT.First;
+    Result := lMT;
+  except
+    lMT.Free;
+    raise;
+  end;
+end;
+
 
 function GetItems: TObjectList<TDataItem>;
 begin

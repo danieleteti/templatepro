@@ -1,4 +1,0 @@
-HEADER
-{{loop(data)}}
-ABCD{{:data.Prop1}}EFG{{:data.Prop2}}
-{{endloop}}
