@@ -11,7 +11,8 @@ uses
   TemplatePro in '..\TemplatePro.pas',
   System.Classes,
   UtilsU in 'UtilsU.pas',
-  Data.DB;
+  Data.DB,
+  TemplatePro.Utils in '..\TemplatePro.Utils.pas';
 
 procedure Main;
 var
@@ -21,7 +22,7 @@ var
   lOutput: String;
   lCustomers: TDataSet;
 const
-  FILENAME = 'testbed40';
+  FILENAME = 'testbed50';
 begin
   lTPro := TTProCompiler.Create();
   try
@@ -33,7 +34,7 @@ begin
         begin
           WriteLn('[' + Index.ToString.PadLeft(3, '0') + '] ' +
                         Token.TokenTypeAsString.PadRight(20) + ' - VALUE = ' +
-                        Token.Value.PadRight(30) +
+                        String(Token.Value).PadRight(30) +
                         ' - REF1 = ' + Token.Ref1.ToString +
                         ' - REF2 = ' + Token.Ref2.ToString);
         end);

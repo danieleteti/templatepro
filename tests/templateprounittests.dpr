@@ -10,7 +10,8 @@ uses
   System.IOUtils,
   System.Classes,
   UtilsU in 'UtilsU.pas',
-  TemplatePro in '..\TemplatePro.pas';
+  TemplatePro in '..\TemplatePro.pas',
+  TemplatePro.Utils in '..\TemplatePro.Utils.pas';
 
 procedure Main;
 var
@@ -24,48 +25,56 @@ begin
     var lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro');
     for var lFile in lInputFileNames do
     begin
-      lInput := TFile.ReadAllText(lFile);
-      Write(TPath.GetFileName(lFile));
-      var lCompiledTemplate := lTPro.Compile(lInput);
       try
-        lCompiledTemplate.SetData('value0','true');
-        lCompiledTemplate.SetData('value1','true');
-        lCompiledTemplate.SetData('value2','DANIELE2');
-        lCompiledTemplate.SetData('value3','DANIELE3');
-        lCompiledTemplate.SetData('value4','DANIELE4');
-        lCompiledTemplate.SetData('value5','DANIELE5');
-        lCompiledTemplate.SetData('value6','DANIELE6');
-        lItems := GetItems;
+        lInput := TFile.ReadAllText(lFile);
+        Write(TPath.GetFileName(lFile));
+        var lCompiledTemplate := lTPro.Compile(lInput);
         try
-          lCompiledTemplate.SetData('obj', lItems[0]);
-          var lCustomers := GetCustomersDataset;
+          lCompiledTemplate.SetData('value0','true');
+          lCompiledTemplate.SetData('value1','true');
+          lCompiledTemplate.SetData('value2','DANIELE2');
+          lCompiledTemplate.SetData('value3','DANIELE3');
+          lCompiledTemplate.SetData('value4','DANIELE4');
+          lCompiledTemplate.SetData('value5','DANIELE5');
+          lCompiledTemplate.SetData('value6','DANIELE6');
+          lItems := GetItems;
           try
-            lCompiledTemplate.SetData('customers', lCustomers);
-            lCompiledTemplate.SetData('objects', lItems);
-            var lActualOutput := lCompiledTemplate.Render;
-            var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt');
-            if lActualOutput <> lExpectedOutput then
-            begin
-              WriteLn(': FAILED');
-              TFile.WriteAllText(lFile + '.failed.txt', lActualOutput);
-              lFailed := True;
-            end
-            else
-            begin
-              if TFile.Exists(lFile + '.failed.txt') then
+            lCompiledTemplate.SetData('obj', lItems[0]);
+            var lCustomers := GetCustomersDataset;
+            try
+              lCompiledTemplate.SetData('customers', lCustomers);
+              lCompiledTemplate.SetData('objects', lItems);
+              var lActualOutput := lCompiledTemplate.Render;
+              var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt');
+              if lActualOutput <> lExpectedOutput then
               begin
-                TFile.Delete(lFile + '.failed.txt');
+                WriteLn(': FAILED');
+                TFile.WriteAllText(lFile + '.failed.txt', lActualOutput);
+                lFailed := True;
+              end
+              else
+              begin
+                if TFile.Exists(lFile + '.failed.txt') then
+                begin
+                  TFile.Delete(lFile + '.failed.txt');
+                end;
+                WriteLn(': OK');
               end;
-              WriteLn(': OK');
+            finally
+              lCustomers.Free;
             end;
           finally
-            lCustomers.Free;
+            lItems.Free;
           end;
         finally
-          lItems.Free;
+          lCompiledTemplate.Free;
         end;
-      finally
-        lCompiledTemplate.Free;
+      except
+        on E: Exception do
+        begin
+          Writeln(' : FAIL - ' + E.Message);
+          lFailed := True;
+        end;
       end;
     end;
   finally

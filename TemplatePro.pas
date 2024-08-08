@@ -25,7 +25,6 @@ interface
 uses
   System.Generics.Collections,
   MVCFramework.Rtti.Utils,
-  MVCFramework.DuckTyping,
   Classes,
   SysUtils,
   Data.DB,
@@ -36,11 +35,11 @@ type
 
   end;
 
-  EParserException = class(ETProException)
+  ETProParserException = class(ETProException)
 
   end;
 
-  ERenderException = class(ETProException)
+  ETProRenderException = class(ETProException)
 
   end;
 
@@ -106,7 +105,6 @@ type
     function MatchEndTag: Boolean;
     function MatchVariable(var aIdentifier: string): Boolean;
     function MatchReset(var aDataSet: string): Boolean;
-//    function MatchField(var aDataSet: string; var aFieldName: string): Boolean;
     function MatchSymbol(const aSymbol: string): Boolean;
   private
     fInputString: string;
@@ -116,6 +114,7 @@ type
     fTemplateFunctions: TDictionary<string, TTemplateFunction>;
     procedure Error(const aMessage: string);
     function Step: Char;
+    function LookAhead: Char;
     function CurrentChar: Char;
     function ExecuteFunction(aFunctionName: string; aParameters: TArray<string>; aValue: string): string;
 
@@ -124,7 +123,7 @@ type
     procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
     procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
   public
-    function Compile(const aTemplateString: string): TTProCompiledTemplate; overload;
+    function Compile(const aTemplate: string): TTProCompiledTemplate; overload;
     constructor Create(aEncoding: TEncoding = nil);
     destructor Destroy; override;
     procedure AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
@@ -135,14 +134,14 @@ function HTMLEntitiesEncode(s: string): string;
 implementation
 
 uses
-  System.StrUtils;
+  System.StrUtils, TemplatePro.Utils;
 
 const
   IdenfierAllowedFirstChars = ['a' .. 'z', 'A' .. 'Z', '_'];
   IdenfierAllowedChars = IdenfierAllowedFirstChars + ['0' .. '9'];
   ValueAllowedChars = IdenfierAllowedChars + [' ', '-', '+', '*', '.', '@', '/', '\']; // maybe a lot others
-  START_TAG_1 = '{{';
-  END_TAG_1 = '}}';
+  START_TAG = '{{';
+  END_TAG = '}}';
 
   { TParser }
 
@@ -191,7 +190,7 @@ end;
 
 function TTProCompiler.MatchEndTag: Boolean;
 begin
-  Result := MatchSymbol(END_TAG_1);
+  Result := MatchSymbol(END_TAG);
 end;
 
 function TTProCompiler.MatchVariable(var aIdentifier: string): Boolean;
@@ -233,7 +232,7 @@ end;
 
 function TTProCompiler.MatchStartTag: Boolean;
 begin
-  Result := MatchSymbol(START_TAG_1);
+  Result := MatchSymbol(START_TAG);
 end;
 
 function TTProCompiler.MatchSymbol(const aSymbol: string): Boolean;
@@ -261,7 +260,7 @@ begin
   Result := CurrentChar;
 end;
 
-function TTProCompiler.Compile(const aTemplateString: string): TTProCompiledTemplate;
+function TTProCompiler.Compile(const aTemplate: string): TTProCompiledTemplate;
 var
   lSectionStack: array [0..49] of Integer; //max 50 nested loops
   lCurrentSectionIndex: Integer;
@@ -299,12 +298,12 @@ begin
   fCurrentLine := 1;
   lCurrentIfIndex := -1;
   lCurrentSectionIndex := -1;
-  fInputString := aTemplateString;
+  fInputString := aTemplate;
   lTokens := TList<TToken>.Create;
   try
     lStartVerbatim := 0;
     Step;
-    while fCharIndex <= aTemplateString.Length do
+    while fCharIndex <= fInputString.Length do
     begin
       lChar := CurrentChar;
       if lChar = #0 then //eof
@@ -313,7 +312,7 @@ begin
         if lEndVerbatim - lStartVerbatim > 0 then
         begin
           lLastToken := ttContent;
-          lTokens.Add(TToken.Create(lLastToken, aTemplateString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
+          lTokens.Add(TToken.Create(lLastToken, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
         end;
         lTokens.Add(TToken.Create(ttEOF, ''));
         Break;
@@ -324,7 +323,7 @@ begin
         lEndVerbatim := fCharIndex - Length(sLineBreak);
         if lEndVerbatim - lStartVerbatim > 0 then
         begin
-          lTokens.Add(TToken.Create(ttContent, aTemplateString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
+          lTokens.Add(TToken.Create(ttContent, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
         end;
         lStartVerbatim := fCharIndex;
         lEndVerbatim := lStartVerbatim;
@@ -333,12 +332,22 @@ begin
         Inc(fCurrentLine);
       end else if MatchStartTag then         {starttag}
       begin
-        lEndVerbatim := fCharIndex - Length(START_TAG_1);
+        lEndVerbatim := fCharIndex - Length(START_TAG);
 
         if lEndVerbatim - lStartVerbatim > 0 then
         begin
           lLastToken := ttContent;
-          lTokens.Add(TToken.Create(lLastToken, aTemplateString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
+          lTokens.Add(TToken.Create(lLastToken, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
+        end;
+
+        if CurrentChar = START_TAG[1] then
+        begin
+          lLastToken := ttContent;
+          lTokens.Add(TToken.Create(lLastToken, START_TAG));
+          Inc(fCharIndex);
+          lStartVerbatim := fCharIndex;
+          lEndVerbatim := lStartVerbatim;
+          Continue;
         end;
 
         if MatchSymbol('loop') then {loop}
@@ -488,7 +497,7 @@ begin
           }
           if not MatchEndTag then
           begin
-            Error('Expected end tag "' + END_TAG_1 + '"');
+            Error('Expected end tag "' + END_TAG + '"');
           end;
           lStartVerbatim := fCharIndex;
           lEndVerbatim := lStartVerbatim;
@@ -553,7 +562,7 @@ end;
 
 procedure TTProCompiler.Error(const aMessage: string);
 begin
-  raise EParserException.CreateFmt('%s - at line %d', [aMessage, fCurrentLine]);
+  raise ETProParserException.CreateFmt('%s - at line %d', [aMessage, fCurrentLine]);
 end;
 
 procedure TTProCompiler.CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>);
@@ -601,9 +610,14 @@ begin
 
   if not fTemplateFunctions.TryGetValue(aFunctionName, lFunc) then
   begin
-    raise EParserException.CreateFmt('Unknown function [%s]', [aFunctionName]);
+    raise ETProParserException.CreateFmt('Unknown function [%s]', [aFunctionName]);
   end;
   Result := lFunc(aParameters, aValue);
+end;
+
+function TTProCompiler.LookAhead: Char;
+begin
+  Result := fInputString.Chars[fCharIndex+1];
 end;
 
 function TTProCompiler.ExecuteFieldFunction(aFunctionName: string; aParameters: TArray<string>;
@@ -935,7 +949,7 @@ end;
 
 procedure TTProCompiledTemplate.Error(const aMessage: String);
 begin
-  raise ERenderException.Create(aMessage);
+  raise ETProRenderException.Create(aMessage);
 end;
 
 procedure TTProCompiledTemplate.ForEachToken(
@@ -961,7 +975,7 @@ var
   lFieldName: string;
   lLastTag: TTokenType;
   lVariable: TVarInfo;
-  lWrapped: IMVCList;
+  lWrapped: ITProWrappedList;
   lJumpTo: Integer;
 begin
   lLastTag := ttEOF;
@@ -991,7 +1005,7 @@ begin
               Error(Format('Cannot iterate over a not iterable object [%s]', [fTokens[lIdx].Value]));
             end else if viListOfObject in lVariable.VarOption then
             begin
-              lWrapped := TDuckTypedList.Wrap(lVariable.VarValue.AsObject);
+              lWrapped := WrapAsList(lVariable.VarValue.AsObject);
               if lVariable.VarIterator = lWrapped.Count - 1 then
               begin
                 lIdx := fTokens[lIdx].Ref1; //skip to endif
@@ -1023,7 +1037,7 @@ begin
               end;
             end else if viListOfObject in lVariable.VarOption then
             begin
-              lWrapped := TDuckTypedList.Wrap(lVariable.VarValue.AsObject);
+              lWrapped := TTProDuckTypedList.Wrap(lVariable.VarValue.AsObject);
               if lVariable.VarIterator < lWrapped.Count - 1 then
               begin
                 lIdx := fTokens[lIdx].Ref1; //skip to loop
@@ -1076,7 +1090,7 @@ begin
               TDataset(lVariable.VarValue.AsObject).First;
             end else if viListOfObject in lVariable.VarOption then
             begin
-              lWrapped := TDuckTypedList.Wrap(lVariable.VarValue.AsObject);
+              lWrapped := TTProDuckTypedList.Wrap(lVariable.VarValue.AsObject);
               lVariable.VarIterator := -1;
             end;
           end
@@ -1200,7 +1214,7 @@ end;
 procedure TTProCompiledTemplate.SetData(const Name: String;
   Value: TValue);
 var
-  lMVCList: IMVCList;
+  lMVCList: ITProWrappedList;
 begin
   case Value.Kind of
     tkClass:
@@ -1211,9 +1225,9 @@ begin
       end
       else
       begin
-        if TDuckTypedList.CanBeWrappedAsList(Value.AsObject, lMVCList) then
+        if TTProDuckTypedList.CanBeWrappedAsList(Value.AsObject, lMVCList) then
         begin
-          GetVariables.Add(Name, TVarInfo.Create(TDuckTypedList(Value.AsObject), [viListOfObject], -1));
+          GetVariables.Add(Name, TVarInfo.Create(TTProDuckTypedList(Value.AsObject), [viListOfObject], -1));
         end
         else
         begin
