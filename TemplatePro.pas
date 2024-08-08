@@ -24,10 +24,10 @@ interface
 
 uses
   System.Generics.Collections,
-  MVCFramework.Rtti.Utils,
-  Classes,
-  SysUtils,
+  System.Classes,
+  System.SysUtils,
   Data.DB,
+  System.DateUtils,
   System.RTTI;
 
 type
@@ -44,13 +44,13 @@ type
   end;
 
 
-  TTokenType = (ttContent, ttLoop, ttEndLoop, ttIfThen, ttElse, ttEndIf, ttStartTag, ttEndTag, ttValue, ttReset, ttField, ttLineBreak, ttEOF);
+  TTokenType = (ttContent, ttLoop, ttEndLoop, ttIfThen, ttElse, ttEndIf, ttStartTag, ttEndTag, ttValue, ttFilterName, ttFilterParameter, ttReset, ttLineBreak, ttEOF);
   TIfThenElseIndex = record
     IfThenIndex, ElseIndex: Int64;
   end;
   const
     TOKEN_TYPE_DESCR: array [Low(TTokenType)..High(TTokenType)] of string =
-      ('ttContent', 'ttLoop', 'ttEndLoop', 'ttIfThen', 'ttElse', 'ttEndIf', 'ttStartTag', 'ttEndTag', 'ttValue', 'ttReset', 'ttField', 'ttLineBreak', 'ttEOF');
+      ('ttContent', 'ttLoop', 'ttEndLoop', 'ttIfThen', 'ttElse', 'ttEndIf', 'ttStartTag', 'ttEndTag', 'ttValue', 'ttFilterName', 'ttFilterParameter', 'ttReset', 'ttLineBreak', 'ttEOF');
   type
     TToken = packed record
       TokenType: TTokenType;
@@ -62,7 +62,7 @@ type
 
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
 
-  TTemplateFunction = reference to function(aParameters: TArray<string>; const aValue: string): string;
+  TTemplateFunction = reference to function(const aValue: TValue; const aParameters: TArray<string>): string;
 
   TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject);
   TTProVariablesInfos = set of TTProVariablesInfo;
@@ -84,18 +84,23 @@ type
   private
     fTokens: TList<TToken>;
     fVariables: TTProVariables;
+    fTemplateFunctions: TDictionary<string, TTemplateFunction>;
     constructor Create(Tokens: TList<TToken>);
     procedure Error(const aMessage: String);
-    function InternalRender: String;
     function GetVarAsString(const aName: string): string;
     function GetVarAsTValue(const aName: string): TValue;
     function EvaluateIfExpression(aIdentifier: string): Boolean;
     function GetVariables: TTProVariables;
+    function ExecuteFilter(aFunctionName: string; aParameters: TArray<string>; aValue: TValue): string;
+    procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
+    procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
   public
+    destructor Destroy; override;
     function Render: String;
     procedure ForEachToken(const TokenProc: TTokenWalkProc);
     procedure ClearData;
     procedure SetData(const Name: String; Value: TValue); overload;
+    procedure AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
   end;
 
   TTProCompiler = class
@@ -104,6 +109,7 @@ type
     function MatchStartTag: Boolean;
     function MatchEndTag: Boolean;
     function MatchVariable(var aIdentifier: string): Boolean;
+    function MatchFilterParamValue(var aParamValue: string): Boolean;
     function MatchReset(var aDataSet: string): Boolean;
     function MatchSymbol(const aSymbol: string): Boolean;
   private
@@ -111,22 +117,13 @@ type
     fCharIndex: Int64;
     fCurrentLine: Integer;
     fEncoding: TEncoding;
-    fTemplateFunctions: TDictionary<string, TTemplateFunction>;
     procedure Error(const aMessage: string);
     function Step: Char;
-    function LookAhead: Char;
     function CurrentChar: Char;
-    function ExecuteFunction(aFunctionName: string; aParameters: TArray<string>; aValue: string): string;
-
-    function ExecuteFieldFunction(aFunctionName: string; aParameters: TArray<string>; aValue: TValue): string;
-
-    procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
-    procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
+//    function ExecuteFunction(aFunctionName: string; aParameters: TArray<string>; aValue: string): string;
   public
     function Compile(const aTemplate: string): TTProCompiledTemplate; overload;
     constructor Create(aEncoding: TEncoding = nil);
-    destructor Destroy; override;
-    procedure AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
   end;
 
 function HTMLEntitiesEncode(s: string): string;
@@ -145,12 +142,12 @@ const
 
   { TParser }
 
-procedure TTProCompiler.AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
+procedure TTProCompiledTemplate.AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
 begin
   fTemplateFunctions.Add(FunctionName.ToLower, FunctionImpl);
 end;
 
-procedure TTProCompiler.CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
+procedure TTProCompiledTemplate.CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
   const aParameters: TArray<string>);
 var
   lParNumber: Integer;
@@ -173,19 +170,11 @@ begin
     fEncoding := TEncoding.UTF8 { default encoding }
   else
     fEncoding := aEncoding;
-  fOutput := '';
-  fTemplateFunctions := TDictionary<string, TTemplateFunction>.Create;
 end;
 
 function TTProCompiler.CurrentChar: Char;
 begin
   Result := fInputString.Chars[fCharIndex];
-end;
-
-destructor TTProCompiler.Destroy;
-begin
-  fTemplateFunctions.Free;
-  inherited;
 end;
 
 function TTProCompiler.MatchEndTag: Boolean;
@@ -196,6 +185,7 @@ end;
 function TTProCompiler.MatchVariable(var aIdentifier: string): Boolean;
 var
   lTmp: String;
+  lFuncName: String;
 begin
   lTmp := '';
   Result := False;
@@ -222,6 +212,26 @@ begin
     end;
   end;
 end;
+
+function TTProCompiler.MatchFilterParamValue(var aParamValue: string): Boolean;
+var
+  lTmp: String;
+  lFuncName: String;
+begin
+  lTmp := '';
+  Result := False;
+  if CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) then
+  begin
+    while CharInSet(fInputString.Chars[fCharIndex], ValueAllowedChars) do
+    begin
+      lTmp := lTmp + fInputString.Chars[fCharIndex];
+      Inc(fCharIndex);
+    end;
+    Result := True;
+    aParamValue := lTmp;
+  end;
+end;
+
 
 function TTProCompiler.MatchReset(var aDataSet: string): Boolean;
 begin
@@ -280,6 +290,9 @@ var
   lIndexOfLatestLoopStatement: Integer;
   lIndexOfLatestElseStatement: Int64;
   lNegation: Boolean;
+  lFuncParams: TArray<String>;
+  lFuncParamsCount: Integer;
+  I: Integer;
   function GetFunctionParameters: TArray<string>;
   var
     lFuncPar: string;
@@ -288,7 +301,7 @@ var
     while MatchSymbol(':') do
     begin
       lFuncPar := '';
-      if not MatchVariable(lFuncPar) then
+      if not MatchFilterParamValue(lFuncPar) then
         Error('Expected function parameter');
       Result := Result + [lFuncPar];
     end;
@@ -326,7 +339,6 @@ begin
           lTokens.Add(TToken.Create(ttContent, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
         end;
         lStartVerbatim := fCharIndex;
-        lEndVerbatim := lStartVerbatim;
         lLastToken := ttLineBreak;
         lTokens.Add(TToken.Create(lLastToken, ''));
         Inc(fCurrentLine);
@@ -346,7 +358,6 @@ begin
           lTokens.Add(TToken.Create(lLastToken, START_TAG));
           Inc(fCharIndex);
           lStartVerbatim := fCharIndex;
-          lEndVerbatim := lStartVerbatim;
           Continue;
         end;
 
@@ -366,7 +377,6 @@ begin
           lLastToken := ttLoop;
           lTokens.Add(TToken.Create(lLastToken, lIdentifier));
           lStartVerbatim := fCharIndex;
-          lEndVerbatim := lStartVerbatim;
         end else if MatchSymbol('endloop') then //endloop
         begin
           if not MatchEndTag then
@@ -385,7 +395,6 @@ begin
 
           Dec(lCurrentSectionIndex);
           lStartVerbatim := fCharIndex;
-          lEndVerbatim := lStartVerbatim;
         end else if MatchSymbol('endif') then
         begin
           if lCurrentIfIndex = -1 then
@@ -424,7 +433,6 @@ begin
 
           Dec(lCurrentIfIndex);
           lStartVerbatim := fCharIndex;
-          lEndVerbatim := lStartVerbatim;
         end else if MatchSymbol('if') then
         begin
           if not MatchSymbol('(') then
@@ -446,7 +454,6 @@ begin
           lIfStatementStack[lCurrentIfIndex].IfThenIndex := lTokens.Count - 1;
           lIfStatementStack[lCurrentIfIndex].ElseIndex := -1;
           lStartVerbatim := fCharIndex;
-          lEndVerbatim := lStartVerbatim;
         end else if MatchSymbol('else') then
         begin
           if not MatchEndTag then
@@ -463,7 +470,6 @@ begin
             lIfStatementStack[lIndexOfLatestIfStatement].ElseIndex, {ttIfThen.Ref1 points always to relative else (if present otherwise -1)}
             -1);
           lStartVerbatim := fCharIndex;
-          lEndVerbatim := lStartVerbatim;
         end else if MatchReset(lIdentifier) then  {reset}
         begin
           if not MatchEndTag then
@@ -471,38 +477,42 @@ begin
           lLastToken := ttReset;
           lTokens.Add(TToken.Create(lLastToken, lIdentifier));
           lStartVerbatim := fCharIndex;
-          lEndVerbatim := lStartVerbatim;
           Step;
         end else if MatchVariable(lVarName) then {variable}
         begin
           if lVarName.IsEmpty then
             Error('Invalid variable name');
           lFuncName := '';
-          {
+          lFuncParamsCount := -1; {-1 means "no filter applied to value"}
+
           if MatchSymbol('|') then
           begin
-            if not MatchIdentifier(lFuncName) then
-              Error('Invalid function name');
+            if not MatchVariable(lFuncName) then
+              Error('Invalid function name applied to variable ' + lVarName);
             lFuncParams := GetFunctionParameters;
-            if not MatchEndTag then
-              Error('Expected end tag');
-            AppendOutput(ExecuteFunction(lFuncName, lFuncParams, GetVarAsString(lVarName)));
-          end
-          else
-          begin
-            if not MatchEndTag then
-              Error('Expected end tag');
-            AppendOutput(GetVarAsString(lVarName));
+            lFuncParamsCount := Length(lFuncParams);
           end;
-          }
+
           if not MatchEndTag then
           begin
             Error('Expected end tag "' + END_TAG + '"');
           end;
           lStartVerbatim := fCharIndex;
-          lEndVerbatim := lStartVerbatim;
           lLastToken := ttValue;
-          lTokens.Add(TToken.Create(lLastToken, lVarName));
+          lTokens.Add(TToken.Create(lLastToken, lVarName, lFuncParamsCount));
+
+          //add function with params
+          if not lFuncName.IsEmpty then
+          begin
+            lTokens.Add(TToken.Create(ttFilterName, lFuncName, lFuncParamsCount));
+            if lFuncParamsCount > 0 then
+            begin
+              for I := 0 to lFuncParamsCount -1 do
+              begin
+                lTokens.Add(TToken.Create(ttFilterParameter, lFuncParams[I]));
+              end;
+            end;
+          end;
         end else if MatchSymbol('#') then
         begin
           while not MatchEndTag do
@@ -510,7 +520,6 @@ begin
             Step;
           end;
           lStartVerbatim := fCharIndex;
-          lEndVerbatim := lStartVerbatim;
         end
         else
         begin
@@ -519,8 +528,6 @@ begin
       end
       else
       begin
-        // output verbatim
-        Inc(lEndVerbatim);
         Step;
       end;
     end;
@@ -565,69 +572,70 @@ begin
   raise ETProParserException.CreateFmt('%s - at line %d', [aMessage, fCurrentLine]);
 end;
 
-procedure TTProCompiler.CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>);
+procedure TTProCompiledTemplate.CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>);
 begin
   CheckParNumber(aHowManyPars, aHowManyPars, aParameters);
 end;
 
-function TTProCompiler.ExecuteFunction(aFunctionName: string; aParameters: TArray<string>;
-  aValue: string): string;
-var
-  lFunc: TTemplateFunction;
-begin
-  aFunctionName := lowercase(aFunctionName);
-  if aFunctionName = 'tohtml' then
-  begin
-    Exit(HTMLEntitiesEncode(aValue));
-  end;
-  if aFunctionName = 'uppercase' then
-  begin
-    Exit(UpperCase(aValue));
-  end;
-  if aFunctionName = 'lowercase' then
-  begin
-    Exit(lowercase(aValue));
-  end;
-  if aFunctionName = 'capitalize' then
-  begin
-    Exit(CapitalizeString(aValue, True));
-  end;
-  if aFunctionName = 'rpad' then
-  begin
-    CheckParNumber(1, 2, aParameters);
-    if Length(aParameters) = 1 then
-      Exit(aValue.PadRight(aParameters[0].ToInteger))
-    else
-      Exit(aValue.PadRight(aParameters[0].ToInteger, aParameters[1].Chars[0]));
-  end;
-  if aFunctionName = 'lpad' then
-  begin
-    if Length(aParameters) = 1 then
-      Exit(aValue.PadLeft(aParameters[0].ToInteger))
-    else
-      Exit(aValue.PadLeft(aParameters[0].ToInteger, aParameters[1].Chars[0]));
-  end;
-
-  if not fTemplateFunctions.TryGetValue(aFunctionName, lFunc) then
-  begin
-    raise ETProParserException.CreateFmt('Unknown function [%s]', [aFunctionName]);
-  end;
-  Result := lFunc(aParameters, aValue);
-end;
-
-function TTProCompiler.LookAhead: Char;
-begin
-  Result := fInputString.Chars[fCharIndex+1];
-end;
-
-function TTProCompiler.ExecuteFieldFunction(aFunctionName: string; aParameters: TArray<string>;
+//function TTProCompiler.ExecuteFunction(aFunctionName: string; aParameters: TArray<string>;
+//  aValue: string): string;
+//var
+//  lFunc: TTemplateFunction;
+//begin
+//  aFunctionName := lowercase(aFunctionName);
+//  if aFunctionName = 'tohtml' then
+//  begin
+//    Exit(HTMLEntitiesEncode(aValue));
+//  end;
+//  if aFunctionName = 'uppercase' then
+//  begin
+//    Exit(UpperCase(aValue));
+//  end;
+//  if aFunctionName = 'lowercase' then
+//  begin
+//    Exit(lowercase(aValue));
+//  end;
+//  if aFunctionName = 'capitalize' then
+//  begin
+//    Exit(CapitalizeString(aValue, True));
+//  end;
+//  if aFunctionName = 'rpad' then
+//  begin
+//    CheckParNumber(1, 2, aParameters);
+//    if Length(aParameters) = 1 then
+//      Exit(aValue.PadRight(aParameters[0].ToInteger))
+//    else
+//      Exit(aValue.PadRight(aParameters[0].ToInteger, aParameters[1].Chars[0]));
+//  end;
+//  if aFunctionName = 'lpad' then
+//  begin
+//    if Length(aParameters) = 1 then
+//      Exit(aValue.PadLeft(aParameters[0].ToInteger))
+//    else
+//      Exit(aValue.PadLeft(aParameters[0].ToInteger, aParameters[1].Chars[0]));
+//  end;
+//
+//  if not fTemplateFunctions.TryGetValue(aFunctionName, lFunc) then
+//  begin
+//    raise ETProParserException.CreateFmt('Unknown function [%s]', [aFunctionName]);
+//  end;
+//  Result := lFunc(aParameters, aValue);
+//end;
+//
+function TTProCompiledTemplate.ExecuteFilter(aFunctionName: string; aParameters: TArray<string>;
   aValue: TValue): string;
 var
   lDateValue: TDate;
   lDateTimeValue: TDateTime;
   lStrValue: string;
+  lDateAsString: string;
+  lFunc: TTemplateFunction;
 begin
   aFunctionName := lowercase(aFunctionName);
+  if fTemplateFunctions.TryGetValue(aFunctionName, lFunc) then
+  begin
+    Exit(lFunc(aValue, aParameters));
+  end;
   if aFunctionName = 'tohtml' then
   begin
     Exit(HTMLEntitiesEncode(aValue.AsString));
@@ -698,8 +706,17 @@ begin
   if aFunctionName = 'formatdatetime' then
   begin
     CheckParNumber(1, aParameters);
-    if not aValue.TryAsType<TDateTime>(lDateTimeValue) then
-      Error('Invalid DateTime');
+    if aValue.IsType<String> then
+    begin
+      lDateAsString := aValue.AsString;
+      //lDateTimeValue := ISO8601ToDate(aValue.AsString, False);
+      lDateTimeValue := StrToDate(aValue.AsString);
+    end
+    else
+    begin
+      if not aValue.TryAsType<TDateTime>(lDateTimeValue) then
+        Error('Invalid DateTime');
+    end;
     Exit(FormatDateTime(aParameters[0], lDateTimeValue));
   end;
 
@@ -945,6 +962,13 @@ constructor TTProCompiledTemplate.Create(Tokens: TList<TToken>);
 begin
   inherited Create;
   fTokens := Tokens;
+  fTemplateFunctions := TDictionary<string, TTemplateFunction>.Create;
+end;
+
+destructor TTProCompiledTemplate.Destroy;
+begin
+  fTemplateFunctions.Free;
+  inherited;
 end;
 
 procedure TTProCompiledTemplate.Error(const aMessage: String);
@@ -963,8 +987,7 @@ begin
   end;
 end;
 
-
-function TTProCompiledTemplate.InternalRender: String;
+function TTProCompiledTemplate.Render: String;
 var
   lIdx: UInt64;
   lBuff: TStringBuilder;
@@ -977,6 +1000,11 @@ var
   lVariable: TVarInfo;
   lWrapped: ITProWrappedList;
   lJumpTo: Integer;
+  lFilterParCount: Integer;
+  lFilterParameters: TArray<String>;
+  I: Integer;
+  lFilterName: string;
+  lVarName: string;
 begin
   lLastTag := ttEOF;
   lBuff := TStringBuilder.Create;
@@ -1076,11 +1104,27 @@ begin
           lIdx := fTokens[lIdx].Ref2;
           Continue;
         end;
-        ttEndIf: begin end;
-        ttStartTag: begin end;
-        ttEndTag : begin end;
+        ttEndIf, ttStartTag, ttEndTag : begin end;
         ttValue: begin
-          lBuff.Append(HTMLEntitiesEncode(GetVarAsString(fTokens[lIdx].Value)));
+          if fTokens[lIdx].Ref1 > -1 {has a function with Ref1 parameters} then
+          begin
+            lVarName := fTokens[lIdx].Value;
+            Inc(lIdx);
+            lFilterName := fTokens[lIdx].Value;
+            lFilterParCount := fTokens[lIdx].Ref1;  // parameter count
+            SetLength(lFilterParameters, lFilterParCount);
+            for I := 0 to lFilterParCount - 1 do
+            begin
+              Inc(lIdx);
+              Assert(fTokens[lIdx].TokenType = ttFilterParameter);
+              lFilterParameters[I] := fTokens[lIdx].Value;
+            end;
+            lBuff.Append(HTMLEntitiesEncode(ExecuteFilter(lFilterName, lFilterParameters, GetVarAsTValue(lVarName))));
+          end
+          else
+          begin
+            lBuff.Append(HTMLEntitiesEncode(GetVarAsString(fTokens[lIdx].Value)));
+          end;
         end;
         ttReset: begin
           if GetVariables.TryGetValue(fTokens[lIdx].Value, lVariable) then
@@ -1095,7 +1139,6 @@ begin
             end;
           end
         end;
-        ttField: begin end;
         ttLineBreak: begin
           if not (lLastTag in [ttLoop, ttEndLoop, ttIfThen, ttEndIf, ttReset, ttElse]) then
           begin
@@ -1117,11 +1160,6 @@ begin
   end;
 end;
 
-function TTProCompiledTemplate.Render: String;
-begin
-  Result := InternalRender();
-end;
-
 function TTProCompiledTemplate.GetVarAsString(const aName: string): string;
 var
   lValue: TValue;
@@ -1137,12 +1175,11 @@ begin
   end;
 end;
 
-function TTProCompiledTemplate.GetVarAsTValue(
-  const aName: string): TValue;
+function TTProCompiledTemplate.GetVarAsTValue(const aName: string): TValue;
 var
   lVariable: TVarInfo;
   lPieces: TArray<String>;
-  lDS: TDataSet;
+  lField: TField;
 begin
   lPieces := aName.Split(['.']);
   Result := '';
@@ -1150,16 +1187,22 @@ begin
   begin
     if viDataSet in lVariable.VarOption then
     begin
-      lDS := TDataSet(lVariable.VarValue.AsObject);
-      Result := lDS.FieldByName(lPieces[1]);
+      lField := TDataSet(lVariable.VarValue.AsObject).FieldByName(lPieces[1]);
+      case lField.DataType of
+        ftInteger: Result := lField.AsInteger;
+        ftLargeint: Result := lField.AsLargeInt;
+        ftString, ftWideString: Result := lField.AsWideString;
+        else
+          Error('Invalid data type for field ' + lPieces[1]);
+      end;
     end
     else if viListOfObject in lVariable.VarOption then
     begin
-      Result := TRttiUtils.GetProperty(WrapAsList(lVariable.VarValue.AsObject).GetItem(lVariable.VarIterator), lPieces[1]);
+      Result := TTProRTTIUtils.GetProperty(WrapAsList(lVariable.VarValue.AsObject).GetItem(lVariable.VarIterator), lPieces[1]);
     end
     else if viObject in lVariable.VarOption then
     begin
-      Result := TRttiUtils.GetProperty(lVariable.VarValue.AsObject, lPieces[1]);
+      Result := TTProRTTIUtils.GetProperty(lVariable.VarValue.AsObject, lPieces[1]);
     end
     else if viSimpleType in lVariable.VarOption then
     begin
@@ -1199,22 +1242,9 @@ begin
   end;
 end;
 
-
-//procedure TTProCompiledTemplate.SetData(const Name: String;
-//  Value: TValue);
-//begin
-////  GetVariables.Add(Name, Value);
-//end;
-
-//procedure TTProCompiledTemplate.SetCollectionData<T>(const Name: String; Value: TObjectList<T>);
-//begin
-//  GetVariables.Add(Name, TTPObjectListAdapter<T>.Create(Value));
-//end;
-
-procedure TTProCompiledTemplate.SetData(const Name: String;
-  Value: TValue);
+procedure TTProCompiledTemplate.SetData(const Name: String; Value: TValue);
 var
-  lMVCList: ITProWrappedList;
+  lWrappedList: ITProWrappedList;
 begin
   case Value.Kind of
     tkClass:
@@ -1225,7 +1255,7 @@ begin
       end
       else
       begin
-        if TTProDuckTypedList.CanBeWrappedAsList(Value.AsObject, lMVCList) then
+        if TTProDuckTypedList.CanBeWrappedAsList(Value.AsObject, lWrappedList) then
         begin
           GetVariables.Add(Name, TVarInfo.Create(TTProDuckTypedList(Value.AsObject), [viListOfObject], -1));
         end

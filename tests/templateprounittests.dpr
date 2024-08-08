@@ -11,7 +11,7 @@ uses
   System.Classes,
   UtilsU in 'UtilsU.pas',
   TemplatePro in '..\TemplatePro.pas',
-  TemplatePro.Utils in '..\TemplatePro.Utils.pas';
+  TemplatePro.Utils in '..\TemplatePro.Utils.pas', System.Rtti;
 
 procedure Main;
 var
@@ -37,6 +37,12 @@ begin
           lCompiledTemplate.SetData('value4','DANIELE4');
           lCompiledTemplate.SetData('value5','DANIELE5');
           lCompiledTemplate.SetData('value6','DANIELE6');
+          lCompiledTemplate.SetData('valuedate', EncodeDate(2024,8,20));
+          lCompiledTemplate.AddTemplateFunction('sayhello',
+            function(const aValue: TValue; const aParameters: TArray<string>): string
+            begin
+              Result := 'Hello There';
+            end);
           lItems := GetItems;
           try
             lCompiledTemplate.SetData('obj', lItems[0]);

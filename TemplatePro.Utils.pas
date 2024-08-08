@@ -53,6 +53,15 @@ type
     class function Wrap(const AObjectAsDuck: TObject): ITProWrappedList; static;
   end;
 
+  TTProRTTIUtils = class sealed
+  private
+    class var GlContext: TRttiContext;
+    class constructor Create;
+    class destructor Destroy;
+  public
+    class function GetProperty(AObject: TObject; const APropertyName: string): TValue;
+  end;
+
 function WrapAsList(const AObject: TObject): ITProWrappedList;
 
 implementation
@@ -61,6 +70,36 @@ function WrapAsList(const AObject: TObject): ITProWrappedList;
 begin
   Result := TTProDuckTypedList.Wrap(AObject);
 end;
+
+
+class function TTProRTTIUtils.GetProperty(AObject: TObject; const APropertyName: string): TValue;
+var
+  Prop: TRttiProperty;
+  ARttiType: TRttiType;
+begin
+  ARttiType := GlContext.GetType(AObject.ClassType);
+  if not Assigned(ARttiType) then
+    raise Exception.CreateFmt('Cannot get RTTI for type [%s]', [ARttiType.ToString]);
+  Prop := ARttiType.GetProperty(APropertyName);
+  if not Assigned(Prop) then
+    raise Exception.CreateFmt('Cannot get RTTI for property [%s.%s]', [ARttiType.ToString, APropertyName]);
+  if Prop.IsReadable then
+    Result := Prop.GetValue(AObject)
+  else
+    raise Exception.CreateFmt('Property is not readable [%s.%s]', [ARttiType.ToString, APropertyName]);
+end;
+
+class constructor TTProRTTIUtils.Create;
+begin
+  GlContext := TRttiContext.Create;
+end;
+
+
+class destructor TTProRTTIUtils.Destroy;
+begin
+  GlContext.Free;
+end;
+
 
 { TDuckTypedList }
 
