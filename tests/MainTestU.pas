@@ -28,7 +28,7 @@ begin
       lFileName := 'testcases\test10';
       lInput := TFile.ReadAllText(lFileName + '.input', TEncoding.UTF8);
       lOutput := TFile.ReadAllText(lFileName + '.output', TEncoding.UTF8);
-      lTPro.Execute(lInput, lOutputStream);
+      lTPro.Compile(lInput, lOutputStream);
       lOutputWithoutBOM := lOutputStream.DataString.Substring(3);
       if lOutputWithoutBOM <> lOutput then
       begin

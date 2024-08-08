@@ -18,12 +18,14 @@
 //
 // ***************************************************************************
 
-unit TemplateProU;
+unit TemplatePro;
 
 interface
 
 uses
   System.Generics.Collections,
+  MVCFramework.Rtti.Utils,
+  MVCFramework.DuckTyping,
   Classes,
   SysUtils,
   Data.DB,
@@ -43,114 +45,68 @@ type
   end;
 
 
-  ITPDataSourceAdapter = interface
-    ['{9A0E5797-A8D2-413F-A8B0-5D6E67DD1701}']
-    function CurrentIndex: Int64;
-    procedure Reset;
-    function GetMemberValue(const aMemberName: string): string;
-    procedure Next;
-    function Eof: Boolean;
+  TTokenType = (ttContent, ttLoop, ttEndLoop, ttIfThen, ttElse, ttEndIf, ttStartTag, ttEndTag, ttValue, ttReset, ttField, ttLineBreak, ttEOF);
+  TIfThenElseIndex = record
+    IfThenIndex, ElseIndex: Int64;
   end;
-
-  TTokenType = (ttContent, ttLoop, ttEndLoop, ttIfThen, ttEndIf, ttStartTag, ttEndTag, ttDataField, ttValue, ttReset, ttField, ttLineBreak);
-
   const
     TOKEN_TYPE_DESCR: array [Low(TTokenType)..High(TTokenType)] of string =
-      ('ttContent', 'ttLoop', 'ttEndLoop', 'ttIfThen', 'ttEndIf', 'ttStartTag', 'ttEndTag', 'ttDataField', 'ttValue', 'ttReset', 'ttField', 'ttLineBreak');
+      ('ttContent', 'ttLoop', 'ttEndLoop', 'ttIfThen', 'ttElse', 'ttEndIf', 'ttStartTag', 'ttEndTag', 'ttValue', 'ttReset', 'ttField', 'ttLineBreak', 'ttEOF');
   type
     TToken = packed record
       TokenType: TTokenType;
       Value: String;
-      Ref: Integer;
-      class function Create(TokType: TTokenType; Value: String; Ref: Integer = -1): TToken; static;
+      Ref1, Ref2: Integer;
+      class function Create(TokType: TTokenType; Value: String; Ref1: Integer = -1; Ref2: Integer = -1): TToken; static;
       function TokenTypeAsString: String;
     end;
 
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
-  ITemplateProCompiledTemplate = interface
-    ['{39479EBA-3558-4293-8C5F-B36C0F849F55}']
-    function Render {(
-      const aObjectNames: array of string;
-      const aObjects: array of TObjectList<TObject>;
-      const aDataSetNames: array of string;
-      const aDataSets: array of TDataSet)}: String;
-    procedure SetData(const Name: String; Value: TValue); overload;
-    procedure SetData(const Name: String; Value: TObject); overload;
-    procedure ForEachToken(const TokenProc: TTokenWalkProc);
-  end;
-
-//  TTPDatasetDictionary = class(TDictionary<string, TDataSet>);
-//
-//  TTPObjectListDictionary = class(TObjectDictionary < string, TObjectList < TObject >> );
-  TTPDatasetAdapter = class(TInterfacedObject, ITPDataSourceAdapter)
-  private
-    fDataSet: TDataSet;
-  public
-    constructor Create(const aDataSet: TDataSet);
-  protected
-    function CurrentIndex: Int64;
-    procedure Reset;
-    function GetMemberValue(const aMemberName: string): string;
-    procedure Next;
-    function Eof: Boolean;
-  end;
-
-  TTPObjectListAdapter = class(TInterfacedObject, ITPDataSourceAdapter)
-  private
-  class var
-    CTX: TRttiContext;
-    fObjectList: TObjectList<TObject>;
-    fIndex: Integer;
-  public
-    constructor Create(const aObjectList: TObjectList<TObject>);
-    class constructor Create;
-    class destructor Destroy;
-  protected
-    function Current: TObject;
-    function CurrentIndex: Int64;
-    procedure Reset;
-    function GetMemberValue(const aMemberName: string): string;
-    procedure Next;
-    function Eof: Boolean;
-  end;
-
 
   TTemplateFunction = reference to function(aParameters: TArray<string>; const aValue: string): string;
 
+  TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject);
+  TTProVariablesInfos = set of TTProVariablesInfo;
 
-  TTemplateProCompiledTemplate = class(TInterfacedObject, ITemplateProCompiledTemplate)
+
+  TVarInfo = class
+    VarValue: TValue;
+    VarOption: TTProVariablesInfos;
+    VarIterator: Int64;
+    constructor Create(const VarValue: TValue; const VarOption: TTProVariablesInfos; const VarIterator: Int64);
+  end;
+
+  TTProVariables = class(TObjectDictionary<string, TVarInfo>)
+  public
+    constructor Create;
+  end;
+
+  TTemplateProCompiledTemplate = class
   private
     fTokens: TList<TToken>;
-    fDataSources: TDictionary<string, ITPDataSourceAdapter>;
-    fVariables: TDictionary<string, TValue>;
+    fVariables: TTProVariables;
     constructor Create(Tokens: TList<TToken>);
     procedure Error(const aMessage: String);
     function InternalRender: String;
-    function GetFieldText(const aFieldName: string): string;
     function GetVarAsString(const aName: string): string;
-    function EvaluateIfExpression(const aIdentifier: string): Boolean;
-    function GetDataSource: TDictionary<string, ITPDataSourceAdapter>;
-    function GetVariables: TDictionary<string, TValue>;
-    procedure ClearVariables;
-    procedure SetVar(const aName: string; aValue: string);
-  protected
+    function GetVarAsTValue(const aName: string): TValue;
+    function EvaluateIfExpression(aIdentifier: string): Boolean;
+    function GetVariables: TTProVariables;
+  public
     function Render: String;
     procedure ForEachToken(const TokenProc: TTokenWalkProc);
-    procedure SetData(const Name: String; Value: TObject); overload;
+    procedure ClearData;
     procedure SetData(const Name: String; Value: TValue); overload;
-    procedure SetData(const Name: String; Value: TDataSet); overload;
   end;
 
   TTemplateProEngine = class
   strict private
     fOutput: string;
-    fVariables: TDictionary<string, string>;
     function MatchStartTag: Boolean;
     function MatchEndTag: Boolean;
-    function MatchIdentifier(var aIdentifier: string): Boolean;
-    function MatchValue(var aValue: string): Boolean;
+    function MatchVariable(var aIdentifier: string): Boolean;
     function MatchReset(var aDataSet: string): Boolean;
-    function MatchField(var aDataSet: string; var aFieldName: string): Boolean;
+//    function MatchField(var aDataSet: string; var aFieldName: string): Boolean;
     function MatchSymbol(const aSymbol: string): Boolean;
   private
     fInputString: string;
@@ -158,11 +114,9 @@ type
     fCurrentLine: Integer;
     fEncoding: TEncoding;
     fTemplateFunctions: TDictionary<string, TTemplateFunction>;
-    fInThen: Boolean;
-    fInElse: Boolean;
-
     procedure Error(const aMessage: string);
-
+    function Step: Char;
+    function CurrentChar: Char;
     function ExecuteFunction(aFunctionName: string; aParameters: TArray<string>; aValue: string): string;
 
     function ExecuteFieldFunction(aFunctionName: string; aParameters: TArray<string>; aValue: TValue): string;
@@ -170,7 +124,7 @@ type
     procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
     procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
   public
-    function Compile(const aTemplateString: string): ITemplateProCompiledTemplate; overload;
+    function Compile(const aTemplateString: string): TTemplateProCompiledTemplate; overload;
     constructor Create(aEncoding: TEncoding = nil);
     destructor Destroy; override;
     procedure AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
@@ -221,90 +175,60 @@ begin
   else
     fEncoding := aEncoding;
   fOutput := '';
-  fVariables := TDictionary<string, string>.Create;
   fTemplateFunctions := TDictionary<string, TTemplateFunction>.Create;
+end;
+
+function TTemplateProEngine.CurrentChar: Char;
+begin
+  Result := fInputString.Chars[fCharIndex];
 end;
 
 destructor TTemplateProEngine.Destroy;
 begin
   fTemplateFunctions.Free;
-  fVariables.Free;
   inherited;
 end;
-
-//function TTemplateProEngine.SetDataSourceByName(const aName: string): Boolean;
-//var
-//  ds: TPair<string, ITPDataSourceAdapter>;
-//begin
-//  { TODO -oDanieleT -cGeneral : Refactor this method to use GetDataSourceByName }
-//  Result := False;
-//  for ds in fDataSources do
-//  begin
-//    if SameText(ds.Key, aName) then
-//    begin
-//      fCurrentDataSource := ds.Value;
-//      Result := True;
-//      Break;
-//    end;
-//  end;
-//end;
-
-//function TTemplateProEngine.GetDataSourceByName(const aName: string; out aDataSource: ITPDataSourceAdapter): Boolean;
-//var
-//  ds: TPair<string, ITPDataSourceAdapter>;
-//begin
-//  Result := False;
-//  for ds in fDataSources do
-//  begin
-//    if SameText(ds.Key, aName) then
-//    begin
-//      aDataSource := ds.Value;
-//      Result := True;
-//      Break;
-//    end;
-//  end;
-//end;
 
 function TTemplateProEngine.MatchEndTag: Boolean;
 begin
   Result := MatchSymbol(END_TAG_1);
 end;
 
-function TTemplateProEngine.MatchField(var aDataSet: string; var aFieldName: string): Boolean;
+function TTemplateProEngine.MatchVariable(var aIdentifier: string): Boolean;
+var
+  lTmp: String;
 begin
-  Result := False;
-  aFieldName := '';
-  if not MatchSymbol(':') then
-    Exit;
-  if not MatchIdentifier(aDataSet) then
-    Error('Expected dataset name');
-  if not MatchSymbol('.') then
-    Error('Expected "."');
-  if not MatchIdentifier(aFieldName) then
-    Error('Expected field name');
-  Result := True;
-end;
-
-function TTemplateProEngine.MatchIdentifier(var aIdentifier: string): Boolean;
-begin
-  aIdentifier := '';
+  lTmp := '';
   Result := False;
   if CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedFirstChars) then
   begin
     while CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) do
     begin
-      aIdentifier := aIdentifier + fInputString.Chars[fCharIndex];
+      lTmp := lTmp + fInputString.Chars[fCharIndex];
       Inc(fCharIndex);
     end;
     Result := True;
-  end
+    aIdentifier := lTmp;
+  end;
+  if Result then
+  begin
+    while MatchSymbol('.') do
+    begin
+      lTmp := '';
+      if not MatchVariable(lTmp) then
+      begin
+        Error('Expected identifier after ' + aIdentifier);
+      end;
+      aIdentifier := aIdentifier + '.' + lTmp;
+    end;
+  end;
 end;
 
 function TTemplateProEngine.MatchReset(var aDataSet: string): Boolean;
 begin
   if not MatchSymbol('reset') then
     Exit(False);
-  Result := MatchSymbol('(') and MatchIdentifier(aDataSet) and MatchSymbol(')');
+  Result := MatchSymbol('(') and MatchVariable(aDataSet) and MatchSymbol(')');
 end;
 
 function TTemplateProEngine.MatchStartTag: Boolean;
@@ -331,37 +255,32 @@ begin
     fCharIndex := lSavedCharIndex;
 end;
 
-function TTemplateProEngine.MatchValue(var aValue: string): Boolean;
+function TTemplateProEngine.Step: Char;
 begin
-  aValue := '';
-  while CharInSet(fInputString.Chars[fCharIndex], ValueAllowedChars) do
-  begin
-    aValue := aValue + fInputString.Chars[fCharIndex];
-    Inc(fCharIndex);
-  end;
-  Result := not aValue.IsEmpty;
+  Inc(fCharIndex);
+  Result := CurrentChar;
 end;
 
-function TTemplateProEngine.Compile(const aTemplateString: string): ITemplateProCompiledTemplate;
+function TTemplateProEngine.Compile(const aTemplateString: string): TTemplateProCompiledTemplate;
 var
   lSectionStack: array [0..49] of Integer; //max 50 nested loops
   lCurrentSectionIndex: Integer;
 
-  lIfStatementStack: array [0..49] of Integer; //max 50 nested ifs
+  lIfStatementStack: array [0..49] of TIfThenElseIndex; //max 50 nested ifs
   lCurrentIfIndex: Integer;
-
+  lLastToken: TTokenType;
   lChar: Char;
   lVarName: string;
   lFuncName: string;
   lIdentifier: string;
-  lDataSet: string;
-  lFieldName: string;
-  lFuncParams: TArray<string>;
-  lDataSourceName: string;
+  //lFuncParams: TArray<string>;
   lStartVerbatim: UInt64;
   lEndVerbatim: UInt64;
   lTokens: TList<TToken>;
   lIndexOfLatestIfStatement: UInt64;
+  lIndexOfLatestLoopStatement: Integer;
+  lIndexOfLatestElseStatement: Int64;
+  lNegation: Boolean;
   function GetFunctionParameters: TArray<string>;
   var
     lFuncPar: string;
@@ -370,23 +289,11 @@ var
     while MatchSymbol(':') do
     begin
       lFuncPar := '';
-      if not MatchValue(lFuncPar) then
+      if not MatchVariable(lFuncPar) then
         Error('Expected function parameter');
       Result := Result + [lFuncPar];
     end;
   end;
-
-  function CurrentChar: Char;
-  begin
-    Result := aTemplateString.Chars[fCharIndex];
-  end;
-
-  function Step: Char;
-  begin
-    Inc(fCharIndex);
-    Result := CurrentChar;
-  end;
-
 begin
   fCharIndex := -1;
   fCurrentLine := 1;
@@ -396,8 +303,7 @@ begin
   lTokens := TList<TToken>.Create;
   try
     lStartVerbatim := 0;
-    lEndVerbatim := 0;
-    lChar := Step;
+    Step;
     while fCharIndex <= aTemplateString.Length do
     begin
       lChar := CurrentChar;
@@ -406,13 +312,14 @@ begin
         lEndVerbatim := fCharIndex;
         if lEndVerbatim - lStartVerbatim > 0 then
         begin
-          lTokens.Add(TToken.Create(ttContent, aTemplateString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
+          lLastToken := ttContent;
+          lTokens.Add(TToken.Create(lLastToken, aTemplateString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
         end;
+        lTokens.Add(TToken.Create(ttEOF, ''));
         Break;
       end;
 
-      // linebreak
-      if MatchSymbol(sLineBreak) then
+      if MatchSymbol(sLineBreak) then         {linebreak}
       begin
         lEndVerbatim := fCharIndex - Length(sLineBreak);
         if lEndVerbatim - lStartVerbatim > 0 then
@@ -421,28 +328,24 @@ begin
         end;
         lStartVerbatim := fCharIndex;
         lEndVerbatim := lStartVerbatim;
-        lTokens.Add(TToken.Create(ttLineBreak, ''));
-        lChar := CurrentChar;
-        Continue;
-      end;
-
-      // starttag
-      if MatchStartTag then
+        lLastToken := ttLineBreak;
+        lTokens.Add(TToken.Create(lLastToken, ''));
+        Inc(fCurrentLine);
+      end else if MatchStartTag then         {starttag}
       begin
-        lChar := CurrentChar;
         lEndVerbatim := fCharIndex - Length(START_TAG_1);
+
         if lEndVerbatim - lStartVerbatim > 0 then
         begin
-          lTokens.Add(TToken.Create(ttContent, aTemplateString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
+          lLastToken := ttContent;
+          lTokens.Add(TToken.Create(lLastToken, aTemplateString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
         end;
 
-        // loop
-        if MatchSymbol('loop') then
+        if MatchSymbol('loop') then {loop}
         begin
-          lChar := CurrentChar;
           if not MatchSymbol('(') then
             Error('Expected "("');
-          if not MatchIdentifier(lIdentifier) then
+          if not MatchVariable(lIdentifier) then
             Error('Expected identifier after "loop("');
           if not MatchSymbol(')') then
             Error('Expected ")" after "' + lIdentifier + '"');
@@ -451,28 +354,30 @@ begin
           // create another element in the sections stack
           Inc(lCurrentSectionIndex);
           lSectionStack[lCurrentSectionIndex] := lTokens.Count;
-          lTokens.Add(TToken.Create(ttLoop, lIdentifier));
+          lLastToken := ttLoop;
+          lTokens.Add(TToken.Create(lLastToken, lIdentifier));
           lStartVerbatim := fCharIndex;
           lEndVerbatim := lStartVerbatim;
-        end;
-
-        if MatchSymbol('endloop') then //endloop
+        end else if MatchSymbol('endloop') then //endloop
         begin
-          lChar := CurrentChar;
           if not MatchEndTag then
             Error('Expected closing tag');
           if lCurrentSectionIndex = -1 then
           begin
             Error('endloop without loop');
           end;
-          lTokens.Add(TToken.Create(ttEndLoop, '', lSectionStack[lCurrentSectionIndex]));
+          lLastToken := ttEndLoop;
+          lTokens.Add(TToken.Create(lLastToken, '', lSectionStack[lCurrentSectionIndex]));
+
+          // let the loop know where the endloop is
+          lIndexOfLatestLoopStatement := lSectionStack[lCurrentSectionIndex];
+          lTokens[lIndexOfLatestLoopStatement] :=
+            TToken.Create(ttLoop, lTokens[lIndexOfLatestLoopStatement].Value, lTokens.Count - 1);
+
           Dec(lCurrentSectionIndex);
           lStartVerbatim := fCharIndex;
           lEndVerbatim := lStartVerbatim;
-          Continue;
-        end;
-
-        if MatchSymbol('endif') then
+        end else if MatchSymbol('endif') then
         begin
           if lCurrentIfIndex = -1 then
           begin
@@ -482,110 +387,85 @@ begin
           begin
             Error('Expected closing tag for "endif"');
           end;
-          lTokens.Add(TToken.Create(ttEndIf, ''));
+
+          lLastToken := ttEndIf;
+          lTokens.Add(TToken.Create(lLastToken, ''));
 
           // jumps handling...
-          lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex];
+          lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex].IfThenIndex;
+
+          //rewrite current "ifthen" references
           lTokens[lIndexOfLatestIfStatement] :=
-            TToken.Create(ttIfThen, lTokens[lIndexOfLatestIfStatement].Value, lTokens.Count - 1);
+            TToken.Create(ttIfThen,
+              lTokens[lIndexOfLatestIfStatement].Value,
+              lTokens[lIndexOfLatestIfStatement].Ref1,
+              lTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
+
+          //rewrite current (if available) "else" references
+          //if lIfStatementStack[lCurrentIfIndex].ElseIndex > -1 then
+          if lTokens[lIndexOfLatestIfStatement].Ref1 > -1 then
+          begin
+            lIndexOfLatestElseStatement := lTokens[lIndexOfLatestIfStatement].Ref1;
+            lTokens[lIndexOfLatestElseStatement] :=
+              TToken.Create(ttElse,
+                lTokens[lIndexOfLatestElseStatement].Value,
+                -1 {Ref1 is not used by ttElse},
+                lTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
+          end;
 
           Dec(lCurrentIfIndex);
           lStartVerbatim := fCharIndex;
           lEndVerbatim := lStartVerbatim;
-          Continue;
-        end;
-
-        if MatchSymbol('if') then
+        end else if MatchSymbol('if') then
         begin
           if not MatchSymbol('(') then
             Error('Expected "("');
-          if not MatchIdentifier(lIdentifier) then
+          lNegation := MatchSymbol('!');
+          if not MatchVariable(lIdentifier) then
             Error('Expected identifier after "if("');
           if not MatchSymbol(')') then
             Error('Expected ")" after "' + lIdentifier + '"');
           if not MatchEndTag then
             Error('Expected closing tag for "if(' + lIdentifier + ')"');
-
-          lTokens.Add(TToken.Create(ttIfThen, lIdentifier));
-          Inc(lCurrentIfIndex);
-          lIfStatementStack[lCurrentIfIndex] := lTokens.Count - 1;
-          lStartVerbatim := fCharIndex;
-          lEndVerbatim := lStartVerbatim;
-          Continue;
-        end;
-
-//        if MatchSymbol('else') then
-//        begin
-//          if lCurrentIfIndex = -1 then
-//          begin
-//            Error('"else" without if');
-//          end;
-//          if not MatchEndTag then
-//          begin
-//            Error('Expected end-tag');
-//          end;
-//
-//          lTokens.Add(TToken.Create(ttElse, '', lIfStatementStack[lCurrentIfIndex]));
-//          Dec(lCurrentIfIndex);
-//          lStartVerbatim := fCharIndex;
-//          lEndVerbatim := lStartVerbatim;
-//          Continue;
-//        end;
-
-        // dataset field
-        if MatchField(lDataSourceName, lFieldName) then
-        begin
-          lChar := CurrentChar;
-          if lFieldName.IsEmpty then
-            Error('Invalid field name');
-          lFuncName := '';
-          {
-          if MatchSymbol('|') then
+          if lNegation then
           begin
-            if not MatchIdentifier(lFuncName) then
-              Error('Invalid function name');
-            lFuncParams := GetFunctionParameters;
-            if not MatchEndTag then
-              Error('Expected end tag');
-          end
-          else
-          begin
-            if not MatchEndTag then
-              Error('Expected closing tag');
-            if not SetDataSourceByName(lDataSourceName) then
-              Error('Unknown datasource: ' + lDataSourceName);
+            lIdentifier := '!' + lIdentifier;
           end;
-          }
-          {
-          if lFuncName.IsEmpty then
-            AppendOutput(GetFieldText(lFieldName))
-          else
-            AppendOutput(ExecuteFieldFunction(lFuncName, lFuncParams, GetFieldText(lFieldName)));
-          }
-          if not MatchEndTag then
-            Error('Expected closing tag');
-          lTokens.Add(TToken.Create(ttDataField, lDataSourceName + '.' + lFieldName));
+          lLastToken := ttIfThen;
+          lTokens.Add(TToken.Create(lLastToken, lIdentifier));
+          Inc(lCurrentIfIndex);
+          lIfStatementStack[lCurrentIfIndex].IfThenIndex := lTokens.Count - 1;
+          lIfStatementStack[lCurrentIfIndex].ElseIndex := -1;
           lStartVerbatim := fCharIndex;
           lEndVerbatim := lStartVerbatim;
-          Continue;
-        end;
+        end else if MatchSymbol('else') then
+        begin
+          if not MatchEndTag then
+            Error('Expected closing tag for "else"');
 
-        // reset
-        {
-        if MatchReset(lDataSet) then
+          lLastToken := ttElse;
+          lTokens.Add(TToken.Create(lLastToken, ''));
+
+          // jumps handling...
+          lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex].IfThenIndex;
+          lIfStatementStack[lIndexOfLatestIfStatement].ElseIndex := lTokens.Count - 1;
+          lTokens[lIndexOfLatestIfStatement] := TToken.Create(ttIfThen,
+            lTokens[lIndexOfLatestIfStatement].Value,
+            lIfStatementStack[lIndexOfLatestIfStatement].ElseIndex, {ttIfThen.Ref1 points always to relative else (if present otherwise -1)}
+            -1);
+          lStartVerbatim := fCharIndex;
+          lEndVerbatim := lStartVerbatim;
+        end else if MatchReset(lIdentifier) then  {reset}
         begin
           if not MatchEndTag then
             Error('Expected closing tag');
-          SetDataSourceByName(lDataSet);
-          fCurrentDataSource.Reset;
-          Continue;
-        end;
-        }
-
-        // identifier
-        if MatchIdentifier(lVarName) then
+          lLastToken := ttReset;
+          lTokens.Add(TToken.Create(lLastToken, lIdentifier));
+          lStartVerbatim := fCharIndex;
+          lEndVerbatim := lStartVerbatim;
+          Step;
+        end else if MatchVariable(lVarName) then {variable}
         begin
-          lChar := CurrentChar;
           if lVarName.IsEmpty then
             Error('Invalid variable name');
           lFuncName := '';
@@ -610,30 +490,29 @@ begin
           begin
             Error('Expected end tag "' + END_TAG_1 + '"');
           end;
-          lChar := CurrentChar;
           lStartVerbatim := fCharIndex;
           lEndVerbatim := lStartVerbatim;
-          lTokens.Add(TToken.Create(ttValue, lVarName));
-        end;
-
-        // comment
-        if MatchSymbol('#') then
+          lLastToken := ttValue;
+          lTokens.Add(TToken.Create(lLastToken, lVarName));
+        end else if MatchSymbol('#') then
         begin
           while not MatchEndTag do
           begin
-            lChar := Step;
+            Step;
           end;
-          lChar := CurrentChar;
           lStartVerbatim := fCharIndex;
           lEndVerbatim := lStartVerbatim;
-          //lTokens.Add(TToken.Create(ttValue, lVarName));
+        end
+        else
+        begin
+          Error('Expected command, got "' + CurrentChar + '"');
         end;
       end
       else
       begin
         // output verbatim
         Inc(lEndVerbatim);
-        lChar := Step;
+        Step;
       end;
     end;
     Result := TTemplateProCompiledTemplate.Create(lTokens);
@@ -813,106 +692,6 @@ begin
   Error(Format('Unknown function [%s]', [aFunctionName]));
 end;
 
-{ TTPDatasetAdapter }
-
-constructor TTPDatasetAdapter.Create(const aDataSet: TDataSet);
-begin
-  inherited Create;
-  fDataSet := aDataSet;
-end;
-
-function TTPDatasetAdapter.CurrentIndex: Int64;
-begin
-  Result := fDataSet.RecNo;
-end;
-
-function TTPDatasetAdapter.Eof: Boolean;
-begin
-  Result := fDataSet.Eof;
-end;
-
-function TTPDatasetAdapter.GetMemberValue(const aMemberName: string): string;
-begin
-  Result := fDataSet.FieldByName(aMemberName).AsWideString;
-end;
-
-procedure TTPDatasetAdapter.Next;
-begin
-  fDataSet.Next;
-end;
-
-procedure TTPDatasetAdapter.Reset;
-begin
-  fDataSet.First;
-end;
-
-{ TTPObjectListAdapter }
-
-constructor TTPObjectListAdapter.Create(const aObjectList: TObjectList<TObject>);
-begin
-  inherited Create;
-  fObjectList := aObjectList;
-  if fObjectList.Count > 0 then
-    fIndex := 0
-  else
-    fIndex := -1;
-end;
-
-class constructor TTPObjectListAdapter.Create;
-begin
-  TTPObjectListAdapter.CTX := TRttiContext.Create;
-end;
-
-function TTPObjectListAdapter.Current: TObject;
-begin
-  if fIndex <> -1 then
-    Result := fObjectList[fIndex]
-  else
-    raise Exception.Create('Empty DataSource');
-end;
-
-function TTPObjectListAdapter.CurrentIndex: Int64;
-begin
-  Result := fIndex;
-end;
-
-class destructor TTPObjectListAdapter.Destroy;
-begin
-  TTPObjectListAdapter.CTX.Free;
-end;
-
-function TTPObjectListAdapter.Eof: Boolean;
-begin
-  Result := fIndex = fObjectList.Count - 1;
-end;
-
-function TTPObjectListAdapter.GetMemberValue(const aMemberName: string): string;
-var
-  lRttiType: TRttiType;
-  lRttiProp: TRttiProperty;
-  lCurrentObj: TObject;
-begin
-  lCurrentObj := Current;
-  lRttiType := CTX.GetType(lCurrentObj.ClassInfo);
-  lRttiProp := lRttiType.GetProperty(aMemberName);
-  Result := lRttiProp.GetValue(lCurrentObj).AsString;
-end;
-
-procedure TTPObjectListAdapter.Next;
-begin
-  if Eof then
-    raise Exception.Create('DataSource is already at EOF');
-  Inc(fIndex);
-end;
-
-procedure TTPObjectListAdapter.Reset;
-begin
-  if fObjectList.Count > 0 then
-    fIndex := 0
-  else
-    fIndex := -1;
-end;
-
 function HTMLEntitiesEncode(s: string): string;
   procedure repl(var s: string; r: string; posi: Integer);
   begin
@@ -924,8 +703,8 @@ var
   I: Integer;
   r: string;
 begin
-  I := 0;
-  while I < Length(s) do
+  I := 1;
+  while I <= Length(s) do
   begin
     r := '';
     case ord(s[I]) of
@@ -1133,11 +912,12 @@ end;
 
 { TToken }
 
-class function TToken.Create(TokType: TTokenType; Value: String; Ref: Integer): TToken;
+class function TToken.Create(TokType: TTokenType; Value: String; Ref1: Integer; Ref2: Integer): TToken;
 begin
   Result.TokenType:= TokType;
   Result.Value := Value;
-  Result.Ref := Ref;
+  Result.Ref1 := Ref1;
+  Result.Ref2 := Ref2;
 end;
 
 function TToken.TokenTypeAsString: String;
@@ -1155,7 +935,7 @@ end;
 
 procedure TTemplateProCompiledTemplate.Error(const aMessage: String);
 begin
-  raise EParserException.Create(aMessage);
+  raise ERenderException.Create(aMessage);
 end;
 
 procedure TTemplateProCompiledTemplate.ForEachToken(
@@ -1174,71 +954,148 @@ function TTemplateProCompiledTemplate.InternalRender: String;
 var
   lIdx: UInt64;
   lBuff: TStringBuilder;
-  lDataSource: ITPDataSourceAdapter;
   lSectionStack: array[0..49] of String;
-  lSectionStackIndex: Integer;
+  lLoopStmIndex: Integer;
+  lDataSourceName: string;
+  lPieces: TArray<String>;
+  lFieldName: string;
+  lLastTag: TTokenType;
+  lVariable: TVarInfo;
+  lWrapped: IMVCList;
+  lJumpTo: Integer;
 begin
-  lSectionStackIndex := -1;
+  lLastTag := ttEOF;
   lBuff := TStringBuilder.Create;
   try
     lIdx := 0;
-    while True do
+    while fTokens[lIdx].TokenType <> ttEOF do
     begin
+      //Writeln(Format('%4d: %s', [lIdx, fTokens[lIdx].TokenTypeAsString]));
+      //Readln;
       case fTokens[lIdx].TokenType of
         ttContent: begin
-          lBuff.Append(fTokens[lIdx].Value);
+          lBuff.Append(HTMLEntitiesEncode(fTokens[lIdx].Value));
         end;
         ttLoop: begin
-          if GetDataSource.TryGetValue(fTokens[lIdx].Value, lDataSource) then
+          if GetVariables.TryGetValue(fTokens[lIdx].Value, lVariable) then
           begin
-            if lDataSource.Eof then
+            if viDataSet in lVariable.VarOption then
             begin
-              lIdx := fTokens[lIdx].Ref;
-              Continue;
+              if TDataset(lVariable.VarValue.AsObject).Eof then
+              begin
+                lIdx := fTokens[lIdx].Ref1; //skip to endif
+                Continue;
+              end
+            end else if viObject in lVariable.VarOption then
+            begin
+              Error(Format('Cannot iterate over a not iterable object [%s]', [fTokens[lIdx].Value]));
+            end else if viListOfObject in lVariable.VarOption then
+            begin
+              lWrapped := TDuckTypedList.Wrap(lVariable.VarValue.AsObject);
+              if lVariable.VarIterator = lWrapped.Count - 1 then
+              begin
+                lIdx := fTokens[lIdx].Ref1; //skip to endif
+                Continue;
+              end
+              else
+              begin
+                lVariable.VarIterator := lVariable.VarIterator + 1;
+              end;
             end;
-            Inc(lSectionStackIndex);
-            lSectionStack[lSectionStackIndex] := fTokens[lIdx].Value;
+          end
+          else
+          begin
+            Error(Format('Unknown variable in loop statement [%s]', [fTokens[lIdx].Value]));
           end;
         end;
         ttEndLoop: begin
-          if GetDataSource.TryGetValue(lSectionStack[lSectionStackIndex], lDataSource) then
+          lLoopStmIndex := fTokens[lIdx].Ref1;
+          lDataSourceName := fTokens[lLoopStmIndex].Value;
+          if GetVariables.TryGetValue(lDataSourceName, lVariable) then
           begin
-            lDataSource.Next;
-            if not lDataSource.Eof then
+            if viDataSet in lVariable.VarOption then
             begin
-              lIdx := fTokens[lIdx].Ref;
-              Continue;
+              TDataset(lVariable.VarValue.AsObject).Next;
+              if not TDataset(lVariable.VarValue.AsObject).Eof then
+              begin
+                lIdx := fTokens[lIdx].Ref1; //goto loop
+                Continue;
+              end;
+            end else if viListOfObject in lVariable.VarOption then
+            begin
+              lWrapped := TDuckTypedList.Wrap(lVariable.VarValue.AsObject);
+              if lVariable.VarIterator < lWrapped.Count - 1 then
+              begin
+                lIdx := fTokens[lIdx].Ref1; //skip to loop
+                Continue;
+              end;
+            end
+            else
+            begin
+              Error(Format('Cannot reset a not iterable object [%s]', [fTokens[lIdx].Value]));
             end;
           end;
         end;
         ttIfThen: begin
-          if not EvaluateIfExpression(fTokens[lIdx].Value) then
+          if EvaluateIfExpression(fTokens[lIdx].Value) then
           begin
-            lIdx := fTokens[lIdx].Ref; //jump to "endif"
+           //do nothing
+          end
+          else
+          begin
+            if fTokens[lIdx].Ref1 > -1 then
+            begin
+              lJumpTo := fTokens[lIdx].Ref1 + 1;
+              //jump to the statement "after" ttElse (if it is ttLineBreak, jump it)
+              if fTokens[lJumpTo].TokenType <> ttLineBreak then
+                lIdx := lJumpTo
+              else
+                lIdx := lJumpTo + 1;
+              Continue;
+            end;
+            lIdx := fTokens[lIdx].Ref2; //jump to "endif"
             Continue;
           end;
+        end;
+        ttElse: begin
+          //always jump to ttEndIf which it reference is at ttElse.Ref2
+          lIdx := fTokens[lIdx].Ref2;
+          Continue;
         end;
         ttEndIf: begin end;
         ttStartTag: begin end;
         ttEndTag : begin end;
-        ttDataField: begin end;
         ttValue: begin
-          lBuff.Append(GetVarAsString(fTokens[lIdx].Value));
+          lBuff.Append(HTMLEntitiesEncode(GetVarAsString(fTokens[lIdx].Value)));
         end;
-        ttReset: begin end;
+        ttReset: begin
+          if GetVariables.TryGetValue(fTokens[lIdx].Value, lVariable) then
+          begin
+            if viDataSet in lVariable.VarOption then
+            begin
+              TDataset(lVariable.VarValue.AsObject).First;
+            end else if viListOfObject in lVariable.VarOption then
+            begin
+              lWrapped := TDuckTypedList.Wrap(lVariable.VarValue.AsObject);
+              lVariable.VarIterator := -1;
+            end;
+          end
+        end;
         ttField: begin end;
         ttLineBreak: begin
-          lBuff.AppendLine;
+          if not (lLastTag in [ttLoop, ttEndLoop, ttIfThen, ttEndIf, ttReset, ttElse]) then
+          begin
+            lBuff.AppendLine;
+          end;
         end;
         else
-          raise ERenderException.Create('Invalid token: ' + fTokens[lIdx].TokenTypeAsString);
+        begin
+          Error('Invalid token: ' + fTokens[lIdx].TokenTypeAsString);
+        end;
       end;
 
+      lLastTag := fTokens[lIdx].TokenType;
       Inc(lIdx);
-      if lIdx = fTokens.Count then
-      begin
-        Break;
-      end;
     end;
     Result := lBuff.ToString;
   finally
@@ -1251,96 +1108,147 @@ begin
   Result := InternalRender();
 end;
 
-function TTemplateProCompiledTemplate.GetDataSource: TDictionary<string, ITPDataSourceAdapter>;
-begin
-  if not Assigned(fDataSources) then
-  begin
-    fDataSources := TDictionary<string, ITPDataSourceAdapter>.Create;
-  end;
-  Result := fDataSources;
-end;
-
-function TTemplateProCompiledTemplate.GetFieldText(const aFieldName: string): string;
-begin
-//  if not Assigned(fCurrentDataSource) then
-//    Error('Current datasource not set');
-//  Result := fCurrentDataSource.GetMemberValue(aFieldName);
-end;
-
 function TTemplateProCompiledTemplate.GetVarAsString(const aName: string): string;
 var
   lValue: TValue;
 begin
-  if GetVariables.TryGetValue(aName, lValue) then
+  lValue := GetVarAsTValue(aName);
+  if lValue.IsObject and (lValue.AsObject is TField) then
   begin
-    if lValue.IsType<Integer> then
-      Result := lValue.AsInteger.ToString
-    else if lValue.IsType<Boolean> then
-      Result := lValue.AsBoolean.ToString
-    else if lValue.IsType<Double> then
-      Result := lValue.AsExtended.ToString
-    else
-      Result := lValue.AsString;
+    Result := TField(lValue.AsObject).AsString;
   end
   else
   begin
-    Result := '';
+    Result := lValue.ToString;
   end;
 end;
 
-function TTemplateProCompiledTemplate.GetVariables: TDictionary<string, TValue>;
+function TTemplateProCompiledTemplate.GetVarAsTValue(
+  const aName: string): TValue;
+var
+  lVariable: TVarInfo;
+  lPieces: TArray<String>;
+  lDS: TDataSet;
+begin
+  lPieces := aName.Split(['.']);
+  Result := '';
+  if GetVariables.TryGetValue(lPieces[0], lVariable) then
+  begin
+    if viDataSet in lVariable.VarOption then
+    begin
+      lDS := TDataSet(lVariable.VarValue.AsObject);
+      Result := lDS.FieldByName(lPieces[1]);
+    end
+    else if viListOfObject in lVariable.VarOption then
+    begin
+      Result := TRttiUtils.GetProperty(WrapAsList(lVariable.VarValue.AsObject).GetItem(lVariable.VarIterator), lPieces[1]);
+    end
+    else if viObject in lVariable.VarOption then
+    begin
+      Result := TRttiUtils.GetProperty(lVariable.VarValue.AsObject, lPieces[1]);
+    end
+    else if viSimpleType in lVariable.VarOption then
+    begin
+      if lVariable.VarValue.IsEmpty then
+        Result := TValue.Empty
+      else
+        Result := lVariable.VarValue;
+    end;
+  end;
+end;
+
+function TTemplateProCompiledTemplate.GetVariables: TTProVariables;
 begin
   if not Assigned(fVariables) then
   begin
-    fVariables := TDictionary<string, TValue>.Create;
+    fVariables := TTProVariables.Create;
   end;
   Result := fVariables;
 end;
 
-function TTemplateProCompiledTemplate.EvaluateIfExpression(const aIdentifier: string): Boolean;
+function TTemplateProCompiledTemplate.EvaluateIfExpression(aIdentifier: string): Boolean;
 var
   lVarValue: String;
+  lNegation: Boolean;
 begin
+  lNegation := aIdentifier.StartsWith('!');
+  if lNegation then
+    aIdentifier := aIdentifier.Remove(0,1);
   lVarValue := GetVarAsString(aIdentifier);
   if SameText(lVarValue, 'false') or (lVarValue = '0') or lVarValue.IsEmpty then
   begin
-    Exit(False);
+    Exit(lNegation xor False);
   end
   else
   begin
-    Exit(True);
+    Exit(lNegation xor True);
   end;
 end;
 
 
+//procedure TTemplateProCompiledTemplate.SetData(const Name: String;
+//  Value: TValue);
+//begin
+////  GetVariables.Add(Name, Value);
+//end;
+
+//procedure TTemplateProCompiledTemplate.SetCollectionData<T>(const Name: String; Value: TObjectList<T>);
+//begin
+//  GetVariables.Add(Name, TTPObjectListAdapter<T>.Create(Value));
+//end;
+
 procedure TTemplateProCompiledTemplate.SetData(const Name: String;
   Value: TValue);
+var
+  lMVCList: IMVCList;
 begin
-  GetVariables.Add(Name, Value);
+  case Value.Kind of
+    tkClass:
+    begin
+      if Value.AsObject is TDataSet then
+      begin
+        GetVariables.Add(Name, TVarInfo.Create(Value.AsObject, [viDataSet], -1));
+      end
+      else
+      begin
+        if TDuckTypedList.CanBeWrappedAsList(Value.AsObject, lMVCList) then
+        begin
+          GetVariables.Add(Name, TVarInfo.Create(TDuckTypedList(Value.AsObject), [viListOfObject], -1));
+        end
+        else
+        begin
+          GetVariables.Add(Name, TVarInfo.Create(Value.AsObject, [viObject], -1));
+        end;
+      end;
+    end;
+    tkInteger, tkString, tkUString, tkFloat, tkEnumeration : GetVariables.Add(Name, TVarInfo.Create(Value, [viSimpleType], -1));
+    else
+      raise ETProException.Create('Invalid type for variable ' + Name);
+  end;
+
 end;
 
-procedure TTemplateProCompiledTemplate.SetData(const Name: String;
-  Value: TObject);
+
+procedure TTemplateProCompiledTemplate.ClearData;
 begin
-  GetVariables.Add(Name, Value);
+  GetVariables.Clear;
 end;
 
-procedure TTemplateProCompiledTemplate.SetVar(const aName: string; aValue: string);
+{ TVarInfo }
+
+constructor TVarInfo.Create(const VarValue: TValue;
+  const VarOption: TTProVariablesInfos; const VarIterator: Int64);
 begin
-//  fVariables.AddOrSetValue(aName, aValue);
+  Self.VarValue := VarValue;
+  Self.VarOption := VarOption;
+  Self.VarIterator := VarIterator;
 end;
 
+{ TTProVariables }
 
-procedure TTemplateProCompiledTemplate.ClearVariables;
+constructor TTProVariables.Create;
 begin
-//  fVariables.Clear;
-end;
-
-
-procedure TTemplateProCompiledTemplate.SetData(const Name: String;
-  Value: TDataSet);
-begin
-
+  inherited Create([doOwnsValues]);
 end;
 
 end.
