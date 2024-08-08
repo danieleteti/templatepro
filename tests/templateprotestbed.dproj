@@ -205,7 +205,7 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="..\TemplateProU.pas"/>
+        <DCCReference Include="..\TemplatePro.pas"/>
         <DCCReference Include="UtilsU.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>

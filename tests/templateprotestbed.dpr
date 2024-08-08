@@ -8,14 +8,14 @@ uses
   System.SysUtils,
   System.Generics.Collections,
   System.IOUtils,
-  TemplateProU in '..\TemplateProU.pas',
+  TemplatePro in '..\TemplatePro.pas',
   System.Classes,
   UtilsU in 'UtilsU.pas',
   Data.DB;
 
 procedure Main;
 var
-  lTPro: TTemplateProEngine;
+  lTPro: TTProCompiler;
   lInput: string;
   lItems: TObjectList<TDataItem>;
   lOutput: String;
@@ -23,7 +23,7 @@ var
 const
   FILENAME = 'testbed40';
 begin
-  lTPro := TTemplateProEngine.Create();
+  lTPro := TTProCompiler.Create();
   try
     lInput := TFile.ReadAllText(FILENAME + '.tpro');
     var lCompiledTemplate := lTPro.Compile(lInput);

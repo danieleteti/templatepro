@@ -1,12 +1,12 @@
 ﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
     <PropertyGroup>
-        <ProjectGuid>{C6B7CFF4-7886-4D36-8187-5034A43DC672}</ProjectGuid>
+        <ProjectGuid>{81DA5C16-CC2B-479C-B0AC-F13147AA1C47}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
-        <Projects Include="..\sample\templateprosample.dproj">
+        <Projects Include="templateprotestbed.dproj">
             <Dependencies/>
         </Projects>
-        <Projects Include="templateprotests.dproj">
+        <Projects Include="templateprounittests.dproj">
             <Dependencies/>
         </Projects>
     </ItemGroup>
@@ -17,32 +17,32 @@
             <Default.Personality/>
         </BorlandProject>
     </ProjectExtensions>
-    <Target Name="templateprosample">
-        <MSBuild Projects="..\sample\templateprosample.dproj"/>
+    <Target Name="templateprotestbed">
+        <MSBuild Projects="templateprotestbed.dproj"/>
     </Target>
-    <Target Name="templateprosample:Clean">
-        <MSBuild Projects="..\sample\templateprosample.dproj" Targets="Clean"/>
+    <Target Name="templateprotestbed:Clean">
+        <MSBuild Projects="templateprotestbed.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="templateprosample:Make">
-        <MSBuild Projects="..\sample\templateprosample.dproj" Targets="Make"/>
+    <Target Name="templateprotestbed:Make">
+        <MSBuild Projects="templateprotestbed.dproj" Targets="Make"/>
     </Target>
-    <Target Name="templateprotests">
-        <MSBuild Projects="templateprotests.dproj"/>
+    <Target Name="templateprounittests">
+        <MSBuild Projects="templateprounittests.dproj"/>
     </Target>
-    <Target Name="templateprotests:Clean">
-        <MSBuild Projects="templateprotests.dproj" Targets="Clean"/>
+    <Target Name="templateprounittests:Clean">
+        <MSBuild Projects="templateprounittests.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="templateprotests:Make">
-        <MSBuild Projects="templateprotests.dproj" Targets="Make"/>
+    <Target Name="templateprounittests:Make">
+        <MSBuild Projects="templateprounittests.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="templateprosample;templateprotests"/>
+        <CallTarget Targets="templateprotestbed;templateprounittests"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="templateprosample:Clean;templateprotests:Clean"/>
+        <CallTarget Targets="templateprotestbed:Clean;templateprounittests:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="templateprosample:Make;templateprotests:Make"/>
+        <CallTarget Targets="templateprotestbed:Make;templateprounittests:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

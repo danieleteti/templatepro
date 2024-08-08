@@ -81,7 +81,7 @@ type
     constructor Create;
   end;
 
-  TTemplateProCompiledTemplate = class
+  TTProCompiledTemplate = class
   private
     fTokens: TList<TToken>;
     fVariables: TTProVariables;
@@ -99,7 +99,7 @@ type
     procedure SetData(const Name: String; Value: TValue); overload;
   end;
 
-  TTemplateProEngine = class
+  TTProCompiler = class
   strict private
     fOutput: string;
     function MatchStartTag: Boolean;
@@ -124,7 +124,7 @@ type
     procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
     procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
   public
-    function Compile(const aTemplateString: string): TTemplateProCompiledTemplate; overload;
+    function Compile(const aTemplateString: string): TTProCompiledTemplate; overload;
     constructor Create(aEncoding: TEncoding = nil);
     destructor Destroy; override;
     procedure AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
@@ -146,12 +146,12 @@ const
 
   { TParser }
 
-procedure TTemplateProEngine.AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
+procedure TTProCompiler.AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTemplateFunction);
 begin
   fTemplateFunctions.Add(FunctionName.ToLower, FunctionImpl);
 end;
 
-procedure TTemplateProEngine.CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
+procedure TTProCompiler.CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
   const aParameters: TArray<string>);
 var
   lParNumber: Integer;
@@ -167,7 +167,7 @@ begin
 end;
 
 
-constructor TTemplateProEngine.Create(aEncoding: TEncoding = nil);
+constructor TTProCompiler.Create(aEncoding: TEncoding = nil);
 begin
   inherited Create;
   if aEncoding = nil then
@@ -178,23 +178,23 @@ begin
   fTemplateFunctions := TDictionary<string, TTemplateFunction>.Create;
 end;
 
-function TTemplateProEngine.CurrentChar: Char;
+function TTProCompiler.CurrentChar: Char;
 begin
   Result := fInputString.Chars[fCharIndex];
 end;
 
-destructor TTemplateProEngine.Destroy;
+destructor TTProCompiler.Destroy;
 begin
   fTemplateFunctions.Free;
   inherited;
 end;
 
-function TTemplateProEngine.MatchEndTag: Boolean;
+function TTProCompiler.MatchEndTag: Boolean;
 begin
   Result := MatchSymbol(END_TAG_1);
 end;
 
-function TTemplateProEngine.MatchVariable(var aIdentifier: string): Boolean;
+function TTProCompiler.MatchVariable(var aIdentifier: string): Boolean;
 var
   lTmp: String;
 begin
@@ -224,19 +224,19 @@ begin
   end;
 end;
 
-function TTemplateProEngine.MatchReset(var aDataSet: string): Boolean;
+function TTProCompiler.MatchReset(var aDataSet: string): Boolean;
 begin
   if not MatchSymbol('reset') then
     Exit(False);
   Result := MatchSymbol('(') and MatchVariable(aDataSet) and MatchSymbol(')');
 end;
 
-function TTemplateProEngine.MatchStartTag: Boolean;
+function TTProCompiler.MatchStartTag: Boolean;
 begin
   Result := MatchSymbol(START_TAG_1);
 end;
 
-function TTemplateProEngine.MatchSymbol(const aSymbol: string): Boolean;
+function TTProCompiler.MatchSymbol(const aSymbol: string): Boolean;
 var
   lSymbolIndex: Integer;
   lSavedCharIndex: Int64;
@@ -255,13 +255,13 @@ begin
     fCharIndex := lSavedCharIndex;
 end;
 
-function TTemplateProEngine.Step: Char;
+function TTProCompiler.Step: Char;
 begin
   Inc(fCharIndex);
   Result := CurrentChar;
 end;
 
-function TTemplateProEngine.Compile(const aTemplateString: string): TTemplateProCompiledTemplate;
+function TTProCompiler.Compile(const aTemplateString: string): TTProCompiledTemplate;
 var
   lSectionStack: array [0..49] of Integer; //max 50 nested loops
   lCurrentSectionIndex: Integer;
@@ -515,7 +515,7 @@ begin
         Step;
       end;
     end;
-    Result := TTemplateProCompiledTemplate.Create(lTokens);
+    Result := TTProCompiledTemplate.Create(lTokens);
   except
     on E: Exception do
     begin
@@ -551,17 +551,17 @@ begin
   end; // if
 end;
 
-procedure TTemplateProEngine.Error(const aMessage: string);
+procedure TTProCompiler.Error(const aMessage: string);
 begin
   raise EParserException.CreateFmt('%s - at line %d', [aMessage, fCurrentLine]);
 end;
 
-procedure TTemplateProEngine.CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>);
+procedure TTProCompiler.CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>);
 begin
   CheckParNumber(aHowManyPars, aHowManyPars, aParameters);
 end;
 
-function TTemplateProEngine.ExecuteFunction(aFunctionName: string; aParameters: TArray<string>;
+function TTProCompiler.ExecuteFunction(aFunctionName: string; aParameters: TArray<string>;
   aValue: string): string;
 var
   lFunc: TTemplateFunction;
@@ -606,7 +606,7 @@ begin
   Result := lFunc(aParameters, aValue);
 end;
 
-function TTemplateProEngine.ExecuteFieldFunction(aFunctionName: string; aParameters: TArray<string>;
+function TTProCompiler.ExecuteFieldFunction(aFunctionName: string; aParameters: TArray<string>;
   aValue: TValue): string;
 var
   lDateValue: TDate;
@@ -925,20 +925,20 @@ begin
   Result := TOKEN_TYPE_DESCR[self.TokenType];
 end;
 
-{ TTemplateProCompiledTemplate }
+{ TTProCompiledTemplate }
 
-constructor TTemplateProCompiledTemplate.Create(Tokens: TList<TToken>);
+constructor TTProCompiledTemplate.Create(Tokens: TList<TToken>);
 begin
   inherited Create;
   fTokens := Tokens;
 end;
 
-procedure TTemplateProCompiledTemplate.Error(const aMessage: String);
+procedure TTProCompiledTemplate.Error(const aMessage: String);
 begin
   raise ERenderException.Create(aMessage);
 end;
 
-procedure TTemplateProCompiledTemplate.ForEachToken(
+procedure TTProCompiledTemplate.ForEachToken(
   const TokenProc: TTokenWalkProc);
 var
   I: Integer;
@@ -950,7 +950,7 @@ begin
 end;
 
 
-function TTemplateProCompiledTemplate.InternalRender: String;
+function TTProCompiledTemplate.InternalRender: String;
 var
   lIdx: UInt64;
   lBuff: TStringBuilder;
@@ -1103,12 +1103,12 @@ begin
   end;
 end;
 
-function TTemplateProCompiledTemplate.Render: String;
+function TTProCompiledTemplate.Render: String;
 begin
   Result := InternalRender();
 end;
 
-function TTemplateProCompiledTemplate.GetVarAsString(const aName: string): string;
+function TTProCompiledTemplate.GetVarAsString(const aName: string): string;
 var
   lValue: TValue;
 begin
@@ -1123,7 +1123,7 @@ begin
   end;
 end;
 
-function TTemplateProCompiledTemplate.GetVarAsTValue(
+function TTProCompiledTemplate.GetVarAsTValue(
   const aName: string): TValue;
 var
   lVariable: TVarInfo;
@@ -1157,7 +1157,7 @@ begin
   end;
 end;
 
-function TTemplateProCompiledTemplate.GetVariables: TTProVariables;
+function TTProCompiledTemplate.GetVariables: TTProVariables;
 begin
   if not Assigned(fVariables) then
   begin
@@ -1166,7 +1166,7 @@ begin
   Result := fVariables;
 end;
 
-function TTemplateProCompiledTemplate.EvaluateIfExpression(aIdentifier: string): Boolean;
+function TTProCompiledTemplate.EvaluateIfExpression(aIdentifier: string): Boolean;
 var
   lVarValue: String;
   lNegation: Boolean;
@@ -1186,18 +1186,18 @@ begin
 end;
 
 
-//procedure TTemplateProCompiledTemplate.SetData(const Name: String;
+//procedure TTProCompiledTemplate.SetData(const Name: String;
 //  Value: TValue);
 //begin
 ////  GetVariables.Add(Name, Value);
 //end;
 
-//procedure TTemplateProCompiledTemplate.SetCollectionData<T>(const Name: String; Value: TObjectList<T>);
+//procedure TTProCompiledTemplate.SetCollectionData<T>(const Name: String; Value: TObjectList<T>);
 //begin
 //  GetVariables.Add(Name, TTPObjectListAdapter<T>.Create(Value));
 //end;
 
-procedure TTemplateProCompiledTemplate.SetData(const Name: String;
+procedure TTProCompiledTemplate.SetData(const Name: String;
   Value: TValue);
 var
   lMVCList: IMVCList;
@@ -1229,7 +1229,7 @@ begin
 end;
 
 
-procedure TTemplateProCompiledTemplate.ClearData;
+procedure TTProCompiledTemplate.ClearData;
 begin
   GetVariables.Clear;
 end;

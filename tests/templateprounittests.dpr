@@ -8,18 +8,18 @@ uses
   System.SysUtils,
   System.Generics.Collections,
   System.IOUtils,
-  TemplateProU in '..\TemplateProU.pas',
   System.Classes,
-  UtilsU in 'UtilsU.pas';
+  UtilsU in 'UtilsU.pas',
+  TemplatePro in '..\TemplatePro.pas';
 
 procedure Main;
 var
-  lTPro: TTemplateProEngine;
+  lTPro: TTProCompiler;
   lInput: string;
   lItems: TObjectList<TDataItem>;
 begin
   var lFailed := False;
-  lTPro := TTemplateProEngine.Create;
+  lTPro := TTProCompiler.Create;
   try
     var lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro');
     for var lFile in lInputFileNames do
@@ -28,15 +28,6 @@ begin
       Write(TPath.GetFileName(lFile));
       var lCompiledTemplate := lTPro.Compile(lInput);
       try
-//        lCompiledTemplate.ForEachToken(
-//          procedure(const Index: Integer; const Token: TToken)
-//          begin
-//            WriteLn('[' + Index.ToString.PadLeft(3, '0') + '] ' +
-//                          Token.TokenTypeAsString.PadRight(20) + ' - VALUE = ' +
-//                          Token.Value.PadRight(30) + ' - REF = ' +
-//                          Token.Ref.ToString);
-//          end);
-        //Readln;
         lCompiledTemplate.SetData('value0','true');
         lCompiledTemplate.SetData('value1','true');
         lCompiledTemplate.SetData('value2','DANIELE2');
@@ -80,7 +71,7 @@ begin
   finally
     lTPro.Free;
   end;
-  if {lFailed and} (DebugHook <> 0) then
+  if lFailed or (DebugHook <> 0) then
   begin
     Readln;
   end;
