@@ -211,7 +211,6 @@
         </DelphiCompile>
         <DCCReference Include="UtilsU.pas"/>
         <DCCReference Include="..\TemplatePro.pas"/>
-        <DCCReference Include="..\TemplatePro.Utils.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

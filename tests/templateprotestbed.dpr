@@ -12,7 +12,7 @@ uses
   System.Classes,
   UtilsU in 'UtilsU.pas',
   Data.DB,
-  TemplatePro.Utils in '..\TemplatePro.Utils.pas', System.Rtti;
+  System.Rtti;
 
 procedure Main;
 var

@@ -8,10 +8,10 @@ uses
   System.SysUtils,
   System.Generics.Collections,
   System.IOUtils,
+  System.Rtti,
   System.Classes,
   UtilsU in 'UtilsU.pas',
-  TemplatePro in '..\TemplatePro.pas',
-  TemplatePro.Utils in '..\TemplatePro.Utils.pas', System.Rtti;
+  TemplatePro in '..\TemplatePro.pas';
 
 procedure Main;
 var
