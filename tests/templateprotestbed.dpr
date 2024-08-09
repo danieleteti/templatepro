@@ -22,7 +22,7 @@ var
   lOutput: String;
   lCustomers: TDataSet;
 const
-  FILENAME = 'testbed60';
+  FILENAME = 'testbed70';
 begin
   try
     lTPro := TTProCompiler.Create();
@@ -81,12 +81,7 @@ begin
       Writeln(E.Message);
     end;
   end;
-  if DebugHook <> 0 then
-  begin
-    Writeln;
-    Write('Press return to EXIT');
-    ReadLn;
-  end;
+
 end;
 
 
@@ -97,5 +92,9 @@ begin
     on E: Exception do
       Writeln(E.ClassName, ': ', E.Message);
   end;
+
+  Writeln;
+  Write('Press return to EXIT');
+  ReadLn;
 end.
 

@@ -22,7 +22,11 @@ begin
   var lFailed := False;
   lTPro := TTProCompiler.Create;
   try
-    var lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro');
+    var lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro',
+      function(const Path: string; const SearchRec: TSearchRec): Boolean
+      begin
+        Result := not String(SearchRec.Name).StartsWith('included');
+      end);
     for var lFile in lInputFileNames do
     begin
       try
