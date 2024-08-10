@@ -3,9 +3,6 @@
         <ProjectGuid>{81DA5C16-CC2B-479C-B0AC-F13147AA1C47}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
-        <Projects Include="templateprotestbed.dproj">
-            <Dependencies/>
-        </Projects>
         <Projects Include="templateprounittests.dproj">
             <Dependencies/>
         </Projects>
@@ -17,15 +14,6 @@
             <Default.Personality/>
         </BorlandProject>
     </ProjectExtensions>
-    <Target Name="templateprotestbed">
-        <MSBuild Projects="templateprotestbed.dproj"/>
-    </Target>
-    <Target Name="templateprotestbed:Clean">
-        <MSBuild Projects="templateprotestbed.dproj" Targets="Clean"/>
-    </Target>
-    <Target Name="templateprotestbed:Make">
-        <MSBuild Projects="templateprotestbed.dproj" Targets="Make"/>
-    </Target>
     <Target Name="templateprounittests">
         <MSBuild Projects="templateprounittests.dproj"/>
     </Target>
@@ -36,13 +24,13 @@
         <MSBuild Projects="templateprounittests.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">
-        <CallTarget Targets="templateprotestbed;templateprounittests"/>
+        <CallTarget Targets="templateprounittests"/>
     </Target>
     <Target Name="Clean">
-        <CallTarget Targets="templateprotestbed:Clean;templateprounittests:Clean"/>
+        <CallTarget Targets="templateprounittests:Clean"/>
     </Target>
     <Target Name="Make">
-        <CallTarget Targets="templateprotestbed:Make;templateprounittests:Make"/>
+        <CallTarget Targets="templateprounittests:Make"/>
     </Target>
     <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
 </Project>

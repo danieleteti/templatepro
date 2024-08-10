@@ -20,7 +20,7 @@ type
     property PropInt: Integer read fPropInt write fPropInt;
   end;
 
-function GetItems: TObjectList<TDataItem>;
+function GetItems(const WithFalsyValues: Boolean = False): TObjectList<TDataItem>;
 function GetCustomersDataset: TDataSet;
 function GetPeopleDataset: TDataSet;
 
@@ -86,12 +86,21 @@ begin
 end;
 
 
-function GetItems: TObjectList<TDataItem>;
+function GetItems(const WithFalsyValues: Boolean): TObjectList<TDataItem>;
 begin
   Result := TObjectList<TDataItem>.Create(True);
-  Result.Add(TDataItem.Create('value1.1', 'value2.1', 'value3.1', 1));
-  Result.Add(TDataItem.Create('value1.2', 'value2.2', 'value3.2', 2));
-  Result.Add(TDataItem.Create('value1.3', 'value2.3', 'value3.3', 3));
+  if not WithFalsyValues then
+  begin
+    Result.Add(TDataItem.Create('value1.1', 'value2.1', 'value3.1', 1));
+    Result.Add(TDataItem.Create('value1.2', 'value2.2', 'value3.2', 2));
+    Result.Add(TDataItem.Create('value1.3', 'value2.3', 'value3.3', 3));
+  end
+  else
+  begin
+    Result.Add(TDataItem.Create('true', 'false', 'value3.1', 0));
+    Result.Add(TDataItem.Create('false', 'true', 'value3.2', 1));
+    Result.Add(TDataItem.Create('1', '0', 'value3.3', 0));
+  end;
 end;
 
 { TDataItem }

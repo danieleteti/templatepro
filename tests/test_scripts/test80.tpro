@@ -1,0 +1,11 @@
+DataSets
+{{loop(customers)}}
+Code: {{customers.Code}} - Name: {{customers.Name}}
+{{exit}}
+{{endloop}}
+
+List of objects
+{{loop(objects)}}
+Prop1: {{objects.Prop1}} {{value2}}
+---
+{{endloop}}

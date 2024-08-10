@@ -1,0 +1,5 @@
+HTML Encoded
+{{myhtml}}
+
+HTML Raw
+{{myhtml$}}

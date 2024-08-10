@@ -1,4 +1,5 @@
 A{{if(value0)}}B{{endif}}C{{if(value1)}}D{{if(value2)}}E{{endif}}F{{endif}}G
+A{{if(value0)}}B{{endif}}C{{if(!value1)}}D{{if(!value2)}}E{{endif}}F{{endif}}G
 1
 {{if(value0)}}
 2

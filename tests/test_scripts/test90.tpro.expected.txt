@@ -1,0 +1,33 @@
+Prop1 = true
+Prop1 is TRUE
+Prop2 = false
+Prop2 is FALSE
+Prop3 = value3.1
+Prop3 is TRUE
+PropInt = 0
+PropInt is FALSE
+
+----------------------------
+
+Prop1 = false
+Prop1 is FALSE
+Prop2 = true
+Prop2 is TRUE
+Prop3 = value3.2
+Prop3 is TRUE
+PropInt = 1
+PropInt is TRUE
+
+----------------------------
+
+Prop1 = 1
+Prop1 is TRUE
+Prop2 = 0
+Prop2 is FALSE
+Prop3 = value3.3
+Prop3 is TRUE
+PropInt = 0
+PropInt is FALSE
+
+----------------------------
+

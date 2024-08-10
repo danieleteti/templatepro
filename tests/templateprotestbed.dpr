@@ -69,9 +69,6 @@ begin
         finally
           lItems.Free;
         end;
-      finally
-        lCompiledTemplate.Free;
-      end;
     finally
       lTPro.Free;
     end;

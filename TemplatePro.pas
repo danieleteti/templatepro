@@ -2,6 +2,8 @@
 //
 // Copyright (c) 2016-2024 Daniele Teti
 //
+// https://github.com/danieleteti/templatepro
+//
 // ***************************************************************************
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -65,11 +67,12 @@ type
       Ref1, Ref2: Integer;
       class function Create(TokType: TTokenType; Value: String; Ref1: Integer = -1; Ref2: Integer = -1): TToken; static;
       function TokenTypeAsString: String;
+      function ToString: String;
     end;
 
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
 
-  TTProTemplateFunction = reference to function(const aValue: TValue; const aParameters: TArray<string>): string;
+  TTProTemplateFunction = function(const aValue: TValue; const aParameters: TArray<string>): string;
 
   TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject);
   TTProVariablesInfos = set of TTProVariablesInfo;
@@ -87,13 +90,24 @@ type
     constructor Create;
   end;
 
-  TTProCompiledTemplate = class
+  ITProCompiledTemplate = interface
+    ['{0BE04DE7-6930-456B-86EE-BFD407BA6C46}']
+    function Render: String;
+    procedure ForEachToken(const TokenProc: TTokenWalkProc);
+    procedure ClearData;
+    procedure SetData(const Name: String; Value: TValue); overload;
+    procedure AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTProTemplateFunction);
+    procedure DumpToFile(const FileName: String);
+  end;
+
+  TTProCompiledTemplate = class(TInterfacedObject, ITProCompiledTemplate)
   private
     fTokens: TList<TToken>;
     fVariables: TTProVariables;
     fTemplateFunctions: TDictionary<string, TTProTemplateFunction>;
     constructor Create(Tokens: TList<TToken>);
     procedure Error(const aMessage: String);
+    function IsTruthy(const Value: TValue): Boolean;
     function GetVarAsString(const aName: string): string;
     function GetVarAsTValue(const aName: string): TValue;
     function EvaluateIfExpression(aIdentifier: string): Boolean;
@@ -108,6 +122,7 @@ type
     procedure ClearData;
     procedure SetData(const Name: String; Value: TValue); overload;
     procedure AddTemplateFunction(const FunctionName: string; const FunctionImpl: TTProTemplateFunction);
+    procedure DumpToFile(const FileName: String);
   end;
 
   TTProCompiler = class
@@ -120,18 +135,18 @@ type
     function MatchSymbol(const aSymbol: string): Boolean;
     function MatchString(out aStringValue: string): Boolean;
   private
-    fCurrentPath: String;
     fInputString: string;
     fCharIndex: Int64;
     fCurrentLine: Integer;
     fEncoding: TEncoding;
+    fBaseIncludePath: string;
     procedure Error(const aMessage: string);
     function Step: Char;
     function CurrentChar: Char;
-    procedure InternalCompileIncludedTemplate(const aTemplate: string; const aTokens: TList<TToken>; const aCurrPath: String);
-    procedure Compile(const aTemplate: string; const aTokens: TList<TToken>; const aCurrPath: String); overload;
+    procedure InternalCompileIncludedTemplate(const aTemplate: string; const aTokens: TList<TToken>; const aBaseIncludePath: String);
+    procedure Compile(const aTemplate: string; const aTokens: TList<TToken>; const aBaseIncludePath: String); overload;
   public
-    function Compile(const aTemplate: string; const aCurrPath: String = ''): TTProCompiledTemplate; overload;
+    function Compile(const aTemplate: string; const aBaseIncludePath: String = ''): ITProCompiledTemplate; overload;
     constructor Create(aEncoding: TEncoding = nil);
   end;
 
@@ -151,11 +166,11 @@ function HTMLEntitiesEncode(s: string): string;
 implementation
 
 uses
-  System.StrUtils, System.IOUtils;
+  System.StrUtils, System.IOUtils, System.NetEncoding, System.Math;
 
 const
-  IdenfierAllowedFirstChars = ['a' .. 'z', 'A' .. 'Z', '_'];
-  IdenfierAllowedChars = IdenfierAllowedFirstChars + ['0' .. '9'];
+  IdenfierAllowedFirstChars = ['a' .. 'z', 'A' .. 'Z', '_', '@'];
+  IdenfierAllowedChars = ['a' .. 'z', 'A' .. 'Z', '_', '0' .. '9'];
   ValueAllowedChars = IdenfierAllowedChars + [' ', '-', '+', '*', '.', '@', '/', '\']; // maybe a lot others
   START_TAG = '{{';
   END_TAG = '}}';
@@ -229,13 +244,13 @@ begin
 end;
 
 procedure TTProCompiler.InternalCompileIncludedTemplate(const aTemplate: string;
-  const aTokens: TList<TToken>; const aCurrPath: String);
+  const aTokens: TList<TToken>; const aBaseIncludePath: String);
 var
   lCompiler: TTProCompiler;
 begin
   lCompiler := TTProCompiler.Create(fEncoding);
   try
-    lCompiler.Compile(aTemplate, aTokens, aCurrPath);
+    lCompiler.Compile(aTemplate, aTokens, aBaseIncludePath);
     Assert(aTokens[aTokens.Count - 1].TokenType = ttEOF);
     aTokens.Delete(aTokens.Count - 1); // remove the EOF
   finally
@@ -270,6 +285,8 @@ begin
   Result := False;
   if CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedFirstChars) then
   begin
+    lTmp := fInputString.Chars[fCharIndex];
+    Inc(fCharIndex);
     while CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) do
     begin
       lTmp := lTmp + fInputString.Chars[fCharIndex];
@@ -285,7 +302,7 @@ begin
       lTmp := '';
       if not MatchVariable(lTmp) then
       begin
-        Error('Expected identifier after ' + aIdentifier);
+        Error('Expected identifier after "' + aIdentifier + '"');
       end;
       aIdentifier := aIdentifier + '.' + lTmp;
     end;
@@ -368,17 +385,21 @@ begin
   Result := CurrentChar;
 end;
 
-function TTProCompiler.Compile(const aTemplate: string; const aCurrPath: String): TTProCompiledTemplate;
+function TTProCompiler.Compile(const aTemplate: string; const aBaseIncludePath: String): ITProCompiledTemplate;
 var
   lTokens: TList<TToken>;
 begin
-  if fCurrentPath.IsEmpty then
+  if aBaseIncludePath.IsEmpty then
   begin
-    fCurrentPath := TPath.GetDirectoryName(GetModuleName(HInstance));
+    fBaseIncludePath := TPath.GetDirectoryName(GetModuleName(HInstance));
+  end
+  else
+  begin
+    fBaseIncludePath := TPath.GetFullPath(aBaseIncludePath);
   end;
   lTokens := TList<TToken>.Create;
   try
-    Compile(aTemplate, lTokens, fCurrentPath);
+    Compile(aTemplate, lTokens, fBaseIncludePath);
     Result := TTProCompiledTemplate.Create(lTokens);
   except
     lTokens.Free;
@@ -386,7 +407,7 @@ begin
   end;
 end;
 
-procedure TTProCompiler.Compile(const aTemplate: string; const aTokens: TList<TToken>; const aCurrPath: String);
+procedure TTProCompiler.Compile(const aTemplate: string; const aTokens: TList<TToken>; const aBaseIncludePath: String);
 var
   lSectionStack: array [0..49] of Integer; //max 50 nested loops
   lCurrentSectionIndex: Integer;
@@ -413,6 +434,7 @@ var
   lStringValue: string;
   lIdentifierFound: Boolean;
   lStringFound: Boolean;
+  lRef2: Integer;
   function GetFunctionParameters: TArray<string>;
   var
     lFuncPar: string;
@@ -495,7 +517,7 @@ begin
         lLastToken := ttLoop;
         aTokens.Add(TToken.Create(lLastToken, lIdentifier));
         lStartVerbatim := fCharIndex;
-      end else if MatchSymbol('endloop') then //endloop
+      end else if MatchSymbol('endloop') then {endloop}
       begin
         if not MatchEndTag then
           Error('Expected closing tag');
@@ -513,7 +535,7 @@ begin
 
         Dec(lCurrentSectionIndex);
         lStartVerbatim := fCharIndex;
-      end else if MatchSymbol('endif') then
+      end else if MatchSymbol('endif') then {endif}
       begin
         if lCurrentIfIndex = -1 then
         begin
@@ -537,8 +559,6 @@ begin
             aTokens[lIndexOfLatestIfStatement].Ref1,
             aTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
 
-        //rewrite current (if available) "else" references
-        //if lIfStatementStack[lCurrentIfIndex].ElseIndex > -1 then
         if aTokens[lIndexOfLatestIfStatement].Ref1 > -1 then
         begin
           lIndexOfLatestElseStatement := aTokens[lIndexOfLatestIfStatement].Ref1;
@@ -594,7 +614,6 @@ begin
         if not MatchSymbol('(') then
           Error('Expected "("');
 
-
         {In a future version we could implement a function call}
         if not MatchString(lStringValue) then
         begin
@@ -607,8 +626,8 @@ begin
           Error('Expected closing tag for "include(' + lStringValue + ')"');
         // create another element in the sections stack
         try
-          lCurrentFileName := TPath.Combine(fCurrentPath, lStringValue);
-          lIncludeFileContent := TFile.ReadAllText(TPath.Combine(fCurrentPath, lStringValue), fEncoding);
+          lCurrentFileName := TPath.Combine(fBaseIncludePath, lStringValue);
+          lIncludeFileContent := TFile.ReadAllText(TPath.Combine(fBaseIncludePath, lStringValue), fEncoding);
         except
           on E: Exception do
           begin
@@ -617,7 +636,8 @@ begin
         end;
         InternalCompileIncludedTemplate(lIncludeFileContent, aTokens, TPath.GetDirectoryName(lCurrentFileName));
         lStartVerbatim := fCharIndex;
-      end else if MatchReset(lIdentifier) then  {reset}
+      end
+      else if MatchReset(lIdentifier) then  {reset}
       begin
         if not MatchEndTag then
           Error('Expected closing tag');
@@ -625,13 +645,20 @@ begin
         aTokens.Add(TToken.Create(lLastToken, lIdentifier));
         lStartVerbatim := fCharIndex;
         Step;
-      end else if MatchVariable(lVarName) then {variable}
+      end
+      else if MatchSymbol('exit') then {exit}
+      begin
+        lLastToken := ttEOF;
+        aTokens.Add(TToken.Create(lLastToken, ''));
+        Break;
+      end
+      else if MatchVariable(lVarName) then {variable}
       begin
         if lVarName.IsEmpty then
           Error('Invalid variable name');
         lFuncName := '';
         lFuncParamsCount := -1; {-1 means "no filter applied to value"}
-
+        lRef2 := IfThen(MatchSymbol('$'),1,-1); // {{value$}} means no escaping
         if MatchSymbol('|') then
         begin
           if not MatchVariable(lFuncName) then
@@ -646,7 +673,7 @@ begin
         end;
         lStartVerbatim := fCharIndex;
         lLastToken := ttValue;
-        aTokens.Add(TToken.Create(lLastToken, lVarName, lFuncParamsCount));
+        aTokens.Add(TToken.Create(lLastToken, lVarName, lFuncParamsCount, lRef2));
 
         //add function with params
         if not lFuncName.IsEmpty then
@@ -660,7 +687,8 @@ begin
             end;
           end;
         end;
-      end else if MatchSymbol('#') then
+      end
+      else if MatchSymbol('#') then
       begin
         while not MatchEndTag do
         begin
@@ -863,6 +891,11 @@ begin
 end;
 
 function HTMLEntitiesEncode(s: string): string;
+begin
+  Result := TNetEncoding.HTML.Encode(s);
+end;
+
+function _HTMLEntitiesEncode(s: string): string;
   procedure repl(var s: string; r: string; posi: Integer);
   begin
     delete(s, posi, 1);
@@ -1095,6 +1128,11 @@ begin
   Result := TOKEN_TYPE_DESCR[self.TokenType];
 end;
 
+function TToken.ToString: String;
+begin
+  Result := Format('%15s | Ref1: %8d | Ref2: %8d | %20s',[TokenTypeAsString, Ref1, Ref2, Value]);
+end;
+
 { TTProCompiledTemplate }
 
 constructor TTProCompiledTemplate.Create(Tokens: TList<TToken>);
@@ -1108,6 +1146,25 @@ destructor TTProCompiledTemplate.Destroy;
 begin
   fTemplateFunctions.Free;
   inherited;
+end;
+
+procedure TTProCompiledTemplate.DumpToFile(const FileName: String);
+var
+  lToken: TToken;
+  lSW: TStreamWriter;
+  lIdx: Integer;
+begin
+  lSW := TStreamWriter.Create(FileName);
+  try
+    lIdx := 0;
+    for lToken in fTokens do
+    begin
+      lSW.WriteLine('%5d %s', [lIdx, lToken.ToString]);
+      Inc(lIdx);
+    end;
+  finally
+    lSW.Free;
+  end;
 end;
 
 procedure TTProCompiledTemplate.Error(const aMessage: String);
@@ -1144,6 +1201,7 @@ var
   I: Integer;
   lFilterName: string;
   lVarName: string;
+  lVarValue: String;
 begin
   lLastTag := ttEOF;
   lBuff := TStringBuilder.Create;
@@ -1155,7 +1213,7 @@ begin
       //Readln;
       case fTokens[lIdx].TokenType of
         ttContent: begin
-          lBuff.Append(HTMLEntitiesEncode(fTokens[lIdx].Value));
+          lBuff.Append(fTokens[lIdx].Value);
         end;
         ttLoop: begin
           if GetVariables.TryGetValue(fTokens[lIdx].Value, lVariable) then
@@ -1249,6 +1307,8 @@ begin
           Error('Invalid token in RENDER phase: ttInclude');
         end;
         ttValue: begin
+          // Ref1 contains the optional filter parameter number (-1 if there isn't any filter)
+          // Ref2 is -1 if the variable must be HTMLEncoded, while contains 1 is the value must not be HTMLEncoded
           if fTokens[lIdx].Ref1 > -1 {has a function with Ref1 parameters} then
           begin
             lVarName := fTokens[lIdx].Value;
@@ -1262,12 +1322,16 @@ begin
               Assert(fTokens[lIdx].TokenType = ttFilterParameter);
               lFilterParameters[I] := fTokens[lIdx].Value;
             end;
-            lBuff.Append(HTMLEntitiesEncode(ExecuteFilter(lFilterName, lFilterParameters, GetVarAsTValue(lVarName))));
+            lVarValue := ExecuteFilter(lFilterName, lFilterParameters, GetVarAsTValue(lVarName));
           end
           else
           begin
-            lBuff.Append(HTMLEntitiesEncode(GetVarAsString(fTokens[lIdx].Value)));
+            lVarValue := GetVarAsString(fTokens[lIdx].Value);
           end;
+          if fTokens[lIdx].Ref2 = -1 {encoded} then
+            lBuff.Append(HTMLEntitiesEncode(lVarValue))
+          else
+            lBuff.Append(lVarValue);
         end;
         ttReset: begin
           if GetVariables.TryGetValue(fTokens[lIdx].Value, lVariable) then
@@ -1308,6 +1372,11 @@ var
   lValue: TValue;
 begin
   lValue := GetVarAsTValue(aName);
+  if lValue.IsEmpty then
+  begin
+    Exit('');
+  end;
+
   if lValue.IsObject and (lValue.AsObject is TField) then
   begin
     Result := TField(lValue.AsObject).AsString;
@@ -1328,6 +1397,10 @@ begin
   Result := '';
   if GetVariables.TryGetValue(lPieces[0], lVariable) then
   begin
+    if lVariable = nil then
+    begin
+      Exit(nil);
+    end;
     if viDataSet in lVariable.VarOption then
     begin
       lField := TDataSet(lVariable.VarValue.AsObject).FieldByName(lPieces[1]);
@@ -1341,7 +1414,29 @@ begin
     end
     else if viListOfObject in lVariable.VarOption then
     begin
-      Result := TTProRTTIUtils.GetProperty(WrapAsList(lVariable.VarValue.AsObject).GetItem(lVariable.VarIterator), lPieces[1]);
+      if lPieces[1].Chars[0] = '@' then
+      begin
+        if lPieces[1] = '@index' then
+        begin
+          Result := lVariable.VarIterator + 1;
+        end
+        else if lPieces[1] = '@odd' then
+        begin
+          Result := (lVariable.VarIterator + 1) div 2 > 0;
+        end
+        else if lPieces[1] = '@even' then
+        begin
+          Result := (lVariable.VarIterator + 1) div 2 = 0;
+        end
+        else
+        begin
+          Result := TValue.Empty;
+        end;
+      end
+      else
+      begin
+        Result := TTProRTTIUtils.GetProperty(WrapAsList(lVariable.VarValue.AsObject).GetItem(lVariable.VarIterator), lPieces[1]);
+      end;
     end
     else if viObject in lVariable.VarOption then
     begin
@@ -1354,6 +1449,10 @@ begin
       else
         Result := lVariable.VarValue;
     end;
+  end
+  else
+  begin
+    Result := TValue.Empty;
   end;
 end;
 
@@ -1365,30 +1464,84 @@ begin
   end;
   Result := fVariables;
 end;
+function TTProCompiledTemplate.IsTruthy(const Value: TValue): Boolean;
+var
+  lStrValue: String;
+begin
+  lStrValue := Value.ToString;
+  Result := not (SameText(lStrValue,'false') or SameText(lStrValue,'0') or SameText(lStrValue,''));
+end;
 
 function TTProCompiledTemplate.EvaluateIfExpression(aIdentifier: string): Boolean;
 var
-  lVarValue: String;
+  lVarValue: TValue;
   lNegation: Boolean;
+  lVariable: TVarInfo;
+  lPieces: TArray<String>;
+  lTmp: Boolean;
+  lHasMember: Boolean;
+  lList: ITProWrappedList;
 begin
   lNegation := aIdentifier.StartsWith('!');
   if lNegation then
     aIdentifier := aIdentifier.Remove(0,1);
-  lVarValue := GetVarAsString(aIdentifier);
-  if SameText(lVarValue, 'false') or (lVarValue = '0') or lVarValue.IsEmpty then
+
+  lPieces := aIdentifier.Split(['.']);
+  aIdentifier := lPieces[0];
+  lHasMember := Length(lPieces) > 1;
+
+  if GetVariables.TryGetValue(aIdentifier, lVariable) then
   begin
-    Exit(lNegation xor False);
-  end
-  else
-  begin
-    Exit(lNegation xor True);
+    if lVariable = nil then
+    begin
+      Exit(lNegation xor False);
+    end;
+    if viDataSet in lVariable.VarOption then
+    begin
+      Exit(lNegation xor (not TDataSet(lVariable.VarValue.AsObject).Eof));
+    end
+    else if viListOfObject in lVariable.VarOption then
+    begin
+      lList := WrapAsList(lVariable.VarValue.AsObject);
+      if lHasMember then
+      begin
+        lVarValue := TTProRTTIUtils.GetProperty(lList.GetItem(lVariable.VarIterator), lPieces[1]);
+        lTmp := IsTruthy(lVarValue);
+      end
+      else
+      begin
+        lTmp := lList.Count > 0;
+      end;
+
+      if lNegation then
+      begin
+        Exit(not lTmp);
+      end;
+      Exit(lTmp);
+    end
+    else if viObject in lVariable.VarOption then
+    begin
+      Exit(lNegation xor Assigned(lVariable));
+    end
+    else if viSimpleType in lVariable.VarOption then
+    begin
+      lTmp := IsTruthy(lVariable.VarValue);
+      Exit(lNegation xor lTmp)
+    end;
   end;
+  Exit(lNegation xor False);
 end;
 
 procedure TTProCompiledTemplate.SetData(const Name: String; Value: TValue);
 var
   lWrappedList: ITProWrappedList;
 begin
+  if Value.IsEmpty then
+  begin
+    GetVariables.Add(Name, nil);
+    Exit;
+  end;
+
   case Value.Kind of
     tkClass:
     begin
@@ -1410,7 +1563,7 @@ begin
     end;
     tkInteger, tkString, tkUString, tkFloat, tkEnumeration : GetVariables.Add(Name, TVarInfo.Create(Value, [viSimpleType], -1));
     else
-      raise ETProException.Create('Invalid type for variable ' + Name);
+      raise ETProException.Create('Invalid type for variable "' + Name + '": ' + TRttiEnumerationType.GetName<TTypeKind>(Value.Kind));
   end;
 
 end;
