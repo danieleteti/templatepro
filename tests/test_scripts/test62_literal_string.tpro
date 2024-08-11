@@ -1,0 +1,4 @@
+{{"hello world"|uppercase}}
+{{"HELLO WORLD"|lowercase}}
+{{"<div>123</div>"|lowercase}}
+{{"<div>123</div>"$|lowercase}}

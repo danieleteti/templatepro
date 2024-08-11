@@ -29,6 +29,10 @@ var
   lInput: string;
   lItems, lItemsWithFalsy: TObjectList<TDataItem>;
 begin
+  Writeln('   |---------------------------|');
+  Writeln('---| TEMPLATE PRO - UNIT TESTS |---');
+  Writeln('   |---------------------------|');
+  Writeln;
   var lFailed := False;
   lTPro := TTProCompiler.Create;
   try
@@ -42,7 +46,7 @@ begin
     begin
       try
         lInput := TFile.ReadAllText(lFile);
-        Write(TPath.GetFileName(lFile));
+        Write(TPath.GetFileName(lFile).PadRight(30));
         var lCompiledTemplate := lTPro.Compile(lInput);
         lCompiledTemplate.SetData('value0','true');
         lCompiledTemplate.SetData('value1','true');

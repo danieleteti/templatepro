@@ -134,6 +134,8 @@ type
     function MatchReset(var aDataSet: string): Boolean;
     function MatchSymbol(const aSymbol: string): Boolean;
     function MatchString(out aStringValue: string): Boolean;
+    procedure InternalMatchFilter(lIdentifier: String; var lStartVerbatim: UInt64; const CurrToken: TTokenType; aTokens: TList<TToken>; const lRef2: Integer);
+    function GetFunctionParameters: TArray<String>;
   private
     fInputString: string;
     fCharIndex: Int64;
@@ -253,6 +255,45 @@ begin
   finally
     lCompiler.Free;
   end;
+end;
+
+procedure TTProCompiler.InternalMatchFilter(lIdentifier: String; var lStartVerbatim: UInt64; const CurrToken: TTokenType; aTokens: TList<TToken>; const lRef2: Integer);
+var
+  lFuncName: string;
+  lFuncParamsCount: Integer;
+  lFuncParams: TArray<String>;
+  I: Integer;
+begin
+  lFuncName := '';
+  lFuncParamsCount := -1; {-1 means "no filter applied to value"}
+  if MatchSymbol('|') then
+  begin
+    if not MatchVariable(lFuncName) then
+      Error('Invalid function name applied to variable or literal string "' + lIdentifier + '"');
+    lFuncParams := GetFunctionParameters;
+    lFuncParamsCount := Length(lFuncParams);
+  end;
+
+  if not MatchEndTag then
+  begin
+    Error('Expected end tag "' + END_TAG + '"');
+  end;
+  lStartVerbatim := fCharIndex;
+  aTokens.Add(TToken.Create(CurrToken, lIdentifier, lFuncParamsCount, lRef2));
+
+  //add function with params
+  if not lFuncName.IsEmpty then
+  begin
+    aTokens.Add(TToken.Create(ttFilterName, lFuncName, lFuncParamsCount));
+    if lFuncParamsCount > 0 then
+    begin
+      for I := 0 to lFuncParamsCount -1 do
+      begin
+        aTokens.Add(TToken.Create(ttFilterParameter, lFuncParams[I]));
+      end;
+    end;
+  end;
+
 end;
 
 constructor TTProCompiler.Create(aEncoding: TEncoding = nil);
@@ -432,19 +473,6 @@ var
   lIdentifierFound: Boolean;
   lStringFound: Boolean;
   lRef2: Integer;
-  function GetFunctionParameters: TArray<string>;
-  var
-    lFuncPar: string;
-  begin
-    Result := [];
-    while MatchSymbol(':') do
-    begin
-      lFuncPar := '';
-      if not MatchFilterParamValue(lFuncPar) then
-        Error('Expected function parameter');
-      Result := Result + [lFuncPar];
-    end;
-  end;
 begin
   fCharIndex := -1;
   fCurrentLine := 1;
@@ -649,6 +677,13 @@ begin
         aTokens.Add(TToken.Create(lLastToken, ''));
         Break;
       end
+      else if MatchString(lStringValue) then {string}
+      begin
+//        if lStringValue.IsEmpty then
+//          Error('Invalid variable name');
+        lRef2 := IfThen(MatchSymbol('$'),1,-1); // {{value$}} means no escaping
+        InternalMatchFilter(lStringValue, lStartVerbatim, ttLiteralString, aTokens, lRef2);
+      end
       else if MatchVariable(lVarName) then {variable}
       begin
         if lVarName.IsEmpty then
@@ -736,6 +771,20 @@ begin
   raise ETProParserException.CreateFmt('%s - at line %d', [aMessage, fCurrentLine]);
 end;
 
+function TTProCompiler.GetFunctionParameters: TArray<String>;
+var
+  lFuncPar: string;
+begin
+  Result := [];
+  while MatchSymbol(':') do
+  begin
+    lFuncPar := '';
+    if not MatchFilterParamValue(lFuncPar) then
+      Error('Expected function parameter');
+    Result := Result + [lFuncPar];
+  end;
+end;
+
 procedure TTProCompiledTemplate.CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>);
 begin
   CheckParNumber(aHowManyPars, aHowManyPars, aParameters);
@@ -799,10 +848,6 @@ begin
   if fTemplateFunctions.TryGetValue(aFunctionName, lFunc) then
   begin
     Exit(lFunc(aValue, aParameters));
-  end;
-  if aFunctionName = 'tohtml' then
-  begin
-    Exit(HTMLEncode(aValue.AsString));
   end;
   if aFunctionName = 'uppercase' then
   begin
@@ -1190,6 +1235,7 @@ var
   lPieces: TArray<String>;
   lFieldName: string;
   lLastTag: TTokenType;
+  lCurrTokenType: TTokenType;
   lVariable: TVarInfo;
   lWrapped: ITProWrappedList;
   lJumpTo: Integer;
@@ -1199,6 +1245,7 @@ var
   lFilterName: string;
   lVarName: string;
   lVarValue: String;
+  lRef2: Integer;
 begin
   lLastTag := ttEOF;
   lBuff := TStringBuilder.Create;
@@ -1303,9 +1350,11 @@ begin
         begin
           Error('Invalid token in RENDER phase: ttInclude');
         end;
-        ttValue: begin
+        ttValue, ttLiteralString: begin
           // Ref1 contains the optional filter parameter number (-1 if there isn't any filter)
           // Ref2 is -1 if the variable must be HTMLEncoded, while contains 1 is the value must not be HTMLEncoded
+          lRef2 := fTokens[lIdx].Ref2;
+          lCurrTokenType := fTokens[lIdx].TokenType;
           if fTokens[lIdx].Ref1 > -1 {has a function with Ref1 parameters} then
           begin
             lVarName := fTokens[lIdx].Value;
@@ -1319,13 +1368,27 @@ begin
               Assert(fTokens[lIdx].TokenType = ttFilterParameter);
               lFilterParameters[I] := fTokens[lIdx].Value;
             end;
-            lVarValue := ExecuteFilter(lFilterName, lFilterParameters, GetVarAsTValue(lVarName));
+            if lCurrTokenType = ttValue then
+            begin
+              lVarValue := ExecuteFilter(lFilterName, lFilterParameters, GetVarAsTValue(lVarName));
+            end
+            else
+            begin
+              lVarValue := ExecuteFilter(lFilterName, lFilterParameters, lVarName);
+            end;
           end
           else
           begin
-            lVarValue := GetVarAsString(fTokens[lIdx].Value);
+            if lCurrTokenType = ttValue then
+            begin
+              lVarValue := GetVarAsString(fTokens[lIdx].Value);
+            end
+            else
+            begin
+              lVarValue := fTokens[lIdx].Value;
+            end;
           end;
-          if fTokens[lIdx].Ref2 = -1 {encoded} then
+          if lRef2 = -1 {encoded} then
             lBuff.Append(HTMLEncode(lVarValue))
           else
             lBuff.Append(lVarValue);
