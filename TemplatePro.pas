@@ -709,8 +709,6 @@ begin
       end
       else if MatchString(lStringValue) then {string}
       begin
-//        if lStringValue.IsEmpty then
-//          Error('Invalid variable name');
         lRef2 := IfThen(MatchSymbol('$'),1,-1); // {{value$}} means no escaping
         InternalMatchFilter(lStringValue, lStartVerbatim, ttLiteralString, aTokens, lRef2);
       end
@@ -820,51 +818,6 @@ begin
   CheckParNumber(aHowManyPars, aHowManyPars, aParameters);
 end;
 
-//function TTProCompiler.ExecuteFunction(aFunctionName: string; aParameters: TArray<string>;
-//  aValue: string): string;
-//var
-//  lFunc: TTProTemplateFunction;
-//begin
-//  aFunctionName := lowercase(aFunctionName);
-//  if aFunctionName = 'tohtml' then
-//  begin
-//    Exit(HTMLEncode(aValue));
-//  end;
-//  if aFunctionName = 'uppercase' then
-//  begin
-//    Exit(UpperCase(aValue));
-//  end;
-//  if aFunctionName = 'lowercase' then
-//  begin
-//    Exit(lowercase(aValue));
-//  end;
-//  if aFunctionName = 'capitalize' then
-//  begin
-//    Exit(CapitalizeString(aValue, True));
-//  end;
-//  if aFunctionName = 'rpad' then
-//  begin
-//    CheckParNumber(1, 2, aParameters);
-//    if Length(aParameters) = 1 then
-//      Exit(aValue.PadRight(aParameters[0].ToInteger))
-//    else
-//      Exit(aValue.PadRight(aParameters[0].ToInteger, aParameters[1].Chars[0]));
-//  end;
-//  if aFunctionName = 'lpad' then
-//  begin
-//    if Length(aParameters) = 1 then
-//      Exit(aValue.PadLeft(aParameters[0].ToInteger))
-//    else
-//      Exit(aValue.PadLeft(aParameters[0].ToInteger, aParameters[1].Chars[0]));
-//  end;
-//
-//  if not fTemplateFunctions.TryGetValue(aFunctionName, lFunc) then
-//  begin
-//    raise ETProParserException.CreateFmt('Unknown function [%s]', [aFunctionName]);
-//  end;
-//  Result := lFunc(aParameters, aValue);
-//end;
-//
 function TTProCompiledTemplate.ExecuteFilter(aFunctionName: string; aParameters: TArray<string>;
   aValue: TValue): string;
 var
@@ -1428,10 +1381,7 @@ begin
           begin
             if viDataSet in lVariable.VarOption then
             begin
-              var lEOF := TDataset(lVariable.VarValue.AsObject).Eof;
               TDataset(lVariable.VarValue.AsObject).First;
-              lEOF := TDataset(lVariable.VarValue.AsObject).Eof;
-              lEOF := not not lEOF;
             end;
             lVariable.VarIterator := -1;
           end
