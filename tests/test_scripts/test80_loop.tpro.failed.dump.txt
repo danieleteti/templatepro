@@ -1,0 +1,71 @@
+    0       ttContent | Ref1:       -1 | Ref2:       -1 | ************* DataSets
+    1     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+    2          ttLoop | Ref1:       19 | Ref2:       -1 | customers           
+    3     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+    4         ttValue | Ref1:       -1 | Ref2:       -1 | customers.@@index   
+    5       ttContent | Ref1:       -1 | Ref2:       -1 |  Code:              
+    6         ttValue | Ref1:       -1 | Ref2:       -1 | customers.Code      
+    7       ttContent | Ref1:       -1 | Ref2:       -1 |  - Name:            
+    8         ttValue | Ref1:       -1 | Ref2:       -1 | customers.Name      
+    9     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   10        ttIfThen | Ref1:       -1 | Ref2:       12 | customers.@@odd     
+   11       ttContent | Ref1:       -1 | Ref2:       -1 | this line is odd    
+   12         ttEndIf | Ref1:       -1 | Ref2:       -1 |                     
+   13     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   14        ttIfThen | Ref1:       -1 | Ref2:       16 | customers.@@even    
+   15       ttContent | Ref1:       -1 | Ref2:       -1 | this line is even   
+   16         ttEndIf | Ref1:       -1 | Ref2:       -1 |                     
+   17     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   18     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   19       ttEndLoop | Ref1:        2 | Ref2:       -1 |                     
+   20     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   21     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   22       ttContent | Ref1:       -1 | Ref2:       -1 | ************* List of objects
+   23     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   24          ttLoop | Ref1:       44 | Ref2:       -1 | objects             
+   25     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   26       ttContent | Ref1:       -1 | Ref2:       -1 | Prop1:              
+   27         ttValue | Ref1:       -1 | Ref2:       -1 | objects.Prop1       
+   28       ttContent | Ref1:       -1 | Ref2:       -1 |                     
+   29         ttValue | Ref1:       -1 | Ref2:       -1 | value2              
+   30     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   31         ttValue | Ref1:       -1 | Ref2:       -1 | objects.@@index     
+   32     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   33        ttIfThen | Ref1:       -1 | Ref2:       35 | objects.@@odd       
+   34       ttContent | Ref1:       -1 | Ref2:       -1 | this line is odd    
+   35         ttEndIf | Ref1:       -1 | Ref2:       -1 |                     
+   36     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   37        ttIfThen | Ref1:       -1 | Ref2:       39 | objects.@@even      
+   38       ttContent | Ref1:       -1 | Ref2:       -1 | this line is even   
+   39         ttEndIf | Ref1:       -1 | Ref2:       -1 |                     
+   40     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   41     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   42       ttContent | Ref1:       -1 | Ref2:       -1 | ---                 
+   43     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   44       ttEndLoop | Ref1:       24 | Ref2:       -1 |                     
+   45     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   46     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   47       ttContent | Ref1:       -1 | Ref2:       -1 | ************* reset DataSet
+   48     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   49         ttReset | Ref1:       -1 | Ref2:       -1 | customers           
+   50       ttContent | Ref1:       -1 | Ref2:       -1 | 
+                  
+   51          ttLoop | Ref1:       55 | Ref2:       -1 | customers           
+   52     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   53         ttValue | Ref1:       -1 | Ref2:       -1 | customers.@@index   
+   54     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   55       ttEndLoop | Ref1:       51 | Ref2:       -1 |                     
+   56     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   57     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   58       ttContent | Ref1:       -1 | Ref2:       -1 | ************* reset List of objects
+   59     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   60         ttReset | Ref1:       -1 | Ref2:       -1 | objects             
+   61       ttContent | Ref1:       -1 | Ref2:       -1 | 
+                  
+   62          ttLoop | Ref1:       66 | Ref2:       -1 | objects             
+   63     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   64         ttValue | Ref1:       -1 | Ref2:       -1 | objects.@@index     
+   65     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   66       ttEndLoop | Ref1:       62 | Ref2:       -1 |                     
+   67     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
+   68           ttEOF | Ref1:       -1 | Ref2:       -1 |                     

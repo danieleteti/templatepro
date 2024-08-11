@@ -14,7 +14,7 @@ uses
   TemplatePro in '..\TemplatePro.pas';
 
 const
-  TestFileNameFilter = '*'; // '*' means "all files'
+  TestFileNameFilter = '80'; // '*' means "all files'
 
 
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<string>): string;

@@ -115,6 +115,7 @@ type
     function ExecuteFilter(aFunctionName: string; aParameters: TArray<string>; aValue: TValue): string;
     procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
     procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
+    function GetPseudoVariable(const Variable: TVarInfo; const PseudoVarName: String): TValue;
   public
     destructor Destroy; override;
     function Render: String;
@@ -227,6 +228,26 @@ begin
   fTemplateFunctions.Add(FunctionName.ToLower, FunctionImpl);
 end;
 
+function TTProCompiledTemplate.GetPseudoVariable(const Variable: TVarInfo; const PseudoVarName: String): TValue;
+begin
+  if PseudoVarName = '@@index' then
+  begin
+    Result := Variable.VarIterator + 1;
+  end
+  else if PseudoVarName = '@@odd' then
+  begin
+    Result := (Variable.VarIterator + 1) mod 2 > 0;
+  end
+  else if PseudoVarName = '@@even' then
+  begin
+    Result := (Variable.VarIterator + 1) mod 2 = 0;
+  end
+  else
+  begin
+    Result := TValue.Empty;
+  end;
+end;
+
 procedure TTProCompiledTemplate.CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
   const aParameters: TArray<string>);
 var
@@ -325,6 +346,15 @@ begin
   begin
     lTmp := fInputString.Chars[fCharIndex];
     Inc(fCharIndex);
+    if lTmp = '@' then
+    begin
+      if fInputString.Chars[fCharIndex] = '@' then
+      begin
+        lTmp := '@@';
+        Inc(fCharIndex);
+      end;
+    end;
+
     while CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) do
     begin
       lTmp := lTmp + fInputString.Chars[fCharIndex];
@@ -1398,12 +1428,12 @@ begin
           begin
             if viDataSet in lVariable.VarOption then
             begin
+              var lEOF := TDataset(lVariable.VarValue.AsObject).Eof;
               TDataset(lVariable.VarValue.AsObject).First;
-            end else if viListOfObject in lVariable.VarOption then
-            begin
-              lWrapped := TTProDuckTypedList.Wrap(lVariable.VarValue.AsObject);
-              lVariable.VarIterator := -1;
+              lEOF := TDataset(lVariable.VarValue.AsObject).Eof;
+              lEOF := not not lEOF;
             end;
+            lVariable.VarIterator := -1;
           end
         end;
         ttLineBreak: begin
@@ -1452,9 +1482,11 @@ var
   lVariable: TVarInfo;
   lPieces: TArray<String>;
   lField: TField;
+  lHasMember: Boolean;
 begin
   lPieces := aName.Split(['.']);
   Result := '';
+  lHasMember := Length(lPieces) > 1;
   if GetVariables.TryGetValue(lPieces[0], lVariable) then
   begin
     if lVariable = nil then
@@ -1463,35 +1495,28 @@ begin
     end;
     if viDataSet in lVariable.VarOption then
     begin
-      lField := TDataSet(lVariable.VarValue.AsObject).FieldByName(lPieces[1]);
-      case lField.DataType of
-        ftInteger: Result := lField.AsInteger;
-        ftLargeint: Result := lField.AsLargeInt;
-        ftString, ftWideString: Result := lField.AsWideString;
-        else
-          Error('Invalid data type for field ' + lPieces[1]);
+      if lHasMember and lPieces[1].StartsWith('@@') then
+      begin
+        lVariable.VarIterator := TDataSet(lVariable.VarValue.AsObject).RecNo - 1;
+        Result := GetPseudoVariable(lVariable, lPieces[1]);
+      end
+      else
+      begin
+        lField := TDataSet(lVariable.VarValue.AsObject).FieldByName(lPieces[1]);
+        case lField.DataType of
+          ftInteger: Result := lField.AsInteger;
+          ftLargeint: Result := lField.AsLargeInt;
+          ftString, ftWideString: Result := lField.AsWideString;
+          else
+            Error('Invalid data type for field ' + lPieces[1]);
+        end;
       end;
     end
     else if viListOfObject in lVariable.VarOption then
     begin
-      if lPieces[1].Chars[0] = '@' then
+      if lHasMember and lPieces[1].StartsWith('@@') then
       begin
-        if lPieces[1] = '@index' then
-        begin
-          Result := lVariable.VarIterator + 1;
-        end
-        else if lPieces[1] = '@odd' then
-        begin
-          Result := (lVariable.VarIterator + 1) div 2 > 0;
-        end
-        else if lPieces[1] = '@even' then
-        begin
-          Result := (lVariable.VarIterator + 1) div 2 = 0;
-        end
-        else
-        begin
-          Result := TValue.Empty;
-        end;
+        Result := GetPseudoVariable(lVariable, lPieces[1]);
       end
       else
       begin
@@ -1558,14 +1583,37 @@ begin
     end;
     if viDataSet in lVariable.VarOption then
     begin
-      Exit(lNegation xor (not TDataSet(lVariable.VarValue.AsObject).Eof));
+      if lHasMember then
+      begin
+        if lPieces[1].StartsWith('@@') then
+        begin
+          lVarValue := GetPseudoVariable(lVariable, lPieces[1]);
+        end
+        else
+        begin
+          lVarValue := TValue.From<Variant>(TDataSet(lVariable.VarValue.AsObject).FieldByName(lPieces[1]).Value);
+        end;
+        lTmp := IsTruthy(lVarValue);
+      end
+      else
+      begin
+        lTmp := not TDataSet(lVariable.VarValue.AsObject).Eof;
+      end;
+      Exit(lNegation xor lTmp);
     end
     else if viListOfObject in lVariable.VarOption then
     begin
       lList := WrapAsList(lVariable.VarValue.AsObject);
       if lHasMember then
       begin
-        lVarValue := TTProRTTIUtils.GetProperty(lList.GetItem(lVariable.VarIterator), lPieces[1]);
+        if lPieces[1].StartsWith('@@') then
+        begin
+          lVarValue := GetPseudoVariable(lVariable, lPieces[1]);
+        end
+        else
+        begin
+          lVarValue := TTProRTTIUtils.GetProperty(lList.GetItem(lVariable.VarIterator), lPieces[1]);
+        end;
         lTmp := IsTruthy(lVarValue);
       end
       else
