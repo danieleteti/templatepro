@@ -160,7 +160,8 @@ type
     function ItemIsObject(const AIndex: Integer; out AValue: TValue): Boolean;
   end;
 
-function HTMLEntitiesEncode(s: string): string;
+function HTMLEncode(s: string): string;
+function HTMLSpecialCharsEncode(s: string): string;
 
 
 implementation
@@ -175,20 +176,15 @@ const
   START_TAG = '{{';
   END_TAG = '}}';
 
-
 type
   TTProRTTIUtils = class sealed
-  private
-    class var GlContext: TRttiContext;
-    class constructor Create;
-    class destructor Destroy;
   public
     class function GetProperty(AObject: TObject; const APropertyName: string): TValue;
   end;
+
   TTProDuckTypedList = class(TInterfacedObject, ITProWrappedList)
   private
     FObjectAsDuck: TObject;
-    FContext: TRttiContext;
     FObjType: TRttiType;
     FAddMethod: TRttiMethod;
     FClearMethod: TRttiMethod;
@@ -202,7 +198,6 @@ type
   public
     constructor Create(const AObjectAsDuck: TObject); overload;
     constructor Create(const AInterfaceAsDuck: IInterface); overload;
-    destructor Destroy; override;
 
     function IsWrappedList: Boolean; overload;
     function Count: Integer;
@@ -214,6 +209,8 @@ type
     class function Wrap(const AObjectAsDuck: TObject): ITProWrappedList; static;
   end;
 
+var
+  GlContext: TRttiContext;
 
 function WrapAsList(const AObject: TObject): ITProWrappedList;
 begin
@@ -465,7 +462,7 @@ begin
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
         lLastToken := ttContent;
-        aTokens.Add(TToken.Create(lLastToken, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
+        aTokens.Add(TToken.Create(lLastToken, HTMLSpecialCharsEncode(fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim))));
       end;
       aTokens.Add(TToken.Create(ttEOF, ''));
       Break;
@@ -602,10 +599,10 @@ begin
 
         // jumps handling...
         lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex].IfIndex;
-        lIfStatementStack[lIndexOfLatestIfStatement].ElseIndex := aTokens.Count - 1;
+        lIfStatementStack[lCurrentIfIndex].ElseIndex := aTokens.Count - 1;
         aTokens[lIndexOfLatestIfStatement] := TToken.Create(ttIfThen,
           aTokens[lIndexOfLatestIfStatement].Value,
-          lIfStatementStack[lIndexOfLatestIfStatement].ElseIndex, {ttIfThen.Ref1 points always to relative else (if present otherwise -1)}
+          lIfStatementStack[lCurrentIfIndex].ElseIndex, {ttIfThen.Ref1 points always to relative else (if present otherwise -1)}
           -1);
         lStartVerbatim := fCharIndex;
       end
@@ -752,7 +749,7 @@ end;
 //  aFunctionName := lowercase(aFunctionName);
 //  if aFunctionName = 'tohtml' then
 //  begin
-//    Exit(HTMLEntitiesEncode(aValue));
+//    Exit(HTMLEncode(aValue));
 //  end;
 //  if aFunctionName = 'uppercase' then
 //  begin
@@ -805,7 +802,7 @@ begin
   end;
   if aFunctionName = 'tohtml' then
   begin
-    Exit(HTMLEntitiesEncode(aValue.AsString));
+    Exit(HTMLEncode(aValue.AsString));
   end;
   if aFunctionName = 'uppercase' then
   begin
@@ -890,12 +887,12 @@ begin
   Error(Format('Unknown function [%s]', [aFunctionName]));
 end;
 
-function HTMLEntitiesEncode(s: string): string;
+function HTMLEncode(s: string): string;
 begin
   Result := TNetEncoding.HTML.Encode(s);
 end;
 
-function _HTMLEntitiesEncode(s: string): string;
+function HTMLSpecialCharsEncode(s: string): string;
   procedure repl(var s: string; r: string; posi: Integer);
   begin
     delete(s, posi, 1);
@@ -1130,7 +1127,7 @@ end;
 
 function TToken.ToString: String;
 begin
-  Result := Format('%15s | Ref1: %8d | Ref2: %8d | %20s',[TokenTypeAsString, Ref1, Ref2, Value]);
+  Result := Format('%15s | Ref1: %8d | Ref2: %8d | %-20s',[TokenTypeAsString, Ref1, Ref2, Value]);
 end;
 
 { TTProCompiledTemplate }
@@ -1329,7 +1326,7 @@ begin
             lVarValue := GetVarAsString(fTokens[lIdx].Value);
           end;
           if fTokens[lIdx].Ref2 = -1 {encoded} then
-            lBuff.Append(HTMLEntitiesEncode(lVarValue))
+            lBuff.Append(HTMLEncode(lVarValue))
           else
             lBuff.Append(lVarValue);
         end;
@@ -1612,18 +1609,6 @@ begin
     raise Exception.CreateFmt('Property is not readable [%s.%s]', [ARttiType.ToString, APropertyName]);
 end;
 
-class constructor TTProRTTIUtils.Create;
-begin
-  GlContext := TRttiContext.Create;
-end;
-
-
-class destructor TTProRTTIUtils.Destroy;
-begin
-  GlContext.Free;
-end;
-
-
 { TDuckTypedList }
 
 procedure TTProDuckTypedList.Add(const AObject: TObject);
@@ -1688,8 +1673,7 @@ begin
   if not Assigned(FObjectAsDuck) then
     raise ETProDuckTypingException.Create('Duck Object can not be null.');
 
-  FContext := TRttiContext.Create;
-  FObjType := FContext.GetType(FObjectAsDuck.ClassInfo);
+  FObjType := GlContext.GetType(FObjectAsDuck.ClassInfo);
 
   FAddMethod := nil;
   FClearMethod := nil;
@@ -1718,12 +1702,6 @@ begin
     if not Assigned(FCountProperty) then
       FGetCountMethod := FObjType.GetMethod('Count');
   end;
-end;
-
-destructor TTProDuckTypedList.Destroy;
-begin
-  FContext.Free;
-  inherited Destroy;
 end;
 
 function TTProDuckTypedList.GetItem(const AIndex: Integer): TObject;
@@ -1756,7 +1734,7 @@ function TTProDuckTypedList.IsWrappedList: Boolean;
 var
   ObjectType: TRttiType;
 begin
-  ObjectType := FContext.GetType(FObjectAsDuck.ClassInfo);
+  ObjectType := GlContext.GetType(FObjectAsDuck.ClassInfo);
 
   Result := (ObjectType.GetMethod('Add') <> nil) and (ObjectType.GetMethod('Clear') <> nil)
 
@@ -1786,5 +1764,11 @@ begin
     Result := List;
 end;
 
+
+initialization
+GlContext := TRttiContext.Create;
+
+finalization
+GlContext.Free;
 
 end.
