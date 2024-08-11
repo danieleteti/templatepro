@@ -1,16 +1,16 @@
-{{customers.Code}}
-{{customers.Name}}
+{{:customers.Code}}
+{{:customers.Name}}
 XX
-{{obj.Prop1}}
+{{:obj.Prop1}}
 YY
-{{value0}}ABC{{value1}}DEF{{value2}}
+{{:value0}}ABC{{:value1}}DEF{{:value2}}
 
-{{value3}}
+{{:value3}}
 
 
-{{value4}}-GHI-{{value5}}-JKL-{{value6}}
+{{:value4}}-GHI-{{:value5}}-JKL-{{:value6}}
 
-{{obj.Prop1}}
+{{:obj.Prop1}}
 XXX
-{{obj.Prop2}}
+{{:obj.Prop2}}
 YYY

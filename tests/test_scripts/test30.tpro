@@ -8,8 +8,8 @@ HEADER
 {{loop(customers)}}
 {{# this is a 
 	multi line comment }}
-ABCD{{customers.Code}}EFG{{customers.Name}}
+ABCD{{:customers.Code}}EFG{{:customers.Name}}
 {{loop(objects)}}
-ABCD{{objects.Prop1}}EFG{{objects.Prop2}}
+ABCD{{:objects.Prop1}}EFG{{:objects.Prop2}}
 {{endloop}}
 {{endloop}}

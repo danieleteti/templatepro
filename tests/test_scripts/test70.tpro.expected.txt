@@ -1,9 +1,9 @@
 I'm from the included file
 This is value 1 true
-Hello There
-I'm from the included file in partials folder
-This is value 1 true
-Hello There
+Hello DANIELE2
+I'm from the included file named 2
+This is value 2 DANIELE2
+Hello DANIELE2
 I'm from the included file
 This is value 1 true
 DANIELE2 => daniele2

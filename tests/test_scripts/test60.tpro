@@ -1,14 +1,14 @@
-{{value2|sayhello}}
-{{value2}} => {{value2|lowercase}}
-{{valuedate|formatdatetime:yyyy-mm-dd}}
+{{:value2|sayhello}}
+{{:value2}} => {{:value2|lowercase}}
+{{:valuedate|formatdatetime:yyyy-mm-dd}}
 {{loop(objects)}}
-  {{objects.Prop1|lpad:10}}
+  {{:objects.Prop1|lpad:10}}
 {{endloop}}
 
 {{loop(customers)}}
-Customer: {{customers.Name|lpad:10:_}}
+Customer: {{:customers.Name|lpad:10:_}}
 {{reset(objects)}}
 {{loop(objects)}}
-{{objects.Prop1|lpad:10}}
+{{:objects.Prop1|lpad:10}}
 {{endloop}}  
 {{endloop}}

@@ -1,23 +1,23 @@
 {{loop(objectsb)}}
-Prop1 = {{objectsb.Prop1}}
+Prop1 = {{:objectsb.Prop1}}
 {{if(objectsb.Prop1)}}
 Prop1 is TRUE
 {{else}}
 Prop1 is FALSE
 {{endif}}
-Prop2 = {{objectsb.Prop2}}
+Prop2 = {{:objectsb.Prop2}}
 {{if(objectsb.Prop2)}}
 Prop2 is TRUE
 {{else}}
 Prop2 is FALSE
 {{endif}}
-Prop3 = {{objectsb.Prop3}}
+Prop3 = {{:objectsb.Prop3}}
 {{if(objectsb.Prop3)}}
 Prop3 is TRUE
 {{else}}
 Prop3 is FALSE
 {{endif}}
-PropInt = {{objectsb.PropInt}}
+PropInt = {{:objectsb.PropInt}}
 {{if(objectsb.PropInt)}}
 PropInt is TRUE
 {{else}}

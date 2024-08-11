@@ -1,6 +1,6 @@
 ************* DataSets
 {{loop(customers)}}
-{{customers.@@index}} Code: {{customers.Code}} - Name: {{customers.Name}}
+{{:customers.@@index}} Code: {{:customers.Code}} - Name: {{:customers.Name}}
 {{if(customers.@@odd)}}this line is odd{{endif}}
 {{if(customers.@@even)}}this line is even{{endif}}
 
@@ -8,8 +8,8 @@
 
 ************* List of objects
 {{loop(objects)}}
-Prop1: {{objects.Prop1}} {{value2}}
-{{objects.@@index}}
+Prop1: {{:objects.Prop1}} {{:value2}}
+{{:objects.@@index}}
 {{if(objects.@@odd)}}this line is odd{{endif}}
 {{if(objects.@@even)}}this line is even{{endif}}
 
@@ -19,11 +19,11 @@ Prop1: {{objects.Prop1}} {{value2}}
 ************* reset DataSet
 {{reset(customers)}}
 {{loop(customers)}}
-{{customers.@@index}}
+{{:customers.@@index}}
 {{endloop}}
 
 ************* reset List of objects
 {{reset(objects)}}
 {{loop(objects)}}
-{{objects.@@index}}
+{{:objects.@@index}}
 {{endloop}}

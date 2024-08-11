@@ -556,209 +556,225 @@ begin
         Continue;
       end;
 
-      if MatchSymbol('loop') then {loop}
+      if CurrentChar = ':' then //variable
       begin
-        if not MatchSymbol('(') then
-          Error('Expected "("');
-        if not MatchVariable(lIdentifier) then
-          Error('Expected identifier after "loop("');
-        if not MatchSymbol(')') then
-          Error('Expected ")" after "' + lIdentifier + '"');
-        if not MatchEndTag then
-          Error('Expected closing tag for "loop(' + lIdentifier + ')"');
-        // create another element in the sections stack
-        Inc(lCurrentSectionIndex);
-        lSectionStack[lCurrentSectionIndex] := aTokens.Count;
-        lLastToken := ttLoop;
-        aTokens.Add(TToken.Create(lLastToken, lIdentifier));
-        lStartVerbatim := fCharIndex;
-      end else if MatchSymbol('endloop') then {endloop}
-      begin
-        if not MatchEndTag then
-          Error('Expected closing tag');
-        if lCurrentSectionIndex = -1 then
-        begin
-          Error('endloop without loop');
-        end;
-        lLastToken := ttEndLoop;
-        aTokens.Add(TToken.Create(lLastToken, '', lSectionStack[lCurrentSectionIndex]));
-
-        // let the loop know where the endloop is
-        lIndexOfLatestLoopStatement := lSectionStack[lCurrentSectionIndex];
-        aTokens[lIndexOfLatestLoopStatement] :=
-          TToken.Create(ttLoop, aTokens[lIndexOfLatestLoopStatement].Value, aTokens.Count - 1);
-
-        Dec(lCurrentSectionIndex);
-        lStartVerbatim := fCharIndex;
-      end else if MatchSymbol('endif') then {endif}
-      begin
-        if lCurrentIfIndex = -1 then
-        begin
-          Error('"endif" without "if"');
-        end;
-        if not MatchEndTag then
-        begin
-          Error('Expected closing tag for "endif"');
-        end;
-
-        lLastToken := ttEndIf;
-        aTokens.Add(TToken.Create(lLastToken, ''));
-
-        // jumps handling...
-        lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex].IfIndex;
-
-        //rewrite current "ifthen" references
-        aTokens[lIndexOfLatestIfStatement] :=
-          TToken.Create(ttIfThen,
-            aTokens[lIndexOfLatestIfStatement].Value,
-            aTokens[lIndexOfLatestIfStatement].Ref1,
-            aTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
-
-        if aTokens[lIndexOfLatestIfStatement].Ref1 > -1 then
-        begin
-          lIndexOfLatestElseStatement := aTokens[lIndexOfLatestIfStatement].Ref1;
-          aTokens[lIndexOfLatestElseStatement] :=
-            TToken.Create(ttElse,
-              aTokens[lIndexOfLatestElseStatement].Value,
-              -1 {Ref1 is not used by ttElse},
-              aTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
-        end;
-
-        Dec(lCurrentIfIndex);
-        lStartVerbatim := fCharIndex;
-      end else if MatchSymbol('if') then
-      begin
-        if not MatchSymbol('(') then
-          Error('Expected "("');
-        lNegation := MatchSymbol('!');
-        if not MatchVariable(lIdentifier) then
-          Error('Expected identifier after "if("');
-        if not MatchSymbol(')') then
-          Error('Expected ")" after "' + lIdentifier + '"');
-        if not MatchEndTag then
-          Error('Expected closing tag for "if(' + lIdentifier + ')"');
-        if lNegation then
-        begin
-          lIdentifier := '!' + lIdentifier;
-        end;
-        lLastToken := ttIfThen;
-        aTokens.Add(TToken.Create(lLastToken, lIdentifier));
-        Inc(lCurrentIfIndex);
-        lIfStatementStack[lCurrentIfIndex].IfIndex := aTokens.Count - 1;
-        lIfStatementStack[lCurrentIfIndex].ElseIndex := -1;
-        lStartVerbatim := fCharIndex;
-      end else if MatchSymbol('else') then
-      begin
-        if not MatchEndTag then
-          Error('Expected closing tag for "else"');
-
-        lLastToken := ttElse;
-        aTokens.Add(TToken.Create(lLastToken, ''));
-
-        // jumps handling...
-        lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex].IfIndex;
-        lIfStatementStack[lCurrentIfIndex].ElseIndex := aTokens.Count - 1;
-        aTokens[lIndexOfLatestIfStatement] := TToken.Create(ttIfThen,
-          aTokens[lIndexOfLatestIfStatement].Value,
-          lIfStatementStack[lCurrentIfIndex].ElseIndex, {ttIfThen.Ref1 points always to relative else (if present otherwise -1)}
-          -1);
-        lStartVerbatim := fCharIndex;
-      end
-      else if MatchSymbol('include') then {include}
-      begin
-        if not MatchSymbol('(') then
-          Error('Expected "("');
-
-        {In a future version we could implement a function call}
-        if not MatchString(lStringValue) then
-        begin
-          Error('Expected string after "include("');
-        end;
-
-        if not MatchSymbol(')') then
-          Error('Expected ")" after "' + lStringValue + '"');
-        if not MatchEndTag then
-          Error('Expected closing tag for "include(' + lStringValue + ')"');
-        // create another element in the sections stack
-        try
-          lCurrentFileName := TPath.Combine(fBaseIncludePath, lStringValue);
-          lIncludeFileContent := TFile.ReadAllText(TPath.Combine(fBaseIncludePath, lStringValue), fEncoding);
-        except
-          on E: Exception do
-          begin
-            Error('Cannot read "' + lStringValue + '"');
-          end;
-        end;
-        InternalCompileIncludedTemplate(lIncludeFileContent, aTokens, TPath.GetDirectoryName(lCurrentFileName));
-        lStartVerbatim := fCharIndex;
-      end
-      else if MatchReset(lIdentifier) then  {reset}
-      begin
-        if not MatchEndTag then
-          Error('Expected closing tag');
-        lLastToken := ttReset;
-        aTokens.Add(TToken.Create(lLastToken, lIdentifier));
-        lStartVerbatim := fCharIndex;
         Step;
-      end
-      else if MatchSymbol('exit') then {exit}
-      begin
-        lLastToken := ttEOF;
-        aTokens.Add(TToken.Create(lLastToken, ''));
-        Break;
-      end
-      else if MatchString(lStringValue) then {string}
-      begin
-        lRef2 := IfThen(MatchSymbol('$'),1,-1); // {{value$}} means no escaping
-        InternalMatchFilter(lStringValue, lStartVerbatim, ttLiteralString, aTokens, lRef2);
-      end
-      else if MatchVariable(lVarName) then {variable}
-      begin
-        if lVarName.IsEmpty then
-          Error('Invalid variable name');
-        lFuncName := '';
-        lFuncParamsCount := -1; {-1 means "no filter applied to value"}
-        lRef2 := IfThen(MatchSymbol('$'),1,-1); // {{value$}} means no escaping
-        if MatchSymbol('|') then
+        if MatchVariable(lVarName) then {variable}
         begin
-          if not MatchVariable(lFuncName) then
-            Error('Invalid function name applied to variable ' + lVarName);
-          lFuncParams := GetFunctionParameters;
-          lFuncParamsCount := Length(lFuncParams);
-        end;
-
-        if not MatchEndTag then
-        begin
-          Error('Expected end tag "' + END_TAG + '"');
-        end;
-        lStartVerbatim := fCharIndex;
-        lLastToken := ttValue;
-        aTokens.Add(TToken.Create(lLastToken, lVarName, lFuncParamsCount, lRef2));
-
-        //add function with params
-        if not lFuncName.IsEmpty then
-        begin
-          aTokens.Add(TToken.Create(ttFilterName, lFuncName, lFuncParamsCount));
-          if lFuncParamsCount > 0 then
+          if lVarName.IsEmpty then
+            Error('Invalid variable name');
+          lFuncName := '';
+          lFuncParamsCount := -1; {-1 means "no filter applied to value"}
+          lRef2 := IfThen(MatchSymbol('$'),1,-1); // {{value$}} means no escaping
+          if MatchSymbol('|') then
           begin
-            for I := 0 to lFuncParamsCount -1 do
+            if not MatchVariable(lFuncName) then
+              Error('Invalid function name applied to variable ' + lVarName);
+            lFuncParams := GetFunctionParameters;
+            lFuncParamsCount := Length(lFuncParams);
+          end;
+
+          if not MatchEndTag then
+          begin
+            Error('Expected end tag "' + END_TAG + '"');
+          end;
+          lStartVerbatim := fCharIndex;
+          lLastToken := ttValue;
+          aTokens.Add(TToken.Create(lLastToken, lVarName, lFuncParamsCount, lRef2));
+
+          //add function with params
+          if not lFuncName.IsEmpty then
+          begin
+            aTokens.Add(TToken.Create(ttFilterName, lFuncName, lFuncParamsCount));
+            if lFuncParamsCount > 0 then
             begin
-              aTokens.Add(TToken.Create(ttFilterParameter, lFuncParams[I]));
+              for I := 0 to lFuncParamsCount -1 do
+              begin
+                aTokens.Add(TToken.Create(ttFilterParameter, lFuncParams[I]));
+              end;
             end;
           end;
-        end;
-      end
-      else if MatchSymbol('#') then
-      begin
-        while not MatchEndTag do
-        begin
-          Step;
-        end;
-        lStartVerbatim := fCharIndex;
+        end; //matchvariable
       end
       else
       begin
-        Error('Expected command, got "' + CurrentChar + '"');
+        if MatchSymbol('loop') then {loop}
+        begin
+          if not MatchSymbol('(') then
+            Error('Expected "("');
+          if not MatchVariable(lIdentifier) then
+            Error('Expected identifier after "loop("');
+          if not MatchSymbol(')') then
+            Error('Expected ")" after "' + lIdentifier + '"');
+          if not MatchEndTag then
+            Error('Expected closing tag for "loop(' + lIdentifier + ')"');
+          // create another element in the sections stack
+          Inc(lCurrentSectionIndex);
+          lSectionStack[lCurrentSectionIndex] := aTokens.Count;
+          lLastToken := ttLoop;
+          aTokens.Add(TToken.Create(lLastToken, lIdentifier));
+          lStartVerbatim := fCharIndex;
+        end else if MatchSymbol('endloop') then {endloop}
+        begin
+          if not MatchEndTag then
+            Error('Expected closing tag');
+          if lCurrentSectionIndex = -1 then
+          begin
+            Error('endloop without loop');
+          end;
+          lLastToken := ttEndLoop;
+          aTokens.Add(TToken.Create(lLastToken, '', lSectionStack[lCurrentSectionIndex]));
+
+          // let the loop know where the endloop is
+          lIndexOfLatestLoopStatement := lSectionStack[lCurrentSectionIndex];
+          aTokens[lIndexOfLatestLoopStatement] :=
+            TToken.Create(ttLoop, aTokens[lIndexOfLatestLoopStatement].Value, aTokens.Count - 1);
+
+          Dec(lCurrentSectionIndex);
+          lStartVerbatim := fCharIndex;
+        end else if MatchSymbol('endif') then {endif}
+        begin
+          if lCurrentIfIndex = -1 then
+          begin
+            Error('"endif" without "if"');
+          end;
+          if not MatchEndTag then
+          begin
+            Error('Expected closing tag for "endif"');
+          end;
+
+          lLastToken := ttEndIf;
+          aTokens.Add(TToken.Create(lLastToken, ''));
+
+          // jumps handling...
+          lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex].IfIndex;
+
+          //rewrite current "ifthen" references
+          aTokens[lIndexOfLatestIfStatement] :=
+            TToken.Create(ttIfThen,
+              aTokens[lIndexOfLatestIfStatement].Value,
+              aTokens[lIndexOfLatestIfStatement].Ref1,
+              aTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
+
+          if aTokens[lIndexOfLatestIfStatement].Ref1 > -1 then
+          begin
+            lIndexOfLatestElseStatement := aTokens[lIndexOfLatestIfStatement].Ref1;
+            aTokens[lIndexOfLatestElseStatement] :=
+              TToken.Create(ttElse,
+                aTokens[lIndexOfLatestElseStatement].Value,
+                -1 {Ref1 is not used by ttElse},
+                aTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
+          end;
+
+          Dec(lCurrentIfIndex);
+          lStartVerbatim := fCharIndex;
+        end else if MatchSymbol('if') then
+        begin
+          if not MatchSymbol('(') then
+            Error('Expected "("');
+          lNegation := MatchSymbol('!');
+          if not MatchVariable(lIdentifier) then
+            Error('Expected identifier after "if("');
+          if not MatchSymbol(')') then
+            Error('Expected ")" after "' + lIdentifier + '"');
+          if not MatchEndTag then
+            Error('Expected closing tag for "if(' + lIdentifier + ')"');
+          if lNegation then
+          begin
+            lIdentifier := '!' + lIdentifier;
+          end;
+          lLastToken := ttIfThen;
+          aTokens.Add(TToken.Create(lLastToken, lIdentifier));
+          Inc(lCurrentIfIndex);
+          lIfStatementStack[lCurrentIfIndex].IfIndex := aTokens.Count - 1;
+          lIfStatementStack[lCurrentIfIndex].ElseIndex := -1;
+          lStartVerbatim := fCharIndex;
+        end else if MatchSymbol('else') then
+        begin
+          if not MatchEndTag then
+            Error('Expected closing tag for "else"');
+
+          lLastToken := ttElse;
+          aTokens.Add(TToken.Create(lLastToken, ''));
+
+          // jumps handling...
+          lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex].IfIndex;
+          lIfStatementStack[lCurrentIfIndex].ElseIndex := aTokens.Count - 1;
+          aTokens[lIndexOfLatestIfStatement] := TToken.Create(ttIfThen,
+            aTokens[lIndexOfLatestIfStatement].Value,
+            lIfStatementStack[lCurrentIfIndex].ElseIndex, {ttIfThen.Ref1 points always to relative else (if present otherwise -1)}
+            -1);
+          lStartVerbatim := fCharIndex;
+        end
+        else if MatchSymbol('include') then {include}
+        begin
+          if not MatchSymbol('(') then
+            Error('Expected "("');
+
+          {In a future version we could implement a function call}
+          if not MatchString(lStringValue) then
+          begin
+            Error('Expected string after "include("');
+          end;
+
+          if not MatchSymbol(')') then
+            Error('Expected ")" after "' + lStringValue + '"');
+          if not MatchEndTag then
+            Error('Expected closing tag for "include(' + lStringValue + ')"');
+          // create another element in the sections stack
+          try
+            lCurrentFileName := TPath.Combine(fBaseIncludePath, lStringValue);
+            lIncludeFileContent := TFile.ReadAllText(TPath.Combine(fBaseIncludePath, lStringValue), fEncoding);
+          except
+            on E: Exception do
+            begin
+              Error('Cannot read "' + lStringValue + '"');
+            end;
+          end;
+          InternalCompileIncludedTemplate(lIncludeFileContent, aTokens, TPath.GetDirectoryName(lCurrentFileName));
+          lStartVerbatim := fCharIndex;
+        end
+        else if MatchReset(lIdentifier) then  {reset}
+        begin
+          if not MatchEndTag then
+            Error('Expected closing tag');
+          lLastToken := ttReset;
+          aTokens.Add(TToken.Create(lLastToken, lIdentifier));
+          lStartVerbatim := fCharIndex;
+          Step;
+        end
+        else if MatchSymbol('exit') then {exit}
+        begin
+          lLastToken := ttEOF;
+          aTokens.Add(TToken.Create(lLastToken, ''));
+          Break;
+        end
+        else if MatchString(lStringValue) then {string}
+        begin
+          lRef2 := IfThen(MatchSymbol('$'),1,-1); // {{value$}} means no escaping
+          InternalMatchFilter(lStringValue, lStartVerbatim, ttLiteralString, aTokens, lRef2);
+        end
+        else if MatchSymbol('#') then
+        begin
+          while not MatchEndTag do
+          begin
+            Step;
+          end;
+          lStartVerbatim := fCharIndex;
+        end
+        else
+        begin
+          lIdentifier := CurrentChar;
+          Step;
+          I := 0;
+          while (CurrentChar <> #0) and (CurrentChar <> END_TAG[1]) and (I<20) do
+          begin
+            lIdentifier := lIdentifier + CurrentChar;
+            Step;
+            Inc(I);
+          end;
+          Error('Expected command, got "' + lIdentifier + '"');
+        end;
       end;
     end
     else

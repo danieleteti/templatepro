@@ -14,12 +14,12 @@ uses
   TemplatePro in '..\TemplatePro.pas';
 
 const
-  TestFileNameFilter = '80'; // '*' means "all files'
+  TestFileNameFilter = '*'; // '*' means "all files'
 
 
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<string>): string;
 begin
-  Result := 'Hello There';
+  Result := 'Hello ' + aValue.AsString;
 end;
 
 
@@ -47,7 +47,7 @@ begin
       try
         lInput := TFile.ReadAllText(lFile);
         Write(TPath.GetFileName(lFile).PadRight(30));
-        var lCompiledTemplate := lTPro.Compile(lInput);
+        var lCompiledTemplate := lTPro.Compile(lInput, TPath.Combine(GetModuleName(HInstance), '..', '..', 'test_scripts'));
         lCompiledTemplate.SetData('value0','true');
         lCompiledTemplate.SetData('value1','true');
         lCompiledTemplate.SetData('value2','DANIELE2');

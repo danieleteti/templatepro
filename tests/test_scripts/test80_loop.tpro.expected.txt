@@ -1,4 +1,4 @@
-DataSets
+************* DataSets
 1 Code: 1 - Name: Ford
 this line is odd
 2 Code: 2 - Name: Ferrari
@@ -26,7 +26,7 @@ this line is even
 13 Code: 13 - Name: Skoda
 this line is odd
 
-List of objects
+************* List of objects
 Prop1: value1.1 DANIELE2
 1
 this line is odd
@@ -39,3 +39,25 @@ Prop1: value1.3 DANIELE2
 3
 this line is odd
 ---
+
+************* reset DataSet
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+
+************* reset List of objects
+
+1
+2
+3
