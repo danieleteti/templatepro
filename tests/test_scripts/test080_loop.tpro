@@ -1,29 +1,28 @@
 ************* DataSets
-{{loop(customers)}}
-{{:customers.@@index}} Code: {{:customers.Code}} - Name: {{:customers.Name}}
-{{if(customers.@@odd)}}this line is odd{{endif}}
-{{if(customers.@@even)}}this line is even{{endif}}
-
+{{loop(customers) as cust}}
+{{:cust.@@index}} Code: {{:cust.Code}} - Name: {{:cust.Name}}
+{{if(cust.@@odd)}}this line is odd{{endif}}
+{{if(cust.@@even)}}this line is even{{endif}}
 {{endloop}}
 
 ************* List of objects
-{{loop(objects)}}
-Prop1: {{:objects.Prop1}} {{:value2}}
-{{:objects.@@index}}
-{{if(objects.@@odd)}}this line is odd{{endif}}
-{{if(objects.@@even)}}this line is even{{endif}}
+{{loop(objects) as obj}}
+Prop1: {{:obj.Prop1}} {{:value2}}
+{{:obj.@@index}}
+{{if(obj.@@odd)}}this line is odd{{endif}}
+{{if(obj.@@even)}}this line is even{{endif}}
 
 ---
 {{endloop}}
 
 ************* reset DataSet
 {{reset(customers)}}
-{{loop(customers)}}
-{{:customers.@@index}}
+{{loop(customers) as cust}}
+{{:cust.@@index}}
 {{endloop}}
 
 ************* reset List of objects
 {{reset(objects)}}
-{{loop(objects)}}
-{{:objects.@@index}}
+{{loop(objects) as obj}}
+{{:obj.@@index}}
 {{endloop}}

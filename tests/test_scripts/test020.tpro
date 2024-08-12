@@ -1,10 +1,18 @@
 DataSets
-{{loop(customers)}}
-Code: {{:customers.Code}} - Name: {{:customers.Name}}
+{{loop(customers) as cust}}
+Code: {{:cust.Code}} - Name: {{:cust.Name}}
 {{endloop}}
 
 List of objects
-{{loop(objects)}}
-Prop1: {{:objects.Prop1}} {{:value2}}
+{{loop(objects) as obj}}
+Prop1: {{:obj.Prop1}} {{:value2}}
 ---
+{{endloop}}
+
+
+{{reset(customers)}}{{loop(customers) as cust}}
+{{:cust.@@index}}) Code: {{:cust.Code}} - Name: {{:cust.Name}}
+{{reset(objects)}}{{loop(objects) as obj}}
+    - Prop1: {{:obj.Prop1}}
+{{endloop}}
 {{endloop}}

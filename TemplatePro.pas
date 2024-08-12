@@ -63,9 +63,10 @@ type
   type
     TToken = packed record
       TokenType: TTokenType;
-      Value: String;
+      Value1: String;
+      Value2: String;
       Ref1, Ref2: Integer;
-      class function Create(TokType: TTokenType; Value: String; Ref1: Integer = -1; Ref2: Integer = -1): TToken; static;
+      class function Create(TokType: TTokenType; Value1: String; Value2: String; Ref1: Integer = -1; Ref2: Integer = -1): TToken; static;
       function TokenTypeAsString: String;
       function ToString: String;
     end;
@@ -77,15 +78,14 @@ type
   TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viJSONArray);
   TTProVariablesInfos = set of TTProVariablesInfo;
 
-
-  TVarInfo = class
+  TVarDataSource = class
     VarValue: TValue;
     VarOption: TTProVariablesInfos;
     VarIterator: Int64;
     constructor Create(const VarValue: TValue; const VarOption: TTProVariablesInfos; const VarIterator: Int64);
   end;
 
-  TTProVariables = class(TObjectDictionary<string, TVarInfo>)
+  TTProVariables = class(TObjectDictionary<string, TVarDataSource>)
   public
     constructor Create;
   end;
@@ -104,6 +104,7 @@ type
   private
     fTokens: TList<TToken>;
     fVariables: TTProVariables;
+    fAliases: TDictionary<string, string>;
     fTemplateFunctions: TDictionary<string, TTProTemplateFunction>;
     constructor Create(Tokens: TList<TToken>);
     procedure Error(const aMessage: String);
@@ -115,7 +116,7 @@ type
     function ExecuteFilter(aFunctionName: string; aParameters: TArray<string>; aValue: TValue): string;
     procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
     procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
-    function GetPseudoVariable(const Variable: TVarInfo; const PseudoVarName: String): TValue;
+    function GetPseudoVariable(const Variable: TVarDataSource; const PseudoVarName: String): TValue;
   public
     destructor Destroy; override;
     function Render: String;
@@ -134,6 +135,7 @@ type
     function MatchFilterParamValue(var aParamValue: string): Boolean;
     function MatchReset(var aDataSet: string): Boolean;
     function MatchSymbol(const aSymbol: string): Boolean;
+    function MatchSpace: Boolean;
     function MatchString(out aStringValue: string): Boolean;
     procedure InternalMatchFilter(lIdentifier: String; var lStartVerbatim: UInt64; const CurrToken: TTokenType; aTokens: TList<TToken>; const lRef2: Integer);
     function GetFunctionParameters: TArray<String>;
@@ -229,7 +231,7 @@ begin
   fTemplateFunctions.Add(FunctionName.ToLower, FunctionImpl);
 end;
 
-function TTProCompiledTemplate.GetPseudoVariable(const Variable: TVarInfo; const PseudoVarName: String): TValue;
+function TTProCompiledTemplate.GetPseudoVariable(const Variable: TVarDataSource; const PseudoVarName: String): TValue;
 begin
   if PseudoVarName = '@@index' then
   begin
@@ -301,17 +303,17 @@ begin
     Error('Expected end tag "' + END_TAG + '"');
   end;
   lStartVerbatim := fCharIndex;
-  aTokens.Add(TToken.Create(CurrToken, lIdentifier, lFuncParamsCount, lRef2));
+  aTokens.Add(TToken.Create(CurrToken, lIdentifier, '', lFuncParamsCount, lRef2));
 
   //add function with params
   if not lFuncName.IsEmpty then
   begin
-    aTokens.Add(TToken.Create(ttFilterName, lFuncName, lFuncParamsCount));
+    aTokens.Add(TToken.Create(ttFilterName, lFuncName, '', lFuncParamsCount));
     if lFuncParamsCount > 0 then
     begin
       for I := 0 to lFuncParamsCount -1 do
       begin
-        aTokens.Add(TToken.Create(ttFilterParameter, lFuncParams[I]));
+        aTokens.Add(TToken.Create(ttFilterParameter, lFuncParams[I], ''));
       end;
     end;
   end;
@@ -404,6 +406,12 @@ begin
   Result := MatchSymbol('(') and MatchVariable(aDataSet) and MatchSymbol(')');
 end;
 
+function TTProCompiler.MatchSpace: Boolean;
+begin
+  Result := MatchSymbol(' ');
+  while MatchSymbol(' ') do;
+end;
+
 function TTProCompiler.MatchStartTag: Boolean;
 begin
   Result := MatchSymbol(START_TAG);
@@ -490,6 +498,7 @@ var
   lVarName: string;
   lFuncName: string;
   lIdentifier: string;
+  lIdentifierAlias: string;
   //lFuncParams: TArray<string>;
   lStartVerbatim: UInt64;
   lEndVerbatim: UInt64;
@@ -524,9 +533,9 @@ begin
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
         lLastToken := ttContent;
-        aTokens.Add(TToken.Create(lLastToken, HTMLSpecialCharsEncode(fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim))));
+        aTokens.Add(TToken.Create(lLastToken, HTMLSpecialCharsEncode(fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)), ''));
       end;
-      aTokens.Add(TToken.Create(ttEOF, ''));
+      aTokens.Add(TToken.Create(ttEOF, '', ''));
       Break;
     end;
 
@@ -535,11 +544,11 @@ begin
       lEndVerbatim := fCharIndex - Length(sLineBreak);
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
-        aTokens.Add(TToken.Create(ttContent, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
+        aTokens.Add(TToken.Create(ttContent, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim), ''));
       end;
       lStartVerbatim := fCharIndex;
       lLastToken := ttLineBreak;
-      aTokens.Add(TToken.Create(lLastToken, ''));
+      aTokens.Add(TToken.Create(lLastToken, '', ''));
       Inc(fCurrentLine);
     end else if MatchStartTag then         {starttag}
     begin
@@ -548,13 +557,13 @@ begin
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
         lLastToken := ttContent;
-        aTokens.Add(TToken.Create(lLastToken, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)));
+        aTokens.Add(TToken.Create(lLastToken, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim), ''));
       end;
 
       if CurrentChar = START_TAG[1] then
       begin
         lLastToken := ttContent;
-        aTokens.Add(TToken.Create(lLastToken, START_TAG));
+        aTokens.Add(TToken.Create(lLastToken, START_TAG, ''));
         Inc(fCharIndex);
         lStartVerbatim := fCharIndex;
         Continue;
@@ -584,17 +593,17 @@ begin
           end;
           lStartVerbatim := fCharIndex;
           lLastToken := ttValue;
-          aTokens.Add(TToken.Create(lLastToken, lVarName, lFuncParamsCount, lRef2));
+          aTokens.Add(TToken.Create(lLastToken, lVarName, '', lFuncParamsCount, lRef2));
 
           //add function with params
           if not lFuncName.IsEmpty then
           begin
-            aTokens.Add(TToken.Create(ttFilterName, lFuncName, lFuncParamsCount));
+            aTokens.Add(TToken.Create(ttFilterName, lFuncName, '', lFuncParamsCount));
             if lFuncParamsCount > 0 then
             begin
               for I := 0 to lFuncParamsCount -1 do
               begin
-                aTokens.Add(TToken.Create(ttFilterParameter, lFuncParams[I]));
+                aTokens.Add(TToken.Create(ttFilterParameter, lFuncParams[I], ''));
               end;
             end;
           end;
@@ -610,13 +619,25 @@ begin
             Error('Expected identifier after "loop("');
           if not MatchSymbol(')') then
             Error('Expected ")" after "' + lIdentifier + '"');
+          if not MatchSpace then
+            Error('Expected <space> after "loop(' + lIdentifier + ')');
+          if not MatchSymbol('as') then
+            Error('Expected "as" after "loop(' + lIdentifier + ')');
+          if not MatchSpace then
+            Error('Expected <space> after "loop(' + lIdentifier + ') - EXAMPLE: loop(' + lIdentifier + ') as myalias');
+          if not MatchVariable(lIdentifierAlias) then
+            Error('Expected alias after "loop" - EXAMPLE: loop(' + lIdentifier + ') as myalias');
           if not MatchEndTag then
             Error('Expected closing tag for "loop(' + lIdentifier + ')"');
           // create another element in the sections stack
           Inc(lCurrentSectionIndex);
           lSectionStack[lCurrentSectionIndex] := aTokens.Count;
           lLastToken := ttLoop;
-          aTokens.Add(TToken.Create(lLastToken, lIdentifier));
+          if lIdentifier = lIdentifierAlias then
+          begin
+            Error('loop data source and its alias cannot be the same: ' + lIdentifier)
+          end;
+          aTokens.Add(TToken.Create(lLastToken, lIdentifier, lIdentifierAlias));
           lStartVerbatim := fCharIndex;
         end else if MatchSymbol('endloop') then {endloop}
         begin
@@ -627,12 +648,15 @@ begin
             Error('endloop without loop');
           end;
           lLastToken := ttEndLoop;
-          aTokens.Add(TToken.Create(lLastToken, '', lSectionStack[lCurrentSectionIndex]));
+          aTokens.Add(TToken.Create(lLastToken, '', '', lSectionStack[lCurrentSectionIndex]));
 
           // let the loop know where the endloop is
           lIndexOfLatestLoopStatement := lSectionStack[lCurrentSectionIndex];
           aTokens[lIndexOfLatestLoopStatement] :=
-            TToken.Create(ttLoop, aTokens[lIndexOfLatestLoopStatement].Value, aTokens.Count - 1);
+            TToken.Create(ttLoop,
+              aTokens[lIndexOfLatestLoopStatement].Value1,
+              aTokens[lIndexOfLatestLoopStatement].Value2,
+              aTokens.Count - 1);
 
           Dec(lCurrentSectionIndex);
           lStartVerbatim := fCharIndex;
@@ -648,7 +672,7 @@ begin
           end;
 
           lLastToken := ttEndIf;
-          aTokens.Add(TToken.Create(lLastToken, ''));
+          aTokens.Add(TToken.Create(lLastToken, '', ''));
 
           // jumps handling...
           lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex].IfIndex;
@@ -656,7 +680,8 @@ begin
           //rewrite current "ifthen" references
           aTokens[lIndexOfLatestIfStatement] :=
             TToken.Create(ttIfThen,
-              aTokens[lIndexOfLatestIfStatement].Value,
+              aTokens[lIndexOfLatestIfStatement].Value1,
+              '',
               aTokens[lIndexOfLatestIfStatement].Ref1,
               aTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
 
@@ -665,7 +690,8 @@ begin
             lIndexOfLatestElseStatement := aTokens[lIndexOfLatestIfStatement].Ref1;
             aTokens[lIndexOfLatestElseStatement] :=
               TToken.Create(ttElse,
-                aTokens[lIndexOfLatestElseStatement].Value,
+                aTokens[lIndexOfLatestElseStatement].Value1,
+                '',
                 -1 {Ref1 is not used by ttElse},
                 aTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
           end;
@@ -688,7 +714,7 @@ begin
             lIdentifier := '!' + lIdentifier;
           end;
           lLastToken := ttIfThen;
-          aTokens.Add(TToken.Create(lLastToken, lIdentifier));
+          aTokens.Add(TToken.Create(lLastToken, lIdentifier, ''));
           Inc(lCurrentIfIndex);
           lIfStatementStack[lCurrentIfIndex].IfIndex := aTokens.Count - 1;
           lIfStatementStack[lCurrentIfIndex].ElseIndex := -1;
@@ -699,13 +725,14 @@ begin
             Error('Expected closing tag for "else"');
 
           lLastToken := ttElse;
-          aTokens.Add(TToken.Create(lLastToken, ''));
+          aTokens.Add(TToken.Create(lLastToken, '', ''));
 
           // jumps handling...
           lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex].IfIndex;
           lIfStatementStack[lCurrentIfIndex].ElseIndex := aTokens.Count - 1;
           aTokens[lIndexOfLatestIfStatement] := TToken.Create(ttIfThen,
-            aTokens[lIndexOfLatestIfStatement].Value,
+            aTokens[lIndexOfLatestIfStatement].Value1,
+            '',
             lIfStatementStack[lCurrentIfIndex].ElseIndex, {ttIfThen.Ref1 points always to relative else (if present otherwise -1)}
             -1);
           lStartVerbatim := fCharIndex;
@@ -750,14 +777,13 @@ begin
           if not MatchEndTag then
             Error('Expected closing tag');
           lLastToken := ttReset;
-          aTokens.Add(TToken.Create(lLastToken, lIdentifier));
+          aTokens.Add(TToken.Create(lLastToken, lIdentifier, ''));
           lStartVerbatim := fCharIndex;
-          Step;
         end
         else if MatchSymbol('exit') then {exit}
         begin
           lLastToken := ttEOF;
-          aTokens.Add(TToken.Create(lLastToken, ''));
+          aTokens.Add(TToken.Create(lLastToken, '', ''));
           Break;
         end
         else if MatchString(lStringValue) then {string}
@@ -1167,10 +1193,11 @@ end;
 
 { TToken }
 
-class function TToken.Create(TokType: TTokenType; Value: String; Ref1: Integer; Ref2: Integer): TToken;
+class function TToken.Create(TokType: TTokenType; Value1, Value2: String; Ref1: Integer; Ref2: Integer): TToken;
 begin
   Result.TokenType:= TokType;
-  Result.Value := Value;
+  Result.Value1 := Value1;
+  Result.Value2 := Value2;
   Result.Ref1 := Ref1;
   Result.Ref2 := Ref2;
 end;
@@ -1182,7 +1209,7 @@ end;
 
 function TToken.ToString: String;
 begin
-  Result := Format('%15s | Ref1: %8d | Ref2: %8d | %-20s',[TokenTypeAsString, Ref1, Ref2, Value]);
+  Result := Format('%15s | Ref1: %8d | Ref2: %8d | Val1: %-20s| Val2: %-20s',[TokenTypeAsString, Ref1, Ref2, Value1, Value2]);
 end;
 
 { TTProCompiledTemplate }
@@ -1192,10 +1219,12 @@ begin
   inherited Create;
   fTokens := Tokens;
   fTemplateFunctions := TDictionary<string, TTProTemplateFunction>.Create;
+  fAliases := TDictionary<string, string>.Create;
 end;
 
 destructor TTProCompiledTemplate.Destroy;
 begin
+  fAliases.Free;
   fTemplateFunctions.Free;
   inherited;
 end;
@@ -1246,7 +1275,7 @@ var
   lFieldName: string;
   lLastTag: TTokenType;
   lCurrTokenType: TTokenType;
-  lVariable: TVarInfo;
+  lVariable: TVarDataSource;
   lWrapped: ITProWrappedList;
   lJumpTo: Integer;
   lFilterParCount: Integer;
@@ -1268,11 +1297,12 @@ begin
       //Readln;
       case fTokens[lIdx].TokenType of
         ttContent: begin
-          lBuff.Append(fTokens[lIdx].Value);
+          lBuff.Append(fTokens[lIdx].Value1);
         end;
         ttLoop: begin
-          if GetVariables.TryGetValue(fTokens[lIdx].Value, lVariable) then
+          if GetVariables.TryGetValue(fTokens[lIdx].Value1, lVariable) then
           begin
+            fAliases.AddOrSetValue(fTokens[lIdx].Value2 {alias}, fTokens[lIdx].Value1 {datasource}); //set alias
             if viDataSet in lVariable.VarOption then
             begin
               if TDataset(lVariable.VarValue.AsObject).Eof then
@@ -1282,7 +1312,7 @@ begin
               end
             end else if viObject in lVariable.VarOption then
             begin
-              Error(Format('Cannot iterate over a not iterable object [%s]', [fTokens[lIdx].Value]));
+              Error(Format('Cannot iterate over a not iterable object [%s]', [fTokens[lIdx].Value1]));
             end else if viListOfObject in lVariable.VarOption then
             begin
               lWrapped := WrapAsList(lVariable.VarValue.AsObject);
@@ -1310,17 +1340,17 @@ begin
             end
             else
             begin
-              Error('Iteration not allowed for "' + fTokens[lIdx].Value + '"');
+              Error('Iteration not allowed for "' + fTokens[lIdx].Value1 + '"');
             end;
           end
           else
           begin
-            Error(Format('Unknown variable in loop statement [%s]', [fTokens[lIdx].Value]));
+            Error(Format('Unknown variable in loop statement [%s]', [fTokens[lIdx].Value1]));
           end;
         end;
         ttEndLoop: begin
           lLoopStmIndex := fTokens[lIdx].Ref1;
-          lDataSourceName := fTokens[lLoopStmIndex].Value;
+          lDataSourceName := fTokens[lLoopStmIndex].Value1;
           if GetVariables.TryGetValue(lDataSourceName, lVariable) then
           begin
             if viDataSet in lVariable.VarOption then
@@ -1330,6 +1360,10 @@ begin
               begin
                 lIdx := fTokens[lIdx].Ref1; //goto loop
                 Continue;
+              end
+              else
+              begin
+                fAliases.Remove(fTokens[lLoopStmIndex].Value2);
               end;
             end
             else if viJSONArray in lVariable.VarOption then
@@ -1339,6 +1373,10 @@ begin
               begin
                 lIdx := fTokens[lIdx].Ref1; //skip to loop
                 Continue;
+              end
+              else
+              begin
+                fAliases.Remove(fTokens[lLoopStmIndex].Value2);
               end;
             end
             else if viListOfObject in lVariable.VarOption then
@@ -1348,12 +1386,16 @@ begin
               begin
                 lIdx := fTokens[lIdx].Ref1; //skip to loop
                 Continue;
+              end
+              else
+              begin
+                fAliases.Remove(fTokens[lLoopStmIndex].Value2);
               end;
             end;
           end;
         end;
         ttIfThen: begin
-          if EvaluateIfExpression(fTokens[lIdx].Value) then
+          if EvaluateIfExpression(fTokens[lIdx].Value1) then
           begin
            //do nothing
           end
@@ -1390,16 +1432,16 @@ begin
           lCurrTokenType := fTokens[lIdx].TokenType;
           if fTokens[lIdx].Ref1 > -1 {has a function with Ref1 parameters} then
           begin
-            lVarName := fTokens[lIdx].Value;
+            lVarName := fTokens[lIdx].Value1;
             Inc(lIdx);
-            lFilterName := fTokens[lIdx].Value;
+            lFilterName := fTokens[lIdx].Value1;
             lFilterParCount := fTokens[lIdx].Ref1;  // parameter count
             SetLength(lFilterParameters, lFilterParCount);
             for I := 0 to lFilterParCount - 1 do
             begin
               Inc(lIdx);
               Assert(fTokens[lIdx].TokenType = ttFilterParameter);
-              lFilterParameters[I] := fTokens[lIdx].Value;
+              lFilterParameters[I] := fTokens[lIdx].Value1;
             end;
             if lCurrTokenType = ttValue then
             begin
@@ -1414,11 +1456,11 @@ begin
           begin
             if lCurrTokenType = ttValue then
             begin
-              lVarValue := GetVarAsString(fTokens[lIdx].Value);
+              lVarValue := GetVarAsString(fTokens[lIdx].Value1);
             end
             else
             begin
-              lVarValue := fTokens[lIdx].Value;
+              lVarValue := fTokens[lIdx].Value1;
             end;
           end;
           if lRef2 = -1 {encoded} then
@@ -1427,14 +1469,22 @@ begin
             lBuff.Append(lVarValue);
         end;
         ttReset: begin
-          if GetVariables.TryGetValue(fTokens[lIdx].Value, lVariable) then
+          if GetVariables.TryGetValue(fTokens[lIdx].Value1, lVariable) then
           begin
             if viDataSet in lVariable.VarOption then
             begin
               TDataset(lVariable.VarValue.AsObject).First;
+            end
+            else if viListOfObject in lVariable.VarOption then
+            begin
+              //do nothing
             end;
             lVariable.VarIterator := -1;
           end
+          else
+          begin
+            Error('Unknown variable in "reset(' + fTokens[lIdx].Value1 + ''')');
+          end;
         end;
         ttLineBreak: begin
           if not (lLastTag in [ttLoop, ttEndLoop, ttIfThen, ttEndIf, ttReset, ttElse]) then
@@ -1479,17 +1529,27 @@ end;
 
 function TTProCompiledTemplate.GetVarAsTValue(const aName: string): TValue;
 var
-  lVariable: TVarInfo;
+  lVariable: TVarDataSource;
   lPieces: TArray<String>;
   lField: TField;
   lHasMember: Boolean;
   lJArr: TJDOJsonArray;
   lJPath: string;
+  lDataSource: string;
+  lCanBeIterated: Boolean;
 begin
   lPieces := aName.Split(['.']);
   Result := '';
   lHasMember := Length(lPieces) > 1;
-  if GetVariables.TryGetValue(lPieces[0], lVariable) then
+
+  lCanBeIterated := True; //for-loop can read current values only through the alias
+  if not fAliases.TryGetValue(lPieces[0], lDataSource) then
+  begin
+    lDataSource := lPieces[0];
+    lCanBeIterated := False;
+  end;
+
+  if GetVariables.TryGetValue(lDataSource, lVariable) then
   begin
     if lVariable = nil then
     begin
@@ -1497,6 +1557,11 @@ begin
     end;
     if viDataSet in lVariable.VarOption then
     begin
+      if not lCanBeIterated then
+      begin
+        Error(lDataSource + ' can be iterated only using its alias');
+      end;
+
       if lHasMember and lPieces[1].StartsWith('@@') then
       begin
         lVariable.VarIterator := TDataSet(lVariable.VarValue.AsObject).RecNo - 1;
@@ -1514,14 +1579,18 @@ begin
         end;
       end;
     end
-    else if viJSONArray in lVariable.VarOption then
-    begin
-      lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
-      lJPath := aName.Remove(0, Length(lPieces[0]));
-      Result := lJArr[lVariable.VarIterator].Path[aName.Remove(0, Length(lPieces[0]) + 1)].Value;
-    end
+//    else if viJSONArray in lVariable.VarOption then
+//    begin
+//      lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
+//      lJPath := aName.Remove(0, Length(lPieces[0]));
+//      Result := lJArr[lVariable.VarIterator].Path[aName.Remove(0, Length(lPieces[0]) + 1)].Value;
+//    end
     else if viListOfObject in lVariable.VarOption then
     begin
+      if not lCanBeIterated then
+      begin
+        Error(lDataSource + ' can be iterated only using its alias');
+      end;
       if lHasMember and lPieces[1].StartsWith('@@') then
       begin
         Result := GetPseudoVariable(lVariable, lPieces[1]);
@@ -1569,7 +1638,7 @@ function TTProCompiledTemplate.EvaluateIfExpression(aIdentifier: string): Boolea
 var
   lVarValue: TValue;
   lNegation: Boolean;
-  lVariable: TVarInfo;
+  lVariable: TVarDataSource;
   lPieces: TArray<String>;
   lTmp: Boolean;
   lHasMember: Boolean;
@@ -1663,31 +1732,31 @@ begin
     begin
       if Value.AsObject is TDataSet then
       begin
-        GetVariables.Add(Name, TVarInfo.Create(Value.AsObject, [viDataSet], -1));
+        GetVariables.Add(Name, TVarDataSource.Create(Value.AsObject, [viDataSet], -1));
       end
       else
       if Value.AsObject is TJDOJsonObject then
       begin
-        GetVariables.Add(Name, TVarInfo.Create(TJDOJsonObject(Value.AsObject), [viJSONObject], -1));
+        GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonObject(Value.AsObject), [viJSONObject], -1));
       end
       else
       if Value.AsObject is TJDOJsonArray then
       begin
-        GetVariables.Add(Name, TVarInfo.Create(TJDOJsonArray(Value.AsObject), [viJSONArray], -1));
+        GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonArray(Value.AsObject), [viJSONArray], -1));
       end
       else
       begin
         if TTProDuckTypedList.CanBeWrappedAsList(Value.AsObject, lWrappedList) then
         begin
-          GetVariables.Add(Name, TVarInfo.Create(TTProDuckTypedList(Value.AsObject), [viListOfObject], -1));
+          GetVariables.Add(Name, TVarDataSource.Create(TTProDuckTypedList(Value.AsObject), [viListOfObject], -1));
         end
         else
         begin
-          GetVariables.Add(Name, TVarInfo.Create(Value.AsObject, [viObject], -1));
+          GetVariables.Add(Name, TVarDataSource.Create(Value.AsObject, [viObject], -1));
         end;
       end;
     end;
-    tkInteger, tkString, tkUString, tkFloat, tkEnumeration : GetVariables.Add(Name, TVarInfo.Create(Value, [viSimpleType], -1));
+    tkInteger, tkString, tkUString, tkFloat, tkEnumeration : GetVariables.Add(Name, TVarDataSource.Create(Value, [viSimpleType], -1));
     else
       raise ETProException.Create('Invalid type for variable "' + Name + '": ' + TRttiEnumerationType.GetName<TTypeKind>(Value.Kind));
   end;
@@ -1702,7 +1771,7 @@ end;
 
 { TVarInfo }
 
-constructor TVarInfo.Create(const VarValue: TValue;
+constructor TVarDataSource.Create(const VarValue: TValue;
   const VarOption: TTProVariablesInfos; const VarIterator: Int64);
 begin
   Self.VarValue := VarValue;

@@ -1,6 +1,3 @@
-1
-Ford
-XX
 value1.1
 YY
 trueABCtrueDEFDANIELE2

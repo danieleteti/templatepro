@@ -1,6 +1,3 @@
-{{:customers.Code}}
-{{:customers.Name}}
-XX
 {{:obj.Prop1}}
 YY
 {{:value0}}ABC{{:value1}}DEF{{:value2}}

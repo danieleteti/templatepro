@@ -15,7 +15,7 @@ uses
   JsonDataObjects in '..\JsonDataObjects.pas';
 
 const
-  TestFileNameFilter = '20'; // '*' means "all files'
+  TestFileNameFilter = '*'; // '*' means "all files'
 
 
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<string>): string;

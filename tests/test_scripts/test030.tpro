@@ -1,15 +1,15 @@
-{{loop(customers)}}
+{{loop(customers) as cust}}
 X
 {{endloop}}
 
 HEADER
 {{reset(customers)}}
 {{# this is a comment }}
-{{loop(customers)}}
+{{loop(customers) as cust}}
 {{# this is a 
 	multi line comment }}
-ABCD{{:customers.Code}}EFG{{:customers.Name}}
-{{loop(objects)}}
-ABCD{{:objects.Prop1}}EFG{{:objects.Prop2}}
+ABCD{{:cust.Code}}EFG{{:cust.Name}}
+{{loop(objects) as obj}}
+ABCD{{:obj.Prop1}}EFG{{:obj.Prop2}}
 {{endloop}}
 {{endloop}}
