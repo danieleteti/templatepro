@@ -74,7 +74,7 @@ type
 
   TTProTemplateFunction = function(const aValue: TValue; const aParameters: TArray<string>): string;
 
-  TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject);
+  TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viJSONArray);
   TTProVariablesInfos = set of TTProVariablesInfo;
 
 
@@ -170,7 +170,8 @@ function HTMLSpecialCharsEncode(s: string): string;
 implementation
 
 uses
-  System.StrUtils, System.IOUtils, System.NetEncoding, System.Math;
+  System.StrUtils, System.IOUtils, System.NetEncoding, System.Math,
+  JsonDataObjects;
 
 const
   IdenfierAllowedFirstChars = ['a' .. 'z', 'A' .. 'Z', '_', '@'];
@@ -1255,6 +1256,7 @@ var
   lVarName: string;
   lVarValue: String;
   lRef2: Integer;
+  lJArr: TJDOJsonArray;
 begin
   lLastTag := ttEOF;
   lBuff := TStringBuilder.Create;
@@ -1293,6 +1295,22 @@ begin
               begin
                 lVariable.VarIterator := lVariable.VarIterator + 1;
               end;
+            end else if viJSONArray in lVariable.VarOption then
+            begin
+              lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
+              if lVariable.VarIterator = lJArr.Count - 1 then
+              begin
+                lIdx := fTokens[lIdx].Ref1; //skip to endif
+                Continue;
+              end
+              else
+              begin
+                lVariable.VarIterator := lVariable.VarIterator + 1;
+              end;
+            end
+            else
+            begin
+              Error('Iteration not allowed for "' + fTokens[lIdx].Value + '"');
             end;
           end
           else
@@ -1313,7 +1331,17 @@ begin
                 lIdx := fTokens[lIdx].Ref1; //goto loop
                 Continue;
               end;
-            end else if viListOfObject in lVariable.VarOption then
+            end
+            else if viJSONArray in lVariable.VarOption then
+            begin
+              lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
+              if lVariable.VarIterator < lJArr.Count - 1 then
+              begin
+                lIdx := fTokens[lIdx].Ref1; //skip to loop
+                Continue;
+              end;
+            end
+            else if viListOfObject in lVariable.VarOption then
             begin
               lWrapped := TTProDuckTypedList.Wrap(lVariable.VarValue.AsObject);
               if lVariable.VarIterator < lWrapped.Count - 1 then
@@ -1321,10 +1349,6 @@ begin
                 lIdx := fTokens[lIdx].Ref1; //skip to loop
                 Continue;
               end;
-            end
-            else
-            begin
-              Error(Format('Cannot reset a not iterable object [%s]', [fTokens[lIdx].Value]));
             end;
           end;
         end;
@@ -1459,6 +1483,8 @@ var
   lPieces: TArray<String>;
   lField: TField;
   lHasMember: Boolean;
+  lJArr: TJDOJsonArray;
+  lJPath: string;
 begin
   lPieces := aName.Split(['.']);
   Result := '';
@@ -1487,6 +1513,12 @@ begin
             Error('Invalid data type for field ' + lPieces[1]);
         end;
       end;
+    end
+    else if viJSONArray in lVariable.VarOption then
+    begin
+      lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
+      lJPath := aName.Remove(0, Length(lPieces[0]));
+      Result := lJArr[lVariable.VarIterator].Path[aName.Remove(0, Length(lPieces[0]) + 1)].Value;
     end
     else if viListOfObject in lVariable.VarOption then
     begin
@@ -1632,6 +1664,16 @@ begin
       if Value.AsObject is TDataSet then
       begin
         GetVariables.Add(Name, TVarInfo.Create(Value.AsObject, [viDataSet], -1));
+      end
+      else
+      if Value.AsObject is TJDOJsonObject then
+      begin
+        GetVariables.Add(Name, TVarInfo.Create(TJDOJsonObject(Value.AsObject), [viJSONObject], -1));
+      end
+      else
+      if Value.AsObject is TJDOJsonArray then
+      begin
+        GetVariables.Add(Name, TVarInfo.Create(TJDOJsonArray(Value.AsObject), [viJSONArray], -1));
       end
       else
       begin

@@ -1,0 +1,39 @@
+[
+	{
+		"first_name": "Bruce",
+		"last_name": "Banner",
+		"age": 56,
+		"devices": ["smartphone","dumbphone"],
+		"colors": [
+		  {"name":"red", "rgb":"ff0000"},
+		  {"name":"blue", "rgb":"0000ff"},
+		  {"name":"green", "rgb":"00ff00"}
+		],
+		"car": {"model":"F40","brand":"Ferrari"},
+		"guid": "2290EE213DFB4855894A3FC91FE52C17"
+	},
+	{
+		"first_name": "Reed",
+		"last_name": "Richards",
+		"age": 45,
+		"devices": ["dumbphone"],
+		"car": {"model":"F40","brand":"Ferrari"},
+		"guid": "298CE047B4C24D67B29710BF4ABE290C"
+	},
+	{
+		"first_name": "Scott",
+		"last_name": "Summers",
+		"age": 54,
+		"devices": ["smartphone","desktop"],
+		"car": {"model":"F40","brand":"Ferrari"},
+		"guid": "3DACB879E83749EDA68389EBA2286A13"
+	},
+	{
+		"first_name": "Daniele",
+		"last_name": "Teti",
+		"age": 40,
+		"devices": ["smartphone","dumbphone"],
+		"car": {"model":"F40","brand":"Ferrari"},
+		"guid": "C2C002A595694C7CBD3CA1F3123F0EEB"
+	}
+]

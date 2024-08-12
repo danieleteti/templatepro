@@ -1,0 +1,22 @@
+************* JSON Array
+{{loop(jsonarr)}}
+{{:jsonarr.first_name|uppercase}}
+{{:jsonarr.car.model|uppercase}}
+{{:jsonarr.@@index}} Code: {{:jsonarr.Code}} - Name: {{:jsonarr.Name}}
+{{if(jsonarr.@@odd)}}this line is odd{{endif}}
+{{if(jsonarr.@@even)}}this line is even{{endif}}
+
+{{endloop}}
+
+*********
+{{reset(jsonarr)}}
+{{loop(jsonarr)}}
+{{:jsonarr.@@index}}
+{{endloop}}
+
+
+
+{{exit}}
+{{loop(jsonarr.colors)}}
+  {{:jsonarr.colors.name}} - {{:jsonarr.colors.rgb}}
+{{endif}}
