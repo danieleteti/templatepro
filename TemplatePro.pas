@@ -142,14 +142,14 @@ type
     fCharIndex: Int64;
     fCurrentLine: Integer;
     fEncoding: TEncoding;
-    fBaseIncludePath: string;
+    fCurrentFileName: String;
     procedure Error(const aMessage: string);
     function Step: Char;
     function CurrentChar: Char;
-    procedure InternalCompileIncludedTemplate(const aTemplate: string; const aTokens: TList<TToken>; const aBaseIncludePath: String);
-    procedure Compile(const aTemplate: string; const aTokens: TList<TToken>; const aBaseIncludePath: String); overload;
+    procedure InternalCompileIncludedTemplate(const aTemplate: string; const aTokens: TList<TToken>; const aFileNameRefPath: String);
+    procedure Compile(const aTemplate: string; const aTokens: TList<TToken>; const aFileNameRefPath: String); overload;
   public
-    function Compile(const aTemplate: string; const aBaseIncludePath: String = ''): ITProCompiledTemplate; overload;
+    function Compile(const aTemplate: string; const aFileNameRefPath: String = ''): ITProCompiledTemplate; overload;
     constructor Create(aEncoding: TEncoding = nil);
   end;
 
@@ -264,13 +264,13 @@ begin
 end;
 
 procedure TTProCompiler.InternalCompileIncludedTemplate(const aTemplate: string;
-  const aTokens: TList<TToken>; const aBaseIncludePath: String);
+  const aTokens: TList<TToken>; const aFileNameRefPath: String);
 var
   lCompiler: TTProCompiler;
 begin
   lCompiler := TTProCompiler.Create(fEncoding);
   try
-    lCompiler.Compile(aTemplate, aTokens, aBaseIncludePath);
+    lCompiler.Compile(aTemplate, aTokens, aFileNameRefPath);
     Assert(aTokens[aTokens.Count - 1].TokenType = ttEOF);
     aTokens.Delete(aTokens.Count - 1); // remove the EOF
   finally
@@ -453,21 +453,23 @@ begin
   Result := CurrentChar;
 end;
 
-function TTProCompiler.Compile(const aTemplate: string; const aBaseIncludePath: String): ITProCompiledTemplate;
+function TTProCompiler.Compile(const aTemplate: string; const aFileNameRefPath: String): ITProCompiledTemplate;
 var
   lTokens: TList<TToken>;
+  lFileNameRefPath: string;
 begin
-  if aBaseIncludePath.IsEmpty then
+  if aFileNameRefPath.IsEmpty then
   begin
-    fBaseIncludePath := TPath.GetDirectoryName(GetModuleName(HInstance));
+    lFileNameRefPath := TPath.Combine(TPath.GetDirectoryName(GetModuleName(HInstance)), '<main>');
   end
   else
   begin
-    fBaseIncludePath := TPath.GetFullPath(aBaseIncludePath);
+    lFileNameRefPath := TPath.GetFullPath(aFileNameRefPath);
   end;
+  fCurrentFileName := lFileNameRefPath;
   lTokens := TList<TToken>.Create;
   try
-    Compile(aTemplate, lTokens, fBaseIncludePath);
+    Compile(aTemplate, lTokens, fCurrentFileName);
     Result := TTProCompiledTemplate.Create(lTokens);
   except
     lTokens.Free;
@@ -475,7 +477,7 @@ begin
   end;
 end;
 
-procedure TTProCompiler.Compile(const aTemplate: string; const aTokens: TList<TToken>; const aBaseIncludePath: String);
+procedure TTProCompiler.Compile(const aTemplate: string; const aTokens: TList<TToken>; const aFileNameRefPath: String);
 var
   lSectionStack: array [0..49] of Integer; //max 50 nested loops
   lCurrentSectionIndex: Integer;
@@ -504,6 +506,7 @@ var
   lStringFound: Boolean;
   lRef2: Integer;
 begin
+  fCurrentFileName := aFileNameRefPath;
   fCharIndex := -1;
   fCurrentLine := 1;
   lCurrentIfIndex := -1;
@@ -723,15 +726,22 @@ begin
             Error('Expected closing tag for "include(' + lStringValue + ')"');
           // create another element in the sections stack
           try
-            lCurrentFileName := TPath.Combine(fBaseIncludePath, lStringValue);
-            lIncludeFileContent := TFile.ReadAllText(TPath.Combine(fBaseIncludePath, lStringValue), fEncoding);
+            if TDirectory.Exists(aFileNameRefPath) then
+            begin
+              lCurrentFileName := TPath.GetFullPath(TPath.Combine(aFileNameRefPath, lStringValue));
+            end
+            else
+            begin
+              lCurrentFileName := TPath.GetFullPath(TPath.Combine(TPath.GetDirectoryName(aFileNameRefPath), lStringValue));
+            end;
+            lIncludeFileContent := TFile.ReadAllText(lCurrentFileName, fEncoding);
           except
             on E: Exception do
             begin
               Error('Cannot read "' + lStringValue + '"');
             end;
           end;
-          InternalCompileIncludedTemplate(lIncludeFileContent, aTokens, TPath.GetDirectoryName(lCurrentFileName));
+          InternalCompileIncludedTemplate(lIncludeFileContent, aTokens, lCurrentFileName);
           lStartVerbatim := fCharIndex;
         end
         else if MatchReset(lIdentifier) then  {reset}
@@ -812,7 +822,7 @@ end;
 
 procedure TTProCompiler.Error(const aMessage: string);
 begin
-  raise ETProParserException.CreateFmt('%s - at line %d', [aMessage, fCurrentLine]);
+  raise ETProParserException.CreateFmt('%s - at line %d in file %s', [aMessage, fCurrentLine, fCurrentFileName]);
 end;
 
 function TTProCompiler.GetFunctionParameters: TArray<String>;
