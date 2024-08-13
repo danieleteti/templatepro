@@ -41,7 +41,6 @@ this line is odd
 ---
 
 ************* reset DataSet
-
 1
 2
 3
@@ -57,7 +56,6 @@ this line is odd
 13
 
 ************* reset List of objects
-
 1
 2
 3

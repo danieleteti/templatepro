@@ -1,24 +1,24 @@
-{{loop(objectsb)}}
-Prop1 = {{:objectsb.Prop1}}
-{{if(objectsb.Prop1)}}
+{{loop(objectsb) as objb}}
+Prop1 = {{:objb.Prop1}}
+{{if(objb.Prop1)}}
 Prop1 is TRUE
 {{else}}
 Prop1 is FALSE
 {{endif}}
-Prop2 = {{:objectsb.Prop2}}
-{{if(objectsb.Prop2)}}
+Prop2 = {{:objb.Prop2}}
+{{if(objb.Prop2)}}
 Prop2 is TRUE
 {{else}}
 Prop2 is FALSE
 {{endif}}
-Prop3 = {{:objectsb.Prop3}}
-{{if(objectsb.Prop3)}}
+Prop3 = {{:objb.Prop3}}
+{{if(objb.Prop3)}}
 Prop3 is TRUE
 {{else}}
 Prop3 is FALSE
 {{endif}}
-PropInt = {{:objectsb.PropInt}}
-{{if(objectsb.PropInt)}}
+PropInt = {{:objb.PropInt}}
+{{if(objb.PropInt)}}
 PropInt is TRUE
 {{else}}
 PropInt is FALSE

@@ -1,43 +1,42 @@
-    0       ttContent | Ref1:       -1 | Ref2:       -1 | ************* JSON Array
-    1     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-    2          ttLoop | Ref1:       25 | Ref2:       -1 | jsonarr             
-    3     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-    4         ttValue | Ref1:        0 | Ref2:       -1 | jsonarr.first_name  
-    5    ttFilterName | Ref1:        0 | Ref2:       -1 | uppercase           
-    6     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-    7         ttValue | Ref1:        0 | Ref2:       -1 | jsonarr.car.model   
-    8    ttFilterName | Ref1:        0 | Ref2:       -1 | uppercase           
-    9     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   10         ttValue | Ref1:       -1 | Ref2:       -1 | jsonarr.@@index     
-   11       ttContent | Ref1:       -1 | Ref2:       -1 |  Code:              
-   12         ttValue | Ref1:       -1 | Ref2:       -1 | jsonarr.Code        
-   13       ttContent | Ref1:       -1 | Ref2:       -1 |  - Name:            
-   14         ttValue | Ref1:       -1 | Ref2:       -1 | jsonarr.Name        
-   15     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   16        ttIfThen | Ref1:       -1 | Ref2:       18 | jsonarr.@@odd       
-   17       ttContent | Ref1:       -1 | Ref2:       -1 | this line is odd    
-   18         ttEndIf | Ref1:       -1 | Ref2:       -1 |                     
-   19     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   20        ttIfThen | Ref1:       -1 | Ref2:       22 | jsonarr.@@even      
-   21       ttContent | Ref1:       -1 | Ref2:       -1 | this line is even   
-   22         ttEndIf | Ref1:       -1 | Ref2:       -1 |                     
-   23     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   24     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   25       ttEndLoop | Ref1:        2 | Ref2:       -1 |                     
-   26     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   27     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   28       ttContent | Ref1:       -1 | Ref2:       -1 | *********           
-   29     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   30         ttReset | Ref1:       -1 | Ref2:       -1 | jsonarr             
-   31       ttContent | Ref1:       -1 | Ref2:       -1 | 
-                  
-   32          ttLoop | Ref1:       36 | Ref2:       -1 | jsonarr             
-   33     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   34         ttValue | Ref1:       -1 | Ref2:       -1 | jsonarr.@@index     
-   35     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   36       ttEndLoop | Ref1:       32 | Ref2:       -1 |                     
-   37     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   38     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   39     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   40     ttLineBreak | Ref1:       -1 | Ref2:       -1 |                     
-   41           ttEOF | Ref1:       -1 | Ref2:       -1 |                     
+    0       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: ************* JSON Array| Val2:                     
+    1     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+    2          ttLoop | Ref1:       25 | Ref2:       -1 | Val1: jsonarr             | Val2: jarr                
+    3     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+    4         ttValue | Ref1:        0 | Ref2:       -1 | Val1: jarr.first_name     | Val2:                     
+    5    ttFilterName | Ref1:        0 | Ref2:       -1 | Val1: uppercase           | Val2:                     
+    6     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+    7         ttValue | Ref1:        0 | Ref2:       -1 | Val1: jarr.car.model      | Val2:                     
+    8    ttFilterName | Ref1:        0 | Ref2:       -1 | Val1: uppercase           | Val2:                     
+    9     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   10         ttValue | Ref1:       -1 | Ref2:       -1 | Val1: jarr.@@index        | Val2:                     
+   11       ttContent | Ref1:       -1 | Ref2:       -1 | Val1:  Code:              | Val2:                     
+   12         ttValue | Ref1:       -1 | Ref2:       -1 | Val1: jarr.Code           | Val2:                     
+   13       ttContent | Ref1:       -1 | Ref2:       -1 | Val1:  - Name:            | Val2:                     
+   14         ttValue | Ref1:       -1 | Ref2:       -1 | Val1: jarr.Name           | Val2:                     
+   15     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   16        ttIfThen | Ref1:       -1 | Ref2:       18 | Val1: jarr.@@odd          | Val2:                     
+   17       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: this line is odd    | Val2:                     
+   18         ttEndIf | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   19     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   20        ttIfThen | Ref1:       -1 | Ref2:       22 | Val1: jarr.@@even         | Val2:                     
+   21       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: this line is even   | Val2:                     
+   22         ttEndIf | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   23     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   24     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   25       ttEndLoop | Ref1:        2 | Ref2:       -1 | Val1:                     | Val2:                     
+   26     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   27     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   28       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: *********           | Val2:                     
+   29     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   30         ttReset | Ref1:       -1 | Ref2:       -1 | Val1: jsonarr             | Val2:                     
+   31     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   32          ttLoop | Ref1:       36 | Ref2:       -1 | Val1: jsonarr             | Val2: jarr                
+   33     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   34         ttValue | Ref1:       -1 | Ref2:       -1 | Val1: jarr.@@index        | Val2:                     
+   35     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   36       ttEndLoop | Ref1:       32 | Ref2:       -1 | Val1:                     | Val2:                     
+   37     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   38     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   39     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   40     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     
+   41           ttEOF | Ref1:       -1 | Ref2:       -1 | Val1:                     | Val2:                     

@@ -1,23 +1,22 @@
 ************* JSON Array
-BRUCE
-F40
+
+
  Code:  - Name: 
 
-REED
-F40
+
+
  Code:  - Name: 
 
-SCOTT
-F40
+
+
  Code:  - Name: 
 
-DANIELE
-F40
+
+
  Code:  - Name: 
 
 
 *********
-
 
 
 

@@ -3,6 +3,7 @@
 {{:cust.@@index}} Code: {{:cust.Code}} - Name: {{:cust.Name}}
 {{if(cust.@@odd)}}this line is odd{{endif}}
 {{if(cust.@@even)}}this line is even{{endif}}
+
 {{endloop}}
 
 ************* List of objects

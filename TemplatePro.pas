@@ -75,7 +75,7 @@ type
 
   TTProTemplateFunction = function(const aValue: TValue; const aParameters: TArray<string>): string;
 
-  TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viJSONArray);
+  TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viJSONArray, viIterable);
   TTProVariablesInfos = set of TTProVariablesInfo;
 
   TVarDataSource = class
@@ -1302,6 +1302,10 @@ begin
         ttLoop: begin
           if GetVariables.TryGetValue(fTokens[lIdx].Value1, lVariable) then
           begin
+            if not (viIterable in lVariable.VarOption) then
+            begin
+              Error(Format('Cannot iterate over a not iterable object [%s]', [fTokens[lIdx].Value1]));
+            end;
             fAliases.AddOrSetValue(fTokens[lIdx].Value2 {alias}, fTokens[lIdx].Value1 {datasource}); //set alias
             if viDataSet in lVariable.VarOption then
             begin
@@ -1310,9 +1314,6 @@ begin
                 lIdx := fTokens[lIdx].Ref1; //skip to endif
                 Continue;
               end
-            end else if viObject in lVariable.VarOption then
-            begin
-              Error(Format('Cannot iterate over a not iterable object [%s]', [fTokens[lIdx].Value1]));
             end else if viListOfObject in lVariable.VarOption then
             begin
               lWrapped := WrapAsList(lVariable.VarValue.AsObject);
@@ -1641,8 +1642,10 @@ var
   lVariable: TVarDataSource;
   lPieces: TArray<String>;
   lTmp: Boolean;
+  lDataSource: String;
   lHasMember: Boolean;
   lList: ITProWrappedList;
+  lAliasFound: Boolean;
 begin
   lNegation := aIdentifier.StartsWith('!');
   if lNegation then
@@ -1652,8 +1655,18 @@ begin
   aIdentifier := lPieces[0];
   lHasMember := Length(lPieces) > 1;
 
-  if GetVariables.TryGetValue(aIdentifier, lVariable) then
+  lAliasFound := fAliases.TryGetValue(aIdentifier, lDataSource);
+  if not lAliasFound then
   begin
+    lDataSource := aIdentifier;
+  end;
+
+  if GetVariables.TryGetValue(lDataSource, lVariable) then
+  begin
+    if (viIterable in lVariable.VarOption) and (not lAliasFound) then
+    begin
+      Error(lDataSource + ' can be iterated only using its alias');
+    end;
     if lVariable = nil then
     begin
       Exit(lNegation xor False);
@@ -1732,7 +1745,7 @@ begin
     begin
       if Value.AsObject is TDataSet then
       begin
-        GetVariables.Add(Name, TVarDataSource.Create(Value.AsObject, [viDataSet], -1));
+        GetVariables.Add(Name, TVarDataSource.Create(Value.AsObject, [viDataSet, viIterable], -1));
       end
       else
       if Value.AsObject is TJDOJsonObject then
@@ -1742,13 +1755,13 @@ begin
       else
       if Value.AsObject is TJDOJsonArray then
       begin
-        GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonArray(Value.AsObject), [viJSONArray], -1));
+        GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonArray(Value.AsObject), [viJSONArray, viIterable], -1));
       end
       else
       begin
         if TTProDuckTypedList.CanBeWrappedAsList(Value.AsObject, lWrappedList) then
         begin
-          GetVariables.Add(Name, TVarDataSource.Create(TTProDuckTypedList(Value.AsObject), [viListOfObject], -1));
+          GetVariables.Add(Name, TVarDataSource.Create(TTProDuckTypedList(Value.AsObject), [viListOfObject, viIterable], -1));
         end
         else
         begin
