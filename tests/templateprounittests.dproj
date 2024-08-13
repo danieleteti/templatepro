@@ -212,6 +212,7 @@
         <DCCReference Include="UtilsU.pas"/>
         <DCCReference Include="..\TemplatePro.pas"/>
         <DCCReference Include="..\JsonDataObjects.pas"/>
+        <DCCReference Include="..\MVCFramework.Nullables.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

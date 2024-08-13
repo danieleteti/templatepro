@@ -12,10 +12,11 @@ uses
   System.Classes,
   UtilsU in 'UtilsU.pas',
   TemplatePro in '..\TemplatePro.pas',
-  JsonDataObjects in '..\JsonDataObjects.pas';
+  JsonDataObjects in '..\JsonDataObjects.pas',
+  MVCFramework.Nullables in '..\MVCFramework.Nullables.pas';
 
 const
-  TestFileNameFilter = '100'; // '*' means "all files'
+  TestFileNameFilter = '*'; // '*' means "all files'
 
 
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<string>): string;

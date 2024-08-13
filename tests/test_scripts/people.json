@@ -17,7 +17,7 @@
 		"last_name": "Richards",
 		"age": 45,
 		"devices": ["dumbphone"],
-		"car": {"model":"F40","brand":"Ferrari"},
+		"car": {"model":"348GTB","brand":"Ferrari"},
 		"guid": "298CE047B4C24D67B29710BF4ABE290C"
 	},
 	{
@@ -25,7 +25,7 @@
 		"last_name": "Summers",
 		"age": 54,
 		"devices": ["smartphone","desktop"],
-		"car": {"model":"F40","brand":"Ferrari"},
+		"car": {"model":"Mustang","brand":"Ford"},
 		"guid": "3DACB879E83749EDA68389EBA2286A13"
 	},
 	{
@@ -33,7 +33,7 @@
 		"last_name": "Teti",
 		"age": 40,
 		"devices": ["smartphone","dumbphone"],
-		"car": {"model":"F40","brand":"Ferrari"},
+		"car": {"model":"Delta HF Integrale","brand":"Lancia"},
 		"guid": "C2C002A595694C7CBD3CA1F3123F0EEB"
 	}
 ]

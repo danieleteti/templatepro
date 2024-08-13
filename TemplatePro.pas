@@ -28,6 +28,7 @@ uses
   System.Generics.Collections,
   System.Classes,
   System.SysUtils,
+  System.TypInfo,
   Data.DB,
   System.DateUtils,
   System.RTTI;
@@ -173,7 +174,7 @@ implementation
 
 uses
   System.StrUtils, System.IOUtils, System.NetEncoding, System.Math,
-  JsonDataObjects;
+  JsonDataObjects, MVCFramework.Nullables;
 
 const
   IdenfierAllowedFirstChars = ['a' .. 'z', 'A' .. 'Z', '_', '@'];
@@ -1524,8 +1525,64 @@ begin
   end
   else
   begin
+    if lValue.TypeInfo.Kind = tkRecord then
+    begin
+      if lValue.TypeInfo = TypeInfo(NullableInt32) then
+      begin
+        Result := lValue.AsType<NullableInt32>.Value.ToString;
+      end
+      else if lValue.TypeInfo = TypeInfo(NullableUInt32) then
+      begin
+        Result := lValue.AsType<NullableInt32>.Value.ToString;
+      end
+      else if lValue.TypeInfo = TypeInfo(NullableInt16) then
+      begin
+        Result := lValue.AsType<NullableInt16>.Value.ToString;
+      end
+      else if lValue.TypeInfo = TypeInfo(NullableUInt16) then
+      begin
+        Result := lValue.AsType<NullableUInt16>.Value.ToString;
+      end
+      else if lValue.TypeInfo = TypeInfo(NullableInt64) then
+      begin
+        Result := lValue.AsType<NullableInt64>.Value.ToString;
+      end
+      else if lValue.TypeInfo = TypeInfo(NullableUInt64) then
+      begin
+        Result := lValue.AsType<NullableUInt64>.Value.ToString;
+      end
+      else if lValue.TypeInfo = TypeInfo(NullableString) then
+      begin
+        Result := lValue.AsType<NullableString>.Value;
+      end
+      else if lValue.TypeInfo = TypeInfo(NullableCurrency) then
+      begin
+        Result := lValue.AsType<NullableCurrency>.Value.ToString;
+      end
+      else if lValue.TypeInfo = TypeInfo(NullableBoolean) then
+      begin
+        Result := lValue.AsType<NullableBoolean>.Value.ToString;
+      end
+      else if lValue.TypeInfo = TypeInfo(NullableTDate) then
+      begin
+        Result := DateToISO8601(lValue.AsType<NullableTDate>.Value);
+      end
+      else if lValue.TypeInfo = TypeInfo(NullableTTime) then
+      begin
+        Result := DateToISO8601(lValue.AsType<NullableTTime>.Value);
+      end
+      else if lValue.TypeInfo = TypeInfo(NullableTDateTime) then
+      begin
+        Result := DateToISO8601(lValue.AsType<NullableTDateTime>.Value);
+      end
+      else
+        raise ETProException.Create('Unsupported type for variable "' + aName + '"');
+    end
+    else
+    begin
     Result := lValue.ToString;
   end;
+end;
 end;
 
 function TTProCompiledTemplate.GetVarAsTValue(const aName: string): TValue;
@@ -1580,12 +1637,19 @@ begin
         end;
       end;
     end
-//    else if viJSONArray in lVariable.VarOption then
-//    begin
-//      lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
-//      lJPath := aName.Remove(0, Length(lPieces[0]));
-//      Result := lJArr[lVariable.VarIterator].Path[aName.Remove(0, Length(lPieces[0]) + 1)].Value;
-//    end
+    else if viJSONArray in lVariable.VarOption then
+    begin
+      lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
+      if lHasMember and lPieces[1].StartsWith('@@') then
+      begin
+        Result := GetPseudoVariable(lVariable, lPieces[1]);
+      end
+      else
+      begin
+        lJPath := aName.Remove(0, Length(lPieces[0]) + 1);
+        Result := lJArr[lVariable.VarIterator].Path[lJPath].Value;
+      end;
+    end
     else if viListOfObject in lVariable.VarOption then
     begin
       if not lCanBeIterated then
