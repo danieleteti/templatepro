@@ -134,6 +134,7 @@ end;
 
 
 begin
+  ReportMemoryLeaksOnShutdown := True;
   try
     Main;
   except

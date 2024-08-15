@@ -1,4 +1,5 @@
 NAME                        COUNTRY
 ------------------------    ------------------
-{{loop(people)}}{{:people.name|rpad:25: }}   {{:people.country}}
+{{loop(people) as person}}
+{{:person.name|rpad:25:" "}}   {{:person.country}}
 {{endloop}}

@@ -17,7 +17,7 @@ This is plain text
 <p>This is a paragraph.</p>
 <h2>Here's a list!</h2>
 <ul>
-{{loop(people)}}  <li>{{:people.name}}</li>
+{{loop(people) as person}}  <li>{{:person.name}}</li>
 {{endloop}}
 </ul>
 

@@ -1,6 +1,6 @@
-{{loop(people)}}{{:people.name}} {{:people.country}}
+{{loop(people) as person}}{{:person.name}} {{:person.country}}
 {{endloop}}
 
 ANOTHER LOOP
-{{reset(people)}}{{loop(people)}}{{:people.name}} {{:people.country}}
+{{reset(people)}}{{loop(people) as person}}{{:person.name}} {{:person.country}}
 {{endloop}}

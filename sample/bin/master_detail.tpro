@@ -1,11 +1,12 @@
-{{first_name}} {{last_name}} {{today}}
+{{:first_name}} {{:last_name}} {{:today}}
 
 
 --- Personal Agenda ---
 
-{{loop(people)}}
-AGENDA FOR: {{:people.name}} (from {{:people.country}})
-  Contacts{{loop(contacts)}}
-    {{:contacts.contact_type}}
-    {{:contacts.contact}}
-    {{endloop}}{{endloop}}
+{{loop(people) as p}}
+AGENDA FOR: {{:p.name}} (from {{:p.country}})
+  Contacts
+{{loop(contacts) as c}}
+    {{:c.contact_type}}: {{:c.contact}}
+{{endloop}}
+{{endloop}}

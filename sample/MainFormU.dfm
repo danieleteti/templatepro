@@ -1,7 +1,7 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'TemplatePro Sample - Copyright 2017-2018 Daniele Teti'
+  Caption = 'TemplatePro Sample - Copyright 2017-2024 Daniele Teti'
   ClientHeight = 515
   ClientWidth = 838
   Color = clBtnFace
@@ -10,9 +10,7 @@ object MainForm: TMainForm
   Font.Height = -11
   Font.Name = 'Tahoma'
   Font.Style = []
-  OldCreateOrder = False
   OnCreate = FormCreate
-  PixelsPerInch = 96
   TextHeight = 13
   object Splitter2: TSplitter
     Left = 209
@@ -76,10 +74,6 @@ object MainForm: TMainForm
     TabOrder = 2
     object TabSheet1: TTabSheet
       Caption = 'Output'
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object MemoOutput: TMemo
         Left = 0
         Top = 0
@@ -119,10 +113,6 @@ object MainForm: TMainForm
     object TabSheet3: TTabSheet
       Caption = 'Data'
       ImageIndex = 2
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object Splitter1: TSplitter
         Left = 0
         Top = 153

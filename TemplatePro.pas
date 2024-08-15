@@ -414,6 +414,10 @@ var
 begin
   lTmp := '';
   Result := False;
+  if MatchString(aParamValue) then
+  begin
+    Result := True;
+  end;
   if CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) then
   begin
     while CharInSet(fInputString.Chars[fCharIndex], ValueAllowedChars) do
@@ -497,7 +501,7 @@ var
 begin
   if aFileNameRefPath.IsEmpty then
   begin
-    lFileNameRefPath := TPath.Combine(TPath.GetDirectoryName(GetModuleName(HInstance)), '<main>');
+    lFileNameRefPath := TPath.Combine(TPath.GetDirectoryName(GetModuleName(HInstance)), 'main.template');
   end
   else
   begin
@@ -1268,6 +1272,8 @@ destructor TTProCompiledTemplate.Destroy;
 begin
   fLoopsStack.Free;
   fTemplateFunctions.Free;
+  fTokens.Free;
+  fVariables.Free;
   inherited;
 end;
 

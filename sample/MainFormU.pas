@@ -95,7 +95,7 @@ uses
   System.IOUtils,
   Winapi.Shellapi,
   RandomTextUtilsU,
-  TemplateProU,
+  TemplatePro,
   Winapi.ActiveX;
 
 procedure TMainForm.Button1Click(Sender: TObject);
@@ -168,46 +168,40 @@ end;
 
 procedure TMainForm.GenerateReport(const aTemplateString: string);
 var
-  lTPEngine: TTemplateProEngine;
+  lCompiler: TTProCompiler;
   lTemplate: string;
   lOutputFileName: string;
   lOutput: string;
-  lOutputStream: TStringStream;
   lItems: TObjectList<TObject>;
+  lCompiledTmpl: ITProCompiledTemplate;
 begin
   // MemoTemplate.Lines.LoadFromFile(aReport);
   ds1.First;
   lTemplate := aTemplateString;
 
-  lTPEngine := TTemplateProEngine.Create(TEncoding.UTF8);
+  lCompiler := TTProCompiler.Create(TEncoding.UTF8);
   try
-    lTPEngine.SetVar('first_name', 'Daniele');
-    lTPEngine.SetVar('last_name', 'Teti');
-    lTPEngine.SetVar('today', DateToStr(date));
-    lOutputStream := TStringStream.Create('', TEncoding.UTF8);
+    lCompiledTmpl := lCompiler.Compile(aTemplateString);
+
+    lItems := GetItems;
     try
-      lItems := GetItems;
-      try
-        lTPEngine.Execute(
-          aTemplateString,
-          ['items'], [lItems],
-          ['people', 'contacts'], [ds1, ds2],
-          lOutputStream);
-      finally
-        lItems.Free;
-      end;
-      TDirectory.CreateDirectory(ExtractFilePath(Application.ExeName) + 'output');
-      lOutputFileName := ExtractFilePath(Application.ExeName) + 'output\' +
-        'last_output.html';
-      lOutput := lOutputStream.DataString;
-      // LoadHtmlIntoBrowser(wb, lOutput);
-      tfile.WriteAllText(lOutputFileName, lOutput);
-      MemoOutput.Lines.LoadFromFile(lOutputFileName);
+      lCompiledTmpl.SetData('first_name', 'Daniele');
+      lCompiledTmpl.SetData('last_name', 'Teti');
+      lCompiledTmpl.SetData('today', DateToStr(date));
+      lCompiledTmpl.SetData('people', ds1);
+      lCompiledTmpl.SetData('contacts', ds2);
+      lCompiledTmpl.SetData('items', lItems);
+      lOutput := lCompiledTmpl.Render;
     finally
-      lOutputStream.Free;
+      lItems.Free;
     end;
+    TDirectory.CreateDirectory(ExtractFilePath(Application.ExeName) + 'output');
+    lOutputFileName := ExtractFilePath(Application.ExeName) + 'output\' +
+      'last_output.html';
+    TFile.WriteAllText(lOutputFileName, lOutput);
+    MemoOutput.Lines.LoadFromFile(lOutputFileName);
   finally
-    lTPEngine.Free;
+    lCompiler.Free;
   end;
   if chkOpenGeneratedFile.Checked then
     ShellExecute(0, pchar('open'), pchar(lOutputFileName), nil, nil, SW_NORMAL);

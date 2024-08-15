@@ -3,8 +3,8 @@ program templateprosample;
 uses
   Vcl.Forms,
   MainFormU in 'MainFormU.pas' {MainForm},
-  TemplateProU in '..\TemplateProU.pas',
-  RandomTextUtilsU in 'RandomTextUtilsU.pas';
+  RandomTextUtilsU in 'RandomTextUtilsU.pas',
+  TemplatePro in '..\TemplatePro.pas';
 
 {$R *.res}
 

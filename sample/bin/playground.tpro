@@ -1,8 +1,8 @@
-{{first_name}}
-{{first_name|uppercase}}
-{{first_name|lowercase}}
-{{first_name|capitalize}}
-*{{first_name|rpad:40}}*
-*{{first_name|rpad:40:-}}*
-*{{first_name|lpad:40}}*
-*{{first_name|lpad:40:-}}*
+{{:first_name}}
+{{:first_name|uppercase}}
+{{:first_name|lowercase}}
+{{:first_name|capitalize}}
+*{{:first_name|rpad:40}}*
+*{{:first_name|rpad:40:"-"}}*
+*{{:first_name|lpad:40}}*
+*{{:first_name|lpad:40:"-"}}*
