@@ -55,11 +55,11 @@ type
   end;
 
   TTokenType = (
-    ttContent, ttInclude, ttLoop, ttEndLoop, ttIfThen, ttElse, ttEndIf, ttStartTag,
+    ttContent, ttInclude, ttLoop, ttEndLoop, ttIfThen, ttElse, ttEndIf, ttStartTag, ttComment,
     ttLiteralString, ttEndTag, ttValue, ttFilterName, ttFilterParameter, ttReset, ttLineBreak, ttEOF);
   const
     TOKEN_TYPE_DESCR: array [Low(TTokenType)..High(TTokenType)] of string =
-      ('ttContent', 'ttInclude', 'ttLoop', 'ttEndLoop', 'ttIfThen', 'ttElse', 'ttEndIf', 'ttStartTag',
+      ('ttContent', 'ttInclude', 'ttLoop', 'ttEndLoop', 'ttIfThen', 'ttElse', 'ttEndIf', 'ttStartTag', 'ttComment',
        'ttLiteralString', 'ttEndTag', 'ttValue', 'ttFilterName', 'ttFilterParameter', 'ttReset', 'ttLineBreak', 'ttEOF');
   type
     TToken = packed record
@@ -538,7 +538,9 @@ var
   lCurrentFileName: string;
   lStringValue: string;
   lRef2: Integer;
+  lContentOnThisLine: Integer;
 begin
+  lContentOnThisLine := 0;
   fCurrentFileName := aFileNameRefPath;
   fCharIndex := -1;
   fCurrentLine := 1;
@@ -567,12 +569,18 @@ begin
       lEndVerbatim := fCharIndex - Length(sLineBreak);
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
+        Inc(lContentOnThisLine);
         aTokens.Add(TToken.Create(ttContent, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim), ''));
       end;
       lStartVerbatim := fCharIndex;
+      if lLastToken = ttLineBreak then Inc(lContentOnThisLine);
       lLastToken := ttLineBreak;
-      aTokens.Add(TToken.Create(lLastToken, '', ''));
+      if lContentOnThisLine > 0 then
+      begin
+        aTokens.Add(TToken.Create(lLastToken, '', ''));
+      end;
       Inc(fCurrentLine);
+      lContentOnThisLine := 0;
     end else if MatchStartTag then         {starttag}
     begin
       lEndVerbatim := fCharIndex - Length(START_TAG);
@@ -617,6 +625,7 @@ begin
           lStartVerbatim := fCharIndex;
           lLastToken := ttValue;
           aTokens.Add(TToken.Create(lLastToken, lVarName, '', lFuncParamsCount, lRef2));
+          Inc(lContentOnThisLine);
 
           //add function with params
           if not lFuncName.IsEmpty then
@@ -792,6 +801,7 @@ begin
               Error('Cannot read "' + lStringValue + '"');
             end;
           end;
+          Inc(lContentOnThisLine);
           InternalCompileIncludedTemplate(lIncludeFileContent, aTokens, lCurrentFileName);
           lStartVerbatim := fCharIndex;
         end
@@ -811,6 +821,8 @@ begin
         end
         else if MatchString(lStringValue) then {string}
         begin
+          lLastToken := ttLiteralString;
+          Inc(lContentOnThisLine);
           lRef2 := IfThen(MatchSymbol('$'),1,-1); // {{value$}} means no escaping
           InternalMatchFilter(lStringValue, lStartVerbatim, ttLiteralString, aTokens, lRef2);
         end
@@ -1293,7 +1305,6 @@ var
   lBuff: TStringBuilder;
   lLoopStmIndex: Integer;
   lDataSourceName: string;
-  lLastTag: TTokenType;
   lCurrTokenType: TTokenType;
   lVariable: TVarDataSource;
   lWrapped: ITProWrappedList;
@@ -1313,14 +1324,11 @@ var
   lLoopItem: TLoopStackItem;
   lJValue: TJsonDataValueHelper;
 begin
-  lLastTag := ttEOF;
   lBuff := TStringBuilder.Create;
   try
     lIdx := 0;
     while fTokens[lIdx].TokenType <> ttEOF do
     begin
-      //Writeln(Format('%4d: %s', [lIdx, fTokens[lIdx].TokenTypeAsString]));
-      //Readln;
       case fTokens[lIdx].TokenType of
         ttContent: begin
           lBuff.Append(fTokens[lIdx].Value1);
@@ -1420,7 +1428,6 @@ begin
 
           lLoopItem := PeekLoop;
           lLoopStmIndex := fTokens[lIdx].Ref1;
-          //lDataSourceName := fTokens[lLoopStmIndex].Value1;
           lDataSourceName := lLoopItem.DataSourceName;
           if GetVariables.TryGetValue(lDataSourceName, lVariable) then
           begin
@@ -1559,18 +1566,13 @@ begin
           end;
         end;
         ttLineBreak: begin
-          if not (lLastTag in [ttLoop, ttEndLoop, ttIfThen, ttEndIf, ttReset, ttElse]) then
-          begin
-            lBuff.AppendLine;
-          end;
+          lBuff.AppendLine;
         end;
         else
         begin
           Error('Invalid token: ' + fTokens[lIdx].TokenTypeAsString);
         end;
       end;
-
-      lLastTag := fTokens[lIdx].TokenType;
       Inc(lIdx);
     end;
     Result := lBuff.ToString;

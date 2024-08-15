@@ -1,0 +1,17 @@
+{{:obj.Prop1}}
+YY
+{{:value0}}ABC{{:value1}}DEF{{:value2}}
+
+{{:value3}}
+
+
+{{loop(customers) as cust}}{{#pippo}}
+{{endloop}}
+
+
+{{:value4}}-GHI-{{:value5}}-JKL-{{:value6}}
+
+{{:obj.Prop1}}
+XXX
+{{:obj.Prop2}}
+YYY

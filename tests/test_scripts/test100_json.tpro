@@ -7,12 +7,12 @@
 {{loop(person.colors) as color}}
   {{:color.name}} - {{:color.rgb}}
     color: {{:color.@@index}}
-  {{endloop}}
+{{endloop}}
 
 {{endloop}}
 
 ** JSON Pseudo Variable **
-{{reset(jsonobj)}} {{# ignored }}
+{{reset(jsonobj)}}{{# ignored }}
 {{loop(jsonobj.people) as jarr}}
 {{:jarr.@@index}} - {{:jarr.@@odd}} - {{:jarr.@@even}}
 {{endloop}}
