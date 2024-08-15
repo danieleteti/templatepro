@@ -41,7 +41,8 @@ begin
       function(const Path: string; const SearchRec: TSearchRec): Boolean
       begin
         Result := (not String(SearchRec.Name).StartsWith('included'))
-                   and ((TestFileNameFilter = '*') or String(SearchRec.Name).Contains(TestFileNameFilter))
+                   and ((TestFileNameFilter = '*') or String(SearchRec.Name).Contains(TestFileNameFilter));
+        Result := Result and not (String(SearchRec.Name).StartsWith('_'));
       end);
     for var lFile in lInputFileNames do
     begin
@@ -62,48 +63,55 @@ begin
         lCompiledTemplate.AddTemplateFunction('sayhello', SayHelloFilter);
         var lJSONArr := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'people.json')) as TJsonArray;
         try
-          lItems := GetItems;
+          var lJSONObj := TJsonObject.Create;
           try
-            lItemsWithFalsy := GetItems(True);
+            lJSONObj.A['people'] := lJSONArr.Clone;
+            lItems := GetItems;
             try
-            lCompiledTemplate.SetData('obj', lItems[0]);
-            var lCustomers := GetCustomersDataset;
-            try
-              lCompiledTemplate.SetData('customers', lCustomers);
-              lCompiledTemplate.SetData('objects', lItems);
-              lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
-              lCompiledTemplate.SetData('jsonarr', lJSONArr);
-              var l := lJSONArr[0].Path['colors'];
+              lItemsWithFalsy := GetItems(True);
+              try
+                lCompiledTemplate.SetData('obj', lItems[0]);
+                var lCustomers := GetCustomersDataset;
+                try
+                  lCompiledTemplate.SetData('customers', lCustomers);
+                  lCompiledTemplate.SetData('objects', lItems);
+                  lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
+                  //lCompiledTemplate.SetData('jsonarr', lJSONArr);
+                  lCompiledTemplate.SetData('jsonobj', lJSONObj);
+                  var l := lJSONArr[0].Path['colors'];
 
-              var lActualOutput := lCompiledTemplate.Render;
-              var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt');
-              if lActualOutput <> lExpectedOutput then
-              begin
-                WriteLn(': FAILED');
-                lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
-                TFile.WriteAllText(lFile + '.failed.txt', lActualOutput);
-                lFailed := True;
-              end
-              else
-              begin
-                if TFile.Exists(lFile + '.failed.txt') then
-                begin
-                  TFile.Delete(lFile + '.failed.txt');
+                  var lActualOutput := lCompiledTemplate.Render;
+                  var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt');
+                  if lActualOutput <> lExpectedOutput then
+                  begin
+                    WriteLn(': FAILED');
+                    lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
+                    TFile.WriteAllText(lFile + '.failed.txt', lActualOutput);
+                    lFailed := True;
+                  end
+                  else
+                  begin
+                    if TFile.Exists(lFile + '.failed.txt') then
+                    begin
+                      TFile.Delete(lFile + '.failed.txt');
+                    end;
+                    if TFile.Exists(lFile + '.failed.dump.txt') then
+                    begin
+                      TFile.Delete(lFile + '.failed.dump.txt');
+                    end;
+                    WriteLn(' : OK');
+                  end;
+                finally
+                  lCustomers.Free;
                 end;
-                if TFile.Exists(lFile + '.failed.dump.txt') then
-                begin
-                  TFile.Delete(lFile + '.failed.dump.txt');
-                end;
-                WriteLn(': OK');
+              finally
+                lItemsWithFalsy.Free;
               end;
             finally
-              lCustomers.Free;
-            end;
-            finally
-              lItemsWithFalsy.Free;
+              lItems.Free;
             end;
           finally
-            lItems.Free;
+            lJSONObj.Free;
           end;
         finally
           lJSONArr.Free;
