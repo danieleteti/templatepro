@@ -76,7 +76,7 @@ type
 
   TTProTemplateFunction = function(const aValue: TValue; const aParameters: TArray<string>): string;
 
-  TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viJSONArray, viIterable);
+  TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viIterable);
   TTProVariablesInfos = set of TTProVariablesInfo;
 
   TVarDataSource = class
@@ -101,12 +101,13 @@ type
     procedure DumpToFile(const FileName: String);
   end;
 
-  TLoopStackItem = record
+  TLoopStackItem = class
     DataSourceName: String;
     LoopExpression: String;
     FullPath: String;
     IteratorName: String;
     IteratorPosition: Integer;
+    function IncrementIteratorPosition: Integer;
     constructor Create(DataSourceName: String; LoopExpression: String; FullPath: String; IteratorName: String);
   end;
 
@@ -114,12 +115,9 @@ type
   private
     fTokens: TList<TToken>;
     fVariables: TTProVariables;
-    fAliases: TDictionary<string, string>;
     fTemplateFunctions: TDictionary<string, TTProTemplateFunction>;
-    fLoopsStack: array [0..50] of TLoopStackItem;
-    fLoopsStackIndex: Integer;
+    fLoopsStack: TObjectList<TLoopStackItem>;
     function PeekLoop: TLoopStackItem;
-    function PeekLoopAtPos(const Position: Integer): TLoopStackItem;
     function PopLoop: TLoopStackItem;
     procedure PushLoop(const LoopStackItem: TLoopStackItem);
     function LoopStackIsEmpty: Boolean;
@@ -135,7 +133,9 @@ type
     function ExecuteFilter(aFunctionName: string; aParameters: TArray<string>; aValue: TValue): string;
     procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
     procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
-    function GetPseudoVariable(const Variable: TVarDataSource; const PseudoVarName: String): TValue;
+    function GetPseudoVariable(const Variable: TVarDataSource; const PseudoVarName: String): TValue; overload;
+    function GetPseudoVariable(const VarIterator: Integer; const PseudoVarName: String): TValue; overload;
+    function IsAnIterator(const VarName: String; out DataSourceName: String; out CurrentIterator: TLoopStackItem): Boolean;
   public
     destructor Destroy; override;
     function Render: String;
@@ -252,23 +252,29 @@ end;
 
 function TTProCompiledTemplate.GetPseudoVariable(const Variable: TVarDataSource; const PseudoVarName: String): TValue;
 begin
+  Result := GetPseudoVariable(Variable.VarIterator, PseudoVarName);
+end;
+
+function TTProCompiledTemplate.GetPseudoVariable(const VarIterator: Integer; const PseudoVarName: String): TValue;
+begin
   if PseudoVarName = '@@index' then
   begin
-    Result := Variable.VarIterator + 1;
+    Result := VarIterator + 1;
   end
   else if PseudoVarName = '@@odd' then
   begin
-    Result := (Variable.VarIterator + 1) mod 2 > 0;
+    Result := (VarIterator + 1) mod 2 > 0;
   end
   else if PseudoVarName = '@@even' then
   begin
-    Result := (Variable.VarIterator + 1) mod 2 = 0;
+    Result := (VarIterator + 1) mod 2 = 0;
   end
   else
   begin
     Result := TValue.Empty;
   end;
 end;
+
 
 procedure TTProCompiledTemplate.CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
   const aParameters: TArray<string>);
@@ -517,7 +523,7 @@ var
   lVarName: string;
   lFuncName: string;
   lIdentifier: string;
-  lIdentifierAlias: string;
+  lIteratorName: string;
   //lFuncParams: TArray<string>;
   lStartVerbatim: UInt64;
   lEndVerbatim: UInt64;
@@ -531,8 +537,6 @@ var
   lIncludeFileContent: string;
   lCurrentFileName: string;
   lStringValue: string;
-  lIdentifierFound: Boolean;
-  lStringFound: Boolean;
   lRef2: Integer;
 begin
   fCurrentFileName := aFileNameRefPath;
@@ -639,24 +643,24 @@ begin
           if not MatchSymbol(')') then
             Error('Expected ")" after "' + lIdentifier + '"');
           if not MatchSpace then
-            Error('Expected <space> after "loop(' + lIdentifier + ')');
+            Error('Expected "space" after "loop(' + lIdentifier + ')');
           if not MatchSymbol('as') then
             Error('Expected "as" after "loop(' + lIdentifier + ')');
           if not MatchSpace then
             Error('Expected <space> after "loop(' + lIdentifier + ') - EXAMPLE: loop(' + lIdentifier + ') as myalias');
-          if not MatchVariable(lIdentifierAlias) then
-            Error('Expected alias after "loop" - EXAMPLE: loop(' + lIdentifier + ') as myalias');
+          if not MatchVariable(lIteratorName) then
+            Error('Expected iterator name after "loop" - EXAMPLE: loop(' + lIdentifier + ') as myalias');
           if not MatchEndTag then
             Error('Expected closing tag for "loop(' + lIdentifier + ')"');
           // create another element in the sections stack
           Inc(lCurrentSectionIndex);
           lSectionStack[lCurrentSectionIndex] := aTokens.Count;
           lLastToken := ttLoop;
-          if lIdentifier = lIdentifierAlias then
+          if lIdentifier = lIteratorName then
           begin
-            Error('loop data source and its alias cannot be the same: ' + lIdentifier)
+            Error('loop data source and its iterator cannot have the same name: ' + lIdentifier)
           end;
-          aTokens.Add(TToken.Create(lLastToken, lIdentifier, lIdentifierAlias));
+          aTokens.Add(TToken.Create(lLastToken, lIdentifier, lIteratorName));
           lStartVerbatim := fCharIndex;
         end else if MatchSymbol('endloop') then {endloop}
         begin
@@ -1236,15 +1240,14 @@ end;
 constructor TTProCompiledTemplate.Create(Tokens: TList<TToken>);
 begin
   inherited Create;
-  fLoopsStackIndex := -1;
+  fLoopsStack := TObjectList<TLoopStackItem>.Create(True);
   fTokens := Tokens;
   fTemplateFunctions := TDictionary<string, TTProTemplateFunction>.Create;
-  fAliases := TDictionary<string, string>.Create;
 end;
 
 destructor TTProCompiledTemplate.Destroy;
 begin
-  fAliases.Free;
+  fLoopsStack.Free;
   fTemplateFunctions.Free;
   inherited;
 end;
@@ -1288,11 +1291,8 @@ function TTProCompiledTemplate.Render: String;
 var
   lIdx: UInt64;
   lBuff: TStringBuilder;
-  lSectionStack: array[0..49] of String;
   lLoopStmIndex: Integer;
   lDataSourceName: string;
-  lPieces: TArray<String>;
-  lFieldName: string;
   lLastTag: TTokenType;
   lCurrTokenType: TTokenType;
   lVariable: TVarDataSource;
@@ -1306,11 +1306,12 @@ var
   lVarValue: String;
   lRef2: Integer;
   lJArr: TJDOJsonArray;
-  lDotPos: Integer;
-  lHasMember: Boolean;
+  lJObj: TJDOJsonObject;
   lVarMember: string;
   lBaseVarName: string;
   lFullPath: string;
+  lLoopItem: TLoopStackItem;
+  lJValue: TJsonDataValueHelper;
 begin
   lLastTag := ttEOF;
   lBuff := TStringBuilder.Create;
@@ -1325,22 +1326,14 @@ begin
           lBuff.Append(fTokens[lIdx].Value1);
         end;
         ttLoop: begin
-          if LoopStackIsEmpty or (PeekLoop.DataSourceName <> fTokens[lIdx].Value1) then
+          if LoopStackIsEmpty or (PeekLoop.LoopExpression <> fTokens[lIdx].Value1) then
           begin //push a new loop stack item
             SplitVariableName(fTokens[lIdx].Value1, lVarName, lVarMember);
-//            lVarName := fTokens[lIdx].Value1;
-//            lDotPos := fTokens[lIdx].Value1.IndexOf('.');
-//            lHasMember := lDotPos > -1;
-//            if lHasMember then
-//            begin
-//              lVarName := fTokens[lIdx].Value1.Substring(0, lDotPos);
-//              lVarMember := fTokens[lIdx].Value1.Substring(lDotPos + 1);
-//              lHasMember := True;
-//            end;
             {lVarName maybe an iterator, so I've to walk the stack to know
              the real information about the iterator}
             if WalkThroughLoopStack(lVarName, lBaseVarName, lFullPath) then
             begin
+              lFullPath := lFullPath + '.' + lVarMember;
               PushLoop(TLoopStackItem.Create(lBaseVarName, fTokens[lIdx].Value1, lFullPath, fTokens[lIdx].Value2));
             end
             else
@@ -1352,11 +1345,14 @@ begin
           // Now, work with the stack head
           if GetVariables.TryGetValue(PeekLoop.DataSourceName, lVariable) then
           begin
-            if not (viIterable in lVariable.VarOption) then
+            if PeekLoop.FullPath.IsEmpty then
             begin
-              Error(Format('Cannot iterate over a not iterable object [%s]', [fTokens[lIdx].Value1]));
+              if not (viIterable in lVariable.VarOption) then
+              begin
+                Error(Format('Cannot iterate over a not iterable object [%s]', [fTokens[lIdx].Value1]));
+              end;
             end;
-            fAliases.AddOrSetValue(fTokens[lIdx].Value2 {alias}, fTokens[lIdx].Value1 {datasource}); //set alias
+
             if viDataSet in lVariable.VarOption then
             begin
               if TDataset(lVariable.VarValue.AsObject).Eof then
@@ -1376,17 +1372,34 @@ begin
               begin
                 lVariable.VarIterator := lVariable.VarIterator + 1;
               end;
-            end else if viJSONArray in lVariable.VarOption then
+            end else if viJSONObject in lVariable.VarOption then
             begin
-              lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
-              if lVariable.VarIterator = lJArr.Count - 1 then
-              begin
-                lIdx := fTokens[lIdx].Ref1; //skip to endif
-                Continue;
-              end
-              else
-              begin
-                lVariable.VarIterator := lVariable.VarIterator + 1;
+              lJObj := TJDOJsonObject(lVariable.VarValue.AsObject);
+              lLoopItem := PeekLoop;
+              lJValue := lJObj.Path[lLoopItem.FullPath];
+
+              case lJValue.Typ of
+                jdtNone: begin
+                  lIdx := fTokens[lIdx].Ref1; //skip to endloop
+                  Continue;
+                end;
+
+                jdtArray: begin
+                  if  lLoopItem.IteratorPosition = lJObj.Path[lLoopItem.FullPath].ArrayValue.Count - 1 then
+                  begin
+                    lIdx := fTokens[lIdx].Ref1; //skip to endloop
+                    Continue;
+                  end
+                  else
+                  begin
+                    lLoopItem.IncrementIteratorPosition;
+                  end;
+                end;
+
+                else
+                begin
+                  Error('Only JSON array can be iterated');
+                end;
               end;
             end
             else
@@ -1400,8 +1413,15 @@ begin
           end;
         end;
         ttEndLoop: begin
+          if LoopStackIsEmpty then
+          begin
+            raise ETProRenderException.Create('Inconsistent "endloop"');
+          end;
+
+          lLoopItem := PeekLoop;
           lLoopStmIndex := fTokens[lIdx].Ref1;
-          lDataSourceName := fTokens[lLoopStmIndex].Value1;
+          //lDataSourceName := fTokens[lLoopStmIndex].Value1;
+          lDataSourceName := lLoopItem.DataSourceName;
           if GetVariables.TryGetValue(lDataSourceName, lVariable) then
           begin
             if viDataSet in lVariable.VarOption then
@@ -1414,21 +1434,20 @@ begin
               end
               else
               begin
-                fAliases.Remove(fTokens[lLoopStmIndex].Value2);
                 PopLoop;
               end;
             end
-            else if viJSONArray in lVariable.VarOption then
+            else if viJSONObject in lVariable.VarOption then
             begin
-              lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
-              if lVariable.VarIterator < lJArr.Count - 1 then
+              lJObj := TJDOJsonObject(lVariable.VarValue.AsObject);
+              lJArr := lJObj.Path[lLoopItem.FullPath];
+              if lLoopItem.IteratorPosition < lJArr.Count - 1 then
               begin
                 lIdx := fTokens[lIdx].Ref1; //skip to loop
                 Continue;
               end
               else
               begin
-                fAliases.Remove(fTokens[lLoopStmIndex].Value2);
                 PopLoop;
               end;
             end
@@ -1442,7 +1461,6 @@ begin
               end
               else
               begin
-                fAliases.Remove(fTokens[lLoopStmIndex].Value2);
                 PopLoop;
               end;
             end;
@@ -1640,47 +1658,24 @@ end;
 function TTProCompiledTemplate.GetVarAsTValue(const aName: string): TValue;
 var
   lVariable: TVarDataSource;
-  lPieces: TArray<String>;
   lField: TField;
   lHasMember: Boolean;
-  lJArr: TJDOJsonArray;
   lJPath: string;
   lDataSource: string;
-  lAliasedDataSource: String;
-  lCanBeIterated: Boolean;
-  I: Integer;
   lIsAnIterator: Boolean;
+  lJObj: TJDOJsonObject;
+  lVarName: string;
+  lVarMembers: string;
+  lCurrentIterator: TLoopStackItem;
 begin
-  lPieces := aName.Split(['.']);
-  Result := '';
-  lHasMember := Length(lPieces) > 1;
-
-  lAliasedDataSource := lPieces[0];
-
-  lIsAnIterator := False;
-  if not LoopStackIsEmpty then {search datasource using current iterators stack}
-  begin
-    for I := fLoopsStackIndex downto 0 do
-    begin
-      if fLoopsStack[I].IteratorName = lAliasedDataSource then
-      begin
-        lIsAnIterator := True;
-        lDataSource := fLoopsStack[I].DataSourceName;
-        break;
-      end;
-    end;
-  end;
-
-  lCanBeIterated := lIsAnIterator;
+  lCurrentIterator := nil;
+  SplitVariableName(aName, lVarName, lVarMembers);
+  lHasMember := not lVarMembers.IsEmpty;
+  lIsAnIterator := IsAnIterator(lVarName, lDataSource, lCurrentIterator);
 
   if not lIsAnIterator then
   begin
-//    lCanBeIterated := True; //for-loop can read current values only through the alias
-//    if not fAliases.TryGetValue(lAliasedDataSource, lDataSource) then
-//    begin
-      lDataSource := lAliasedDataSource;
-      lCanBeIterated := False;
-//    end;
+    lDataSource := lVarName;
   end;
 
   if GetVariables.TryGetValue(lDataSource, lVariable) then
@@ -1691,59 +1686,86 @@ begin
     end;
     if viDataSet in lVariable.VarOption then
     begin
-      if not lCanBeIterated then
+      if not lIsAnIterator then
       begin
-        Error(lDataSource + ' can be iterated only using its alias');
+        Error(lDataSource + ' is not an iterator');
       end;
 
-      if lHasMember and lPieces[1].StartsWith('@@') then
+      if lHasMember and lVarMembers.StartsWith('@@') then
       begin
         lVariable.VarIterator := TDataSet(lVariable.VarValue.AsObject).RecNo - 1;
-        Result := GetPseudoVariable(lVariable, lPieces[1]);
+        Result := GetPseudoVariable(lVariable, lVarMembers);
       end
       else
       begin
-        lField := TDataSet(lVariable.VarValue.AsObject).FieldByName(lPieces[1]);
+        lField := TDataSet(lVariable.VarValue.AsObject).FieldByName(lVarMembers);
         case lField.DataType of
           ftInteger: Result := lField.AsInteger;
           ftLargeint: Result := lField.AsLargeInt;
           ftString, ftWideString: Result := lField.AsWideString;
           else
-            Error('Invalid data type for field ' + lPieces[1]);
+            Error('Invalid data type for field ' + lVarMembers);
         end;
       end;
     end
-    else if viJSONArray in lVariable.VarOption then
+    else if viJSONObject in lVariable.VarOption then
     begin
-      lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
-      if lHasMember and lPieces[1].StartsWith('@@') then
+      lJObj := TJDOJsonObject(lVariable.VarValue.AsObject);
+
+      if lIsAnIterator then
       begin
-        Result := GetPseudoVariable(lVariable, lPieces[1]);
+        if lVarMembers.StartsWith('@@') then
+        begin
+          Result := GetPseudoVariable(lCurrentIterator.IteratorPosition, lVarMembers);
+        end
+        else
+        begin
+          lJPath := lCurrentIterator.FullPath;
+          Result := lJObj.Path[lJPath].ArrayValue[lCurrentIterator.IteratorPosition].Path[lVarMembers].Value;
+        end;
       end
       else
       begin
-        lJPath := aName.Remove(0, Length(lPieces[0]) + 1);
-        Result := lJArr[lVariable.VarIterator].Path[lJPath].Value;
+        if lHasMember and lVarMembers.StartsWith('@@') then
+        begin
+          Result := GetPseudoVariable(lVariable, lVarMembers);
+        end
+        else
+        begin
+          lJPath := aName.Remove(0, Length(lVarName) + 1);
+          Result := lJObj.Path[lJPath].Value;
+        end;
       end;
+
+//      lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
+//      if lHasMember and lPieces[1].StartsWith('@@') then
+//      begin
+//        Result := GetPseudoVariable(lVariable, lPieces[1]);
+//      end
+//      else
+//      begin
+//        lJPath := aName.Remove(0, Length(lPieces[0]) + 1);
+//        Result := lJArr[lVariable.VarIterator].Path[lJPath].Value;
+//      end;
     end
     else if viListOfObject in lVariable.VarOption then
     begin
-      if not lCanBeIterated then
+      if not lIsAnIterator then
       begin
         Error(lDataSource + ' can be iterated only using its alias');
       end;
-      if lHasMember and lPieces[1].StartsWith('@@') then
+      if lHasMember and lVarMembers.StartsWith('@@') then
       begin
-        Result := GetPseudoVariable(lVariable, lPieces[1]);
+        Result := GetPseudoVariable(lVariable, lVarMembers);
       end
       else
       begin
-        Result := TTProRTTIUtils.GetProperty(WrapAsList(lVariable.VarValue.AsObject).GetItem(lVariable.VarIterator), lPieces[1]);
+        Result := TTProRTTIUtils.GetProperty(WrapAsList(lVariable.VarValue.AsObject).GetItem(lVariable.VarIterator), lVarMembers);
       end;
     end
     else if viObject in lVariable.VarOption then
     begin
-      Result := TTProRTTIUtils.GetProperty(lVariable.VarValue.AsObject, lPieces[1]);
+      Result := TTProRTTIUtils.GetProperty(lVariable.VarValue.AsObject, lVarMembers);
     end
     else if viSimpleType in lVariable.VarOption then
     begin
@@ -1767,6 +1789,27 @@ begin
   end;
   Result := fVariables;
 end;
+
+function TTProCompiledTemplate.IsAnIterator(const VarName: String; out DataSourceName: String; out CurrentIterator: TLoopStackItem): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  if not LoopStackIsEmpty then {search datasource using current iterators stack}
+  begin
+    for I := fLoopsStack.Count - 1 downto 0 do
+    begin
+      if fLoopsStack[I].IteratorName = VarName then
+      begin
+        Result := True;
+        DataSourceName := fLoopsStack[I].DataSourceName;
+        CurrentIterator := fLoopsStack[I];
+        Break;
+      end;
+    end;
+  end;
+end;
+
 function TTProCompiledTemplate.IsTruthy(const Value: TValue): Boolean;
 var
   lStrValue: String;
@@ -1777,30 +1820,22 @@ end;
 
 function TTProCompiledTemplate.LoopStackIsEmpty: Boolean;
 begin
-  Result := fLoopsStackIndex = -1;
+  Result := fLoopsStack.Count = 0;
 end;
 
 function TTProCompiledTemplate.PeekLoop: TLoopStackItem;
 begin
-  Result := fLoopsStack[fLoopsStackIndex];
-end;
-
-function TTProCompiledTemplate.PeekLoopAtPos(
-  const Position: Integer): TLoopStackItem;
-begin
-  Result := fLoopsStack[Position];
+  Result := fLoopsStack.Last;
 end;
 
 function TTProCompiledTemplate.PopLoop: TLoopStackItem;
 begin
-  Result := PeekLoop;
-  Dec(fLoopsStackIndex);
+  Result := fLoopsStack.ExtractAt(fLoopsStack.Count - 1);
 end;
 
 procedure TTProCompiledTemplate.PushLoop(const LoopStackItem: TLoopStackItem);
 begin
-  Inc(fLoopsStackIndex);
-  fLoopsStack[fLoopsStackIndex] := LoopStackItem;
+  fLoopsStack.Add(LoopStackItem);
 end;
 
 function TTProCompiledTemplate.EvaluateIfExpression(aIdentifier: string): Boolean;
@@ -1808,33 +1843,31 @@ var
   lVarValue: TValue;
   lNegation: Boolean;
   lVariable: TVarDataSource;
-  lPieces: TArray<String>;
   lTmp: Boolean;
-  lDataSource: String;
+  lDataSourceName: String;
   lHasMember: Boolean;
   lList: ITProWrappedList;
-  lAliasFound: Boolean;
+  lVarName, lVarMembers: String;
+  lCurrentIterator: TLoopStackItem;
+  lIsAnIterator: Boolean;
 begin
   lNegation := aIdentifier.StartsWith('!');
   if lNegation then
     aIdentifier := aIdentifier.Remove(0,1);
 
-  lPieces := aIdentifier.Split(['.']);
-  aIdentifier := lPieces[0];
-  lHasMember := Length(lPieces) > 1;
+  SplitVariableName(aIdentifier, lVarName, lVarMembers);
 
-  lAliasFound := fAliases.TryGetValue(aIdentifier, lDataSource);
-  if not lAliasFound then
+  lHasMember := Length(lVarMembers) > 0;
+
+  lIsAnIterator := IsAnIterator(lVarName, lDataSourceName, lCurrentIterator);
+
+  if not lIsAnIterator then
   begin
-    lDataSource := aIdentifier;
+    lDataSourceName := lVarName;
   end;
 
-  if GetVariables.TryGetValue(lDataSource, lVariable) then
+  if GetVariables.TryGetValue(lDataSourceName, lVariable) then
   begin
-    if (viIterable in lVariable.VarOption) and (not lAliasFound) then
-    begin
-      Error(lDataSource + ' can be iterated only using its alias');
-    end;
     if lVariable = nil then
     begin
       Exit(lNegation xor False);
@@ -1843,13 +1876,13 @@ begin
     begin
       if lHasMember then
       begin
-        if lPieces[1].StartsWith('@@') then
+        if lVarMembers.StartsWith('@@') then
         begin
-          lVarValue := GetPseudoVariable(lVariable, lPieces[1]);
+          lVarValue := GetPseudoVariable(lVariable, lVarMembers);
         end
         else
         begin
-          lVarValue := TValue.From<Variant>(TDataSet(lVariable.VarValue.AsObject).FieldByName(lPieces[1]).Value);
+          lVarValue := TValue.From<Variant>(TDataSet(lVariable.VarValue.AsObject).FieldByName(lVarMembers).Value);
         end;
         lTmp := IsTruthy(lVarValue);
       end
@@ -1864,13 +1897,13 @@ begin
       lList := WrapAsList(lVariable.VarValue.AsObject);
       if lHasMember then
       begin
-        if lPieces[1].StartsWith('@@') then
+        if lVarMembers.StartsWith('@@') then
         begin
-          lVarValue := GetPseudoVariable(lVariable, lPieces[1]);
+          lVarValue := GetPseudoVariable(lVariable, lVarMembers);
         end
         else
         begin
-          lVarValue := TTProRTTIUtils.GetProperty(lList.GetItem(lVariable.VarIterator), lPieces[1]);
+          lVarValue := TTProRTTIUtils.GetProperty(lList.GetItem(lVariable.VarIterator), lVarMembers);
         end;
         lTmp := IsTruthy(lVarValue);
       end
@@ -1921,9 +1954,9 @@ begin
         GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonObject(Value.AsObject), [viJSONObject], -1));
       end
       else
-      if Value.AsObject is TJDOJsonArray then
+      if Value.AsObject is TJDOJsonObject then
       begin
-        GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonArray(Value.AsObject), [viJSONArray, viIterable], -1));
+        GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonObject(Value.AsObject), [viJSONObject], -1));
       end
       else
       begin
@@ -1966,10 +1999,11 @@ var
   I: Integer;
 begin
   Result := False;
-  for I := fLoopsStackIndex downto 0 do
+  for I := fLoopsStack.Count - 1 downto 0 do
   begin
     if VarName = fLoopsStack[I].IteratorName then
     begin
+//      deve ritornare sempre un array
       BaseVarName := fLoopsStack[I].DataSourceName;
       FullPath := fLoopsStack[I].FullPath + '[' + fLoopsStack[I].IteratorPosition.ToString + ']';
       Result := True;
@@ -2185,7 +2219,13 @@ begin
   Self.LoopExpression := LoopExpression;
   Self.FullPath := FullPath;
   Self.IteratorName := IteratorName;
-  Self.IteratorPosition := 0;
+  Self.IteratorPosition := -1;
+end;
+
+function TLoopStackItem.IncrementIteratorPosition: Integer;
+begin
+  Inc(IteratorPosition);
+  Result := IteratorPosition;
 end;
 
 initialization

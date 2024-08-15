@@ -1,14 +1,25 @@
-************* JSON Array
+** JSON **
 1) BRUCE BANNER (age 56)
 Ferrari (Model F40)
+  red - ff0000
+    color: 1
+    blue - 0000ff
+    color: 2
+    green - 00ff00
+    color: 3
+  
 2) REED RICHARDS (age 45)
 Ferrari (Model 348GTB)
+
 3) SCOTT SUMMERS (age 54)
 Ford (Model MUSTANG)
+
 4) DANIELE TETI (age 40)
 Lancia (Model DELTA HF INTEGRALE)
 
-*********
+
+** JSON Pseudo Variable **
+ 
 1 - True - False
 2 - False - True
 3 - True - False

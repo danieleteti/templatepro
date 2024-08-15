@@ -1,7 +1,9 @@
 DataSets
+{{if(customers)}}
 {{loop(customers) as cust}}
 Code: {{:cust.Code}} - Name: {{:cust.Name}}
 {{endloop}}
+{{endif}}
 
 List of objects
 {{loop(objects) as obj}}

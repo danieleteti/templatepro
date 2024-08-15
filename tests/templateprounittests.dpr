@@ -76,7 +76,6 @@ begin
                   lCompiledTemplate.SetData('customers', lCustomers);
                   lCompiledTemplate.SetData('objects', lItems);
                   lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
-                  //lCompiledTemplate.SetData('jsonarr', lJSONArr);
                   lCompiledTemplate.SetData('jsonobj', lJSONObj);
                   var l := lJSONArr[0].Path['colors'];
 

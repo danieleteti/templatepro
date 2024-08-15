@@ -1,26 +1,18 @@
-************* JSON Array
+** JSON **
 {{loop(jsonobj.people) as person}}
-  {{:person.@@index}}) {{:person.first_name|uppercase}} {{:person.last_name|uppercase}} (age {{:person.age}})
-  {{:person.car.brand}} (Model {{:person.car.model|uppercase}})
-  {{if(person.@@odd)}}this line is odd{{endif}}
-  {{if(person.@@even)}}this line is even{{endif}}
-  {{loop(person.colors) as color}}
-    {{:color.name}} - {{:color.rgb}}
+{{:person.@@index}}) {{:person.first_name|uppercase}} {{:person.last_name|uppercase}} (age {{:person.age}})
+{{:person.car.brand}} (Model {{:person.car.model|uppercase}})
+{{if(person.@@odd)}}this line is odd{{endif}}
+{{if(person.@@even)}}this line is even{{endif}}
+{{loop(person.colors) as color}}
+  {{:color.name}} - {{:color.rgb}}
     color: {{:color.@@index}}
   {{endloop}}
-{{endloop}}
-{{exit}}
-*********
-{{reset(jsonarr)}}
-{{loop(jsonarr) as jarr}}
-{{:jarr.@@index}} - {{:jarr.@@odd}} - {{:jarr.@@even}}
-{{endloop}}
-*********
 
-{{loop(jsonarr) as jarr}}
-jarr: {{:jarr.@@index}}
-{{loop(jarr.colors) as color}}
-  {{:color.name}} - {{:color.rgb}}
-  color: {{:color.@@index}}
 {{endloop}}
+
+** JSON Pseudo Variable **
+{{reset(jsonobj)}} {{# ignored }}
+{{loop(jsonobj.people) as jarr}}
+{{:jarr.@@index}} - {{:jarr.@@odd}} - {{:jarr.@@even}}
 {{endloop}}
