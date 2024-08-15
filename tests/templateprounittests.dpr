@@ -80,12 +80,12 @@ begin
                   var l := lJSONArr[0].Path['colors'];
 
                   var lActualOutput := lCompiledTemplate.Render;
-                  var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt');
+                  var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
                   if lActualOutput <> lExpectedOutput then
                   begin
                     WriteLn(': FAILED');
                     lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
-                    TFile.WriteAllText(lFile + '.failed.txt', lActualOutput);
+                    TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
                     lFailed := True;
                   end
                   else

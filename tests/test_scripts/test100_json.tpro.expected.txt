@@ -1,7 +1,7 @@
 ** JSON **
 1) BRUCE BANNER (age 56)
-  1&deg; smartphone
-  2&deg; dumbphone
+  1° smartphone
+  2° dumbphone
 Ferrari (Model F40)
   red - ff0000
     color: 1
@@ -11,17 +11,17 @@ Ferrari (Model F40)
     color: 3
 
 2) REED RICHARDS (age 45)
-  1&deg; dumbphone
+  1° dumbphone
 Ferrari (Model 348GTB)
 
 3) SCOTT SUMMERS (age 54)
-  1&deg; smartphone
-  2&deg; desktop
+  1° smartphone
+  2° desktop
 Ford (Model MUSTANG)
 
 4) DANIELE TETI (age 40)
-  1&deg; smartphone
-  2&deg; dumbphone
+  1° smartphone
+  2° dumbphone
 Lancia (Model DELTA HF INTEGRALE)
 
 
@@ -31,4 +31,4 @@ Lancia (Model DELTA HF INTEGRALE)
 3 - True - False
 4 - False - True
 
-&lt;hello&gt;world
+<hello>world

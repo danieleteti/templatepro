@@ -561,7 +561,7 @@ begin
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
         lLastToken := ttContent;
-        aTokens.Add(TToken.Create(lLastToken, HTMLEncode(fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)), ''));
+        aTokens.Add(TToken.Create(lLastToken, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim), ''));
       end;
       aTokens.Add(TToken.Create(ttEOF, '', ''));
       Break;
@@ -573,7 +573,7 @@ begin
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
         Inc(lContentOnThisLine);
-        aTokens.Add(TToken.Create(ttContent, HTMLEncode(fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)), ''));
+        aTokens.Add(TToken.Create(ttContent, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim), ''));
       end;
       lStartVerbatim := fCharIndex;
       if lLastToken = ttLineBreak then Inc(lContentOnThisLine);
@@ -591,7 +591,7 @@ begin
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
         lLastToken := ttContent;
-        aTokens.Add(TToken.Create(lLastToken, HTMLEncode(fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)), ''));
+        aTokens.Add(TToken.Create(lLastToken, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim), ''));
       end;
 
       if CurrentChar = START_TAG[1] then

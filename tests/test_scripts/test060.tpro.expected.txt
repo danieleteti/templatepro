@@ -1,5 +1,5 @@
 Hello DANIELE2
-DANIELE2 =&gt; daniele2
+DANIELE2 => daniele2
 2024-08-20
     value1.1
     value1.2
