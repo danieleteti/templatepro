@@ -47,7 +47,7 @@ begin
     for var lFile in lInputFileNames do
     begin
       try
-        lInput := TFile.ReadAllText(lFile);
+        lInput := TFile.ReadAllText(lFile, TEncoding.UTF8);
         Write(TPath.GetFileName(lFile).PadRight(30));
         var lTestScriptsFolder := TPath.Combine(GetModuleName(HInstance), '..', '..', 'test_scripts');
         var lCompiledTemplate := lTPro.Compile(lInput, lTestScriptsFolder);

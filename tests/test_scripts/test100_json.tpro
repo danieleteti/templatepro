@@ -1,6 +1,9 @@
 ** JSON **
 {{loop(jsonobj.people) as person}}
 {{:person.@@index}}) {{:person.first_name|uppercase}} {{:person.last_name|uppercase}} (age {{:person.age}})
+{{loop(person.devices) as device}}
+  {{:device.@@index}}° {{:device}}
+{{endloop}}
 {{:person.car.brand}} (Model {{:person.car.model|uppercase}})
 {{if(person.@@odd)}}this line is odd{{endif}}
 {{if(person.@@even)}}this line is even{{endif}}
@@ -16,3 +19,5 @@
 {{loop(jsonobj.people) as jarr}}
 {{:jarr.@@index}} - {{:jarr.@@odd}} - {{:jarr.@@even}}
 {{endloop}}
+
+<hello>world

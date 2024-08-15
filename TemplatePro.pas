@@ -38,7 +38,7 @@ type
 
   end;
 
-  ETProParserException = class(ETProException)
+  ETProCompilerException = class(ETProException)
 
   end;
 
@@ -299,7 +299,10 @@ begin
   lCompiler := TTProCompiler.Create(fEncoding);
   try
     lCompiler.Compile(aTemplate, aTokens, aFileNameRefPath);
-    Assert(aTokens[aTokens.Count - 1].TokenType = ttEOF);
+    if aTokens[aTokens.Count - 1].TokenType <> ttEOF then
+    begin
+      Error('Included file ' + aFileNameRefPath + ' doesn''t terminate with EOF');
+    end;
     aTokens.Delete(aTokens.Count - 1); // remove the EOF
   finally
     lCompiler.Free;
@@ -524,7 +527,6 @@ var
   lFuncName: string;
   lIdentifier: string;
   lIteratorName: string;
-  //lFuncParams: TArray<string>;
   lStartVerbatim: UInt64;
   lEndVerbatim: UInt64;
   lIndexOfLatestIfStatement: UInt64;
@@ -540,6 +542,7 @@ var
   lRef2: Integer;
   lContentOnThisLine: Integer;
 begin
+  lLastToken := ttEOF;
   lContentOnThisLine := 0;
   fCurrentFileName := aFileNameRefPath;
   fCharIndex := -1;
@@ -558,7 +561,7 @@ begin
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
         lLastToken := ttContent;
-        aTokens.Add(TToken.Create(lLastToken, HTMLSpecialCharsEncode(fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)), ''));
+        aTokens.Add(TToken.Create(lLastToken, HTMLEncode(fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)), ''));
       end;
       aTokens.Add(TToken.Create(ttEOF, '', ''));
       Break;
@@ -570,7 +573,7 @@ begin
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
         Inc(lContentOnThisLine);
-        aTokens.Add(TToken.Create(ttContent, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim), ''));
+        aTokens.Add(TToken.Create(ttContent, HTMLEncode(fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)), ''));
       end;
       lStartVerbatim := fCharIndex;
       if lLastToken = ttLineBreak then Inc(lContentOnThisLine);
@@ -588,7 +591,7 @@ begin
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
         lLastToken := ttContent;
-        aTokens.Add(TToken.Create(lLastToken, fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim), ''));
+        aTokens.Add(TToken.Create(lLastToken, HTMLEncode(fInputString.Substring(lStartVerbatim, lEndVerbatim - lStartVerbatim)), ''));
       end;
 
       if CurrentChar = START_TAG[1] then
@@ -884,7 +887,7 @@ end;
 
 procedure TTProCompiler.Error(const aMessage: string);
 begin
-  raise ETProParserException.CreateFmt('%s - at line %d in file %s', [aMessage, fCurrentLine, fCurrentFileName]);
+  raise ETProCompilerException.CreateFmt('%s - at line %d in file %s', [aMessage, fCurrentLine, fCurrentFileName]);
 end;
 
 function TTProCompiler.GetFunctionParameters: TArray<String>;
@@ -1005,14 +1008,14 @@ end;
 
 function HTMLEncode(s: string): string;
 begin
-  Result := TNetEncoding.HTML.Encode(s);
+  Result := HTMLSpecialCharsEncode(s);
 end;
 
 function HTMLSpecialCharsEncode(s: string): string;
   procedure repl(var s: string; r: string; posi: Integer);
   begin
-    delete(s, posi, 1);
-    insert(r, s, posi);
+    Delete(s, posi, 1);
+    Insert(r, s, posi);
   end;
 
 var
@@ -1024,6 +1027,10 @@ begin
   begin
     r := '';
     case ord(s[I]) of
+      Ord('>'):
+        r := 'gt';
+      Ord('<'):
+        r := 'lt';
       160:
         r := 'nbsp';
       161:
@@ -1723,7 +1730,14 @@ begin
         else
         begin
           lJPath := lCurrentIterator.FullPath;
-          Result := lJObj.Path[lJPath].ArrayValue[lCurrentIterator.IteratorPosition].Path[lVarMembers].Value;
+          if lVarMembers.IsEmpty then
+          begin
+            Result := lJObj.Path[lJPath].ArrayValue[lCurrentIterator.IteratorPosition].Value;
+          end
+          else
+          begin
+            Result := lJObj.Path[lJPath].ArrayValue[lCurrentIterator.IteratorPosition].Path[lVarMembers].Value;
+          end;
         end;
       end
       else
