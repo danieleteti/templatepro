@@ -7,13 +7,13 @@ object MainForm: TMainForm
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
+  Font.Height = 18
   Font.Name = 'Tahoma'
   Font.Style = []
   OnCreate = FormCreate
-  TextHeight = 13
+  TextHeight = 18
   object Splitter2: TSplitter
-    Left = 209
+    Left = 303
     Top = 57
     Height = 458
     ExplicitLeft = 336
@@ -21,10 +21,11 @@ object MainForm: TMainForm
     ExplicitHeight = 100
   end
   object FileListBox1: TFileListBox
-    Left = 0
-    Top = 57
-    Width = 209
-    Height = 458
+    AlignWithMargins = True
+    Left = 3
+    Top = 60
+    Width = 297
+    Height = 452
     Align = alLeft
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
@@ -36,6 +37,9 @@ object MainForm: TMainForm
     ParentFont = False
     TabOrder = 0
     OnDblClick = FileListBox1DblClick
+    ExplicitLeft = 0
+    ExplicitTop = 57
+    ExplicitHeight = 458
   end
   object Panel1: TPanel
     Left = 0
@@ -43,42 +47,68 @@ object MainForm: TMainForm
     Width = 838
     Height = 57
     Align = alTop
+    BevelOuter = bvNone
+    Ctl3D = True
+    ParentCtl3D = False
     TabOrder = 1
+    ExplicitTop = -6
     object Button1: TButton
       AlignWithMargins = True
-      Left = 4
-      Top = 4
+      Left = 3
+      Top = 3
       Width = 199
-      Height = 49
+      Height = 51
       Align = alLeft
       Caption = 'Generate report'
       TabOrder = 0
       OnClick = Button1Click
+      ExplicitLeft = 4
+      ExplicitTop = 4
+      ExplicitHeight = 49
     end
     object chkOpenGeneratedFile: TCheckBox
       Left = 209
-      Top = 4
-      Width = 161
+      Top = 19
+      Width = 248
       Height = 17
-      Caption = 'Open Generated File'
+      Caption = 'Open output file in browser'
       TabOrder = 1
     end
   end
   object PageControl1: TPageControl
-    Left = 212
+    Left = 306
     Top = 57
-    Width = 626
+    Width = 532
     Height = 458
     ActivePage = TabSheet2
     Align = alClient
     TabOrder = 2
+    TabWidth = 120
+    object TabSheet2: TTabSheet
+      Caption = 'Report'
+      ImageIndex = 1
+      object MemoTemplate: TMemo
+        Left = 0
+        Top = 0
+        Width = 524
+        Height = 425
+        Align = alClient
+        Font.Charset = ANSI_CHARSET
+        Font.Color = clWindowText
+        Font.Height = 22
+        Font.Name = 'Courier New'
+        Font.Style = []
+        ParentFont = False
+        TabOrder = 0
+      end
+    end
     object TabSheet1: TTabSheet
       Caption = 'Output'
       object MemoOutput: TMemo
         Left = 0
         Top = 0
-        Width = 618
-        Height = 430
+        Width = 524
+        Height = 425
         Align = alClient
         Font.Charset = ANSI_CHARSET
         Font.Color = clWindowText
@@ -92,31 +122,13 @@ object MainForm: TMainForm
         WordWrap = False
       end
     end
-    object TabSheet2: TTabSheet
-      Caption = 'Report'
-      ImageIndex = 1
-      object MemoTemplate: TMemo
-        Left = 0
-        Top = 0
-        Width = 618
-        Height = 430
-        Align = alClient
-        Font.Charset = ANSI_CHARSET
-        Font.Color = clWindowText
-        Font.Height = 22
-        Font.Name = 'Courier New'
-        Font.Style = []
-        ParentFont = False
-        TabOrder = 0
-      end
-    end
     object TabSheet3: TTabSheet
       Caption = 'Data'
       ImageIndex = 2
       object Splitter1: TSplitter
         Left = 0
         Top = 153
-        Width = 618
+        Width = 524
         Height = 3
         Cursor = crVSplit
         Align = alTop
@@ -126,28 +138,28 @@ object MainForm: TMainForm
       object DBGrid1: TDBGrid
         Left = 0
         Top = 0
-        Width = 618
+        Width = 524
         Height = 153
         Align = alTop
         DataSource = DataSource1
         TabOrder = 0
         TitleFont.Charset = DEFAULT_CHARSET
         TitleFont.Color = clWindowText
-        TitleFont.Height = -11
+        TitleFont.Height = 18
         TitleFont.Name = 'Tahoma'
         TitleFont.Style = []
       end
       object DBGrid2: TDBGrid
         Left = 0
         Top = 156
-        Width = 618
-        Height = 274
+        Width = 524
+        Height = 269
         Align = alClient
         DataSource = DataSource2
         TabOrder = 1
         TitleFont.Charset = DEFAULT_CHARSET
         TitleFont.Color = clWindowText
-        TitleFont.Height = -11
+        TitleFont.Height = 18
         TitleFont.Name = 'Tahoma'
         TitleFont.Style = []
       end

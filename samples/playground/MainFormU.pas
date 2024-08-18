@@ -78,7 +78,7 @@ type
     procedure FileListBox1DblClick(Sender: TObject);
   private
     function GetItems: TObjectList<TObject>;
-    procedure GenerateReport(const aTemplateString: string);
+    procedure ExecuteTemplate(const aTemplateString: string);
   public
     { Public declarations }
   end;
@@ -100,12 +100,12 @@ uses
 
 procedure TMainForm.Button1Click(Sender: TObject);
 begin
-  GenerateReport(MemoTemplate.Lines.Text);
+  ExecuteTemplate(MemoTemplate.Lines.Text);
 end;
 
 procedure TMainForm.FileListBox1DblClick(Sender: TObject);
 begin
-  PageControl1.ActivePageIndex := 1;
+  PageControl1.ActivePageIndex := 0;
   if tfile.Exists(FileListBox1.FileName) then
     MemoTemplate.Lines.LoadFromFile(FileListBox1.FileName, TEncoding.UTF8);
 end;
@@ -120,12 +120,12 @@ begin
   ds1.Open;
   ds2.Open;
 
-  for I := 1 to 100 do
+  for I := 1 to 10 do
   begin
     lName := GetRndFirstName;
     lLastName := getrndlastname;
     ds1.AppendRecord([I, lName + ' ' + lLastName, GetRndCountry]);
-    for J := 1 to Random(15) + 2 do
+    for J := 1 to Random(10) + 2 do
     begin
       ds2.AppendRecord([I * 100 + J, I, Format('%s.%s@%s.com', [lName.Substring(0, 1).ToLower,
         lLastName.ToLower, GetRndCountry.ToLower]), 'email']);
@@ -133,8 +133,6 @@ begin
   end;
   ds1.First;
   ds2.First;
-
-  // Button2Click(self);
 end;
 
 // http://www.cryer.co.uk/brian/delphi/twebbrowser/put_HTML.htm
@@ -166,7 +164,7 @@ begin
   end;
 end;
 
-procedure TMainForm.GenerateReport(const aTemplateString: string);
+procedure TMainForm.ExecuteTemplate(const aTemplateString: string);
 var
   lCompiler: TTProCompiler;
   lTemplate: string;
@@ -175,14 +173,10 @@ var
   lItems: TObjectList<TObject>;
   lCompiledTmpl: ITProCompiledTemplate;
 begin
-  // MemoTemplate.Lines.LoadFromFile(aReport);
-  ds1.First;
   lTemplate := aTemplateString;
-
-  lCompiler := TTProCompiler.Create(TEncoding.UTF8);
+  lCompiler := TTProCompiler.Create;
   try
     lCompiledTmpl := lCompiler.Compile(aTemplateString);
-
     lItems := GetItems;
     try
       lCompiledTmpl.SetData('first_name', 'Daniele');
@@ -205,7 +199,7 @@ begin
   end;
   if chkOpenGeneratedFile.Checked then
     ShellExecute(0, pchar('open'), pchar(lOutputFileName), nil, nil, SW_NORMAL);
-  PageControl1.ActivePageIndex := 0;
+  PageControl1.ActivePageIndex := 1;
 end;
 
 function TMainForm.GetItems: TObjectList<TObject>;

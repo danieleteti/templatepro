@@ -2,5 +2,5 @@
 {{endloop}}
 
 ANOTHER LOOP
-{{reset(people)}}{{loop(people) as person}}{{:person.name}} {{:person.country}}
+{{loop(people) as person}}{{:person.name}} {{:person.country}}
 {{endloop}}

@@ -1,5 +1,5 @@
 {{loop(people) as person}}{{:person.name}} ({{:person.country}})
 {{endloop}}
 
-{{reset(people)}}{{loop(people) as person1}}{{:person1.name}} [{{:person1.country}}]
+{{loop(people) as person1}}{{:person1.name}} [{{:person1.country}}]
 {{endloop}}
