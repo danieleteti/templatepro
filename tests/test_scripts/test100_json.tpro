@@ -15,7 +15,7 @@
 {{endloop}}
 
 ** JSON Pseudo Variable **
-{{reset(jsonobj)}}{{# ignored }}
+{{#reset(jsonobj)}}{{# ignored }}
 {{loop(jsonobj.people) as jarr}}
 {{:jarr.@@index}} - {{:jarr.@@odd}} - {{:jarr.@@even}}
 {{endloop}}

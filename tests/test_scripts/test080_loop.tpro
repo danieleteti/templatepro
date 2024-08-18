@@ -17,13 +17,13 @@ Prop1: {{:obj.Prop1}} {{:value2}}
 {{endloop}}
 
 ************* reset DataSet
-{{reset(customers)}}
+{{#reset(customers)}}
 {{loop(customers) as cust}}
 {{:cust.@@index}}
 {{endloop}}
 
 ************* reset List of objects
-{{reset(objects)}}
+{{#reset(objects)}}
 {{loop(objects) as obj}}
 {{:obj.@@index}}
 {{endloop}}

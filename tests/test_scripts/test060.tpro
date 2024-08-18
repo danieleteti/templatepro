@@ -7,7 +7,7 @@
 
 {{loop(customers) as cust}}
 Customer: {{:cust.Name|lpad:10:_}}
-{{reset(objects)}}
+{{#reset(objects)}}
 {{loop(objects) as obj}}
 {{:obj.Prop1|lpad:10}}
 {{endloop}}  

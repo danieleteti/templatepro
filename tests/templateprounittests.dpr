@@ -60,7 +60,7 @@ begin
         lCompiledTemplate.SetData('value6','DANIELE6');
         lCompiledTemplate.SetData('myhtml','<div>this <strong>HTML</strong></div>');
         lCompiledTemplate.SetData('valuedate', EncodeDate(2024,8,20));
-        lCompiledTemplate.AddTemplateFunction('sayhello', SayHelloFilter);
+        lCompiledTemplate.AddFilter('sayhello', SayHelloFilter);
         var lJSONArr := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'people.json')) as TJsonArray;
         try
           var lJSONObj := TJsonObject.Create;

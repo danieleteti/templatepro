@@ -2,14 +2,23 @@
 X
 {{endloop}}
 
+{{loop(customers) as cust}}
+ABCD{{:cust1.@@index}}
+{{endloop}}
+
 HEADER
-{{reset(customers)}}
+{{#reset(customers)}}
 {{# this is a comment }}
 {{loop(customers) as cust}}
 {{# this is a 
 	multi line comment }}
-ABCD{{:cust.Code}}EFG{{:cust.Name}}
+
+LOOPCUSTOMER1{{:cust.Code}}EFG{{:cust.Name}}
 {{loop(objects) as obj}}
 ABCD{{:obj.Prop1}}EFG{{:obj.Prop2}}
 {{endloop}}
+{{endloop}}
+*****************
+{{loop(customers) as cust1}}
+ABCD{{:cust1.@@index}}
 {{endloop}}
