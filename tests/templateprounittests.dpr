@@ -24,16 +24,74 @@ begin
   Result := 'Hello ' + aValue.AsString;
 end;
 
+procedure TestTokenWriteReadFromFile;
+var
+  lBW: TBinaryWriter;
+  lToken: TToken;
+  lBR: TBinaryReader;
+  lToken2: TToken;
+begin
+  lBW := TBinaryWriter.Create(TFileStream.Create('output.tp', fmOpenWrite or fmShareDenyNone));
+  try
+    lToken := TToken.Create(ttLoop, 'value1','value2', -1, 2);
+    lToken.SaveToBytes(lBW);
+  finally
+    lBW.Free;
+  end;
+
+  lBR := TBinaryReader.Create(TFileStream.Create('output.tp', fmOpenRead or fmShareDenyNone), nil, True);
+  try
+    lToken2 := TToken.CreateFromBytes(lBR);
+  finally
+    lBR.Free;
+  end;
+
+  Assert(lToken.TokenType = lToken2.TokenType);
+  Assert(lToken.Value1 = lToken2.Value1);
+  Assert(lToken.Value2 = lToken2.Value2);
+  Assert(lToken.Ref1 = lToken2.Ref1);
+  Assert(lToken.Ref2 = lToken2.Ref2);
+  WriteLn('TestTokenWriteReadFromFile: OK');
+end;
+
+procedure TestWriteReadFromFile;
+var
+  lCompiler : TTProCompiler;
+  lCompiledTmpl: ITProCompiledTemplate;
+  lOutput1: string;
+  lOutput2: string;
+begin
+  lCompiler := TTProCompiler.Create();
+  try
+    lCompiledTmpl := lCompiler.Compile('{{:value1}} hello world {{:value2}}');
+    lCompiledTmpl.SaveToFile('output.tpc');
+  finally
+    lCompiler.Free;
+  end;
+
+
+  lCompiledTmpl := TTProCompiledTemplate.CreateFromFile('output.tpc');
+  lCompiledTmpl.SetData('value1', 'Daniele');
+  lCompiledTmpl.SetData('value2', 'Teti');
+  lOutput1 := lCompiledTmpl.Render;
+
+  lCompiledTmpl.ClearData;
+  lCompiledTmpl.SetData('value1', 'Bruce');
+  lCompiledTmpl.SetData('value2', 'Banner');
+  lOutput2 := lCompiledTmpl.Render;
+
+  Assert('Daniele hello world Teti' = lOutput1);
+  Assert('Bruce hello world Banner' = lOutput2);
+
+  WriteLn('TestWriteReadFromFile: OK');
+end;
+
 procedure Main;
 var
   lTPro: TTProCompiler;
   lInput: string;
   lItems, lItemsWithFalsy: TObjectList<TDataItem>;
 begin
-  Writeln('   |---------------------------|');
-  Writeln('---| TEMPLATE PRO - UNIT TESTS |---');
-  Writeln('   |---------------------------|');
-  Writeln;
   var lFailed := False;
   lTPro := TTProCompiler.Create;
   try
@@ -136,6 +194,12 @@ end;
 begin
   ReportMemoryLeaksOnShutdown := True;
   try
+    Writeln('   |---------------------------|');
+    Writeln('---| TEMPLATE PRO - UNIT TESTS |---');
+    Writeln('   |---------------------------|');
+    Writeln;
+    TestTokenWriteReadFromFile;
+    TestWriteReadFromFile;
     Main;
   except
     on E: Exception do

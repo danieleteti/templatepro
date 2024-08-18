@@ -66,10 +66,12 @@ type
       TokenType: TTokenType;
       Value1: String;
       Value2: String;
-      Ref1, Ref2: Integer;
-      class function Create(TokType: TTokenType; Value1: String; Value2: String; Ref1: Integer = -1; Ref2: Integer = -1): TToken; static;
+      Ref1, Ref2: Int64;
+      class function Create(TokType: TTokenType; Value1: String; Value2: String; Ref1: Int64 = -1; Ref2: Int64 = -1): TToken; static;
       function TokenTypeAsString: String;
       function ToString: String;
+      procedure SaveToBytes(const aBytes: TBinaryWriter);
+      class function CreateFromBytes(const aBytes: TBinaryReader): TToken; static;
     end;
 
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
@@ -99,6 +101,7 @@ type
     procedure SetData(const Name: String; Value: TValue); overload;
     procedure AddFilter(const FunctionName: string; const FunctionImpl: TTProTemplateFunction);
     procedure DumpToFile(const FileName: String);
+    procedure SaveToFile(const FileName: String);
   end;
 
   TLoopStackItem = class
@@ -133,7 +136,6 @@ type
     function ExecuteFilter(aFunctionName: string; aParameters: TArray<string>; aValue: TValue): string;
     procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
     procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
-//    function GetPseudoVariable(const Variable: TVarDataSource; const PseudoVarName: String): TValue; overload;
     function GetPseudoVariable(const VarIterator: Integer; const PseudoVarName: String): TValue; overload;
     function IsAnIterator(const VarName: String; out DataSourceName: String; out CurrentIterator: TLoopStackItem): Boolean;
   public
@@ -141,6 +143,8 @@ type
     function Render: String;
     procedure ForEachToken(const TokenProc: TTokenWalkProc);
     procedure ClearData;
+    procedure SaveToFile(const FileName: String);
+    class function CreateFromFile(const FileName: String): ITProCompiledTemplate;
     procedure SetData(const Name: String; Value: TValue); overload;
     procedure AddFilter(const FunctionName: string; const FunctionImpl: TTProTemplateFunction);
     procedure DumpToFile(const FileName: String);
@@ -1263,13 +1267,86 @@ end;
 
 { TToken }
 
-class function TToken.Create(TokType: TTokenType; Value1, Value2: String; Ref1: Integer; Ref2: Integer): TToken;
+class function TToken.Create(TokType: TTokenType; Value1, Value2: String; Ref1: Int64; Ref2: Int64): TToken;
 begin
   Result.TokenType:= TokType;
   Result.Value1 := Value1;
   Result.Value2 := Value2;
   Result.Ref1 := Ref1;
   Result.Ref2 := Ref2;
+end;
+
+class function TToken.CreateFromBytes(const aBytes: TBinaryReader): TToken;
+var
+  //lSize: UInt32;
+  lValue1Size: UInt32;
+  lValue2Size: UInt32;
+  lTokenAsByte: Byte;
+begin
+  {
+    STORAGE FORMAT
+
+    Bytes
+    0:    Total record size as UInt32
+    1:    Token Type as Byte
+    2:    Value1 Size in bytes as UInt32
+    3:    Value1 bytes
+    4:    Value2 Size in bytes as UInt32
+    5:    Value2 bytes
+    6:    Ref1 (8 bytes) in bytes - Int64
+    7:    Ref1 (8 bytes) in bytes - Int64
+  }
+
+  //lSize := aBytes.ReadUInt32;
+  lTokenAsByte := aBytes.ReadByte;
+  Result.TokenType := TTokenType(lTokenAsByte);
+  lValue1Size := aBytes.ReadUInt32;
+  Result.Value1 := TEncoding.Unicode.GetString(aBytes.ReadBytes(lValue1Size));
+
+  lValue2Size := aBytes.ReadUInt32;
+  Result.Value2 := TEncoding.Unicode.GetString(aBytes.ReadBytes(lValue2Size));
+
+  Result.Ref1 := aBytes.ReadInt64;
+  Result.Ref2 := aBytes.ReadInt64;
+end;
+
+procedure TToken.SaveToBytes(const aBytes: TBinaryWriter);
+var
+//  lSize: UInt32;
+  lValue1Bytes: TArray<Byte>;
+  lValue2Bytes: TArray<Byte>;
+  lValue1Length: UInt32;
+  lValue2Length: UInt32;
+  lTokenAsByte: Byte;
+begin
+
+//  lSize :=
+//    SizeOf(UInt32) + {total record size}
+//    1 +  //Token Type as Byte
+//    4 +  //Value1 Size in bytes as UInt32
+//    Length(Value1) * SizeOf(Char) + //value1 bytes
+//    4 +  //Value2 Size in bytes as UInt32
+//    Length(Value2) * SizeOf(Char) + //value2 bytes
+//    8 + //ref1
+//    8;  //ref2
+  //aBytes.Write(lSize);
+
+  lTokenAsByte := Byte(TokenType);
+  aBytes.Write(lTokenAsByte);
+
+  lValue1Bytes := TEncoding.Unicode.GetBytes(Value1);
+  lValue1Length := UInt16(Length(lValue1Bytes));
+  aBytes.Write(lValue1Length);
+  aBytes.Write(lValue1Bytes);
+
+  lValue2Bytes := TEncoding.Unicode.GetBytes(Value2);
+  lValue2Length := UInt16(Length(lValue2Bytes));
+  aBytes.Write(lValue2Length);
+  aBytes.Write(lValue2Bytes);
+
+  aBytes.Write(Ref1);
+
+  aBytes.Write(Ref2);
 end;
 
 function TToken.TokenTypeAsString: String;
@@ -1290,6 +1367,34 @@ begin
   fLoopsStack := TObjectList<TLoopStackItem>.Create(True);
   fTokens := Tokens;
   fTemplateFunctions := TDictionary<string, TTProTemplateFunction>.Create;
+end;
+
+class function TTProCompiledTemplate.CreateFromFile(
+  const FileName: String): ITProCompiledTemplate;
+var
+  lBR: TBinaryReader;
+  lTokens: TList<TToken>;
+begin
+  lBR := TBinaryReader.Create(TFileStream.Create(FileName, fmOpenRead or fmShareDenyNone));
+  try
+    lTokens := TList<TToken>.Create;
+    try
+      while True do
+      begin
+        lTokens.Add(TToken.CreateFromBytes(lBR));
+        if lTokens.Last.TokenType = ttEOF then
+        begin
+          Break;
+        end;
+      end;
+      Result := TTProCompiledTemplate.Create(lTokens);
+    except
+      lTokens.Free;
+      raise;
+    end;
+  finally
+    lBR.Free;
+  end;
 end;
 
 destructor TTProCompiledTemplate.Destroy;
@@ -2012,6 +2117,22 @@ begin
     end;
   end;
   Exit(lNegation xor False);
+end;
+
+procedure TTProCompiledTemplate.SaveToFile(const FileName: String);
+var
+  lToken: TToken;
+  lBW: TBinaryWriter;
+begin
+  lBW := TBinaryWriter.Create(TFileStream.Create(FileName, fmCreate or fmOpenWrite or fmShareDenyNone), nil, True);
+  try
+    for lToken in fTokens do
+    begin
+      lToken.SaveToBytes(lBW);
+    end;
+  finally
+    lBW.Free;
+  end;
 end;
 
 procedure TTProCompiledTemplate.SetData(const Name: String; Value: TValue);
