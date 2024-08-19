@@ -3,6 +3,8 @@
   1° smartphone
   2° dumbphone
 Ferrari (Model F40)
+this line is odd
+
   red - ff0000
     color: 1
   blue - 0000ff
@@ -14,15 +16,21 @@ Ferrari (Model F40)
   1° dumbphone
 Ferrari (Model 348GTB)
 
+this line is even
+
 3) SCOTT SUMMERS (age 54)
   1° smartphone
   2° desktop
 Ford (Model MUSTANG)
+this line is odd
+
 
 4) DANIELE TETI (age 40)
   1° smartphone
   2° dumbphone
 Lancia (Model DELTA HF INTEGRALE)
+
+this line is even
 
 
 ** JSON Pseudo Variable **

@@ -6,7 +6,9 @@
 {{endloop}}
 {{:person.car.brand}} (Model {{:person.car.model|uppercase}})
 {{if(person.@@odd)}}this line is odd{{endif}}
+
 {{if(person.@@even)}}this line is even{{endif}}
+
 {{loop(person.colors) as color}}
   {{:color.name}} - {{:color.rgb}}
     color: {{:color.@@index}}

@@ -749,13 +749,18 @@ begin
           lStartVerbatim := fCharIndex;
         end else if MatchSymbol('if') then
         begin
+          MatchSpace;
           if not MatchSymbol('(') then
             Error('Expected "("');
+          MatchSpace;
           lNegation := MatchSymbol('!');
+          MatchSpace;
           if not MatchVariable(lIdentifier) then
             Error('Expected identifier after "if("');
+          MatchSpace;
           if not MatchSymbol(')') then
             Error('Expected ")" after "' + lIdentifier + '"');
+          MatchSpace;
           if not MatchEndTag then
             Error('Expected closing tag for "if(' + lIdentifier + ')"');
           if lNegation then
@@ -1726,6 +1731,8 @@ end;
 function TTProCompiledTemplate.GetVarAsString(const aName: string): string;
 var
   lValue: TValue;
+  lIsObject: Boolean;
+  lAsObject: TObject;
 begin
   lValue := GetVarAsTValue(aName);
   if lValue.IsEmpty then
@@ -1733,9 +1740,22 @@ begin
     Exit('');
   end;
 
-  if lValue.IsObject and (lValue.AsObject is TField) then
+  lIsObject := False;
+  lAsObject := nil;
+  if lValue.IsObject then
   begin
-    Result := TField(lValue.AsObject).AsString;
+    lIsObject := True;
+    lAsObject := lValue.AsObject;
+  end;
+
+  if lIsObject then
+  begin
+    if lAsObject is TField then
+      Result := TField(lValue.AsObject).AsString
+    else if lAsObject is TJsonBaseObject then
+      Result := TJsonBaseObject(lAsObject).ToJSON()
+    else
+      Result := lAsObject.ToString;
   end
   else
   begin
@@ -1790,13 +1810,15 @@ begin
         Result := DateToISO8601(lValue.AsType<NullableTDateTime>.Value);
       end
       else
+      begin
         raise ETProException.Create('Unsupported type for variable "' + aName + '"');
+      end;
     end
     else
     begin
-    Result := lValue.ToString;
+      Result := lValue.ToString;
+    end;
   end;
-end;
 end;
 
 function TTProCompiledTemplate.GetVarAsTValue(const aName: string): TValue;
@@ -1811,6 +1833,7 @@ var
   lVarName: string;
   lVarMembers: string;
   lCurrentIterator: TLoopStackItem;
+  lPJSONDataValue: TJsonDataValueHelper;
 begin
   lCurrentIterator := nil;
   SplitVariableName(aName, lVarName, lVarMembers);
@@ -1866,46 +1889,42 @@ begin
         else
         begin
           lJPath := lCurrentIterator.FullPath;
-          if lVarMembers.IsEmpty then
+          lPJSONDataValue := lJObj.Path[lJPath].ArrayValue[lCurrentIterator.IteratorPosition];
+          if lPJSONDataValue.Typ in [jdtArray, jdtObject] then
           begin
-            Result := lJObj.Path[lJPath].ArrayValue[lCurrentIterator.IteratorPosition].Value;
+            if not lVarMembers.IsEmpty then
+              lPJSONDataValue := lPJSONDataValue.Path[lVarMembers];
+            case lPJSONDataValue.Typ of
+              jdtArray: begin
+                Result := lPJSONDataValue.ArrayValue.ToJSON();
+              end;
+              jdtObject: begin
+                Result := lPJSONDataValue.ObjectValue.ToJSON();
+              end;
+              else
+                Result := lPJSONDataValue.Value;
+            end;
           end
           else
           begin
-            Result := lJObj.Path[lJPath].ArrayValue[lCurrentIterator.IteratorPosition].Path[lVarMembers].Value;
+            if lVarMembers.IsEmpty then
+              Result := lPJSONDataValue.Value
+            else
+              Result := '';
           end;
         end;
       end
       else
       begin
-//        if lHasMember and lVarMembers.StartsWith('@@') then
-//        begin
-//          Result := GetPseudoVariable(lVariable, lVarMembers);
-//        end
-//        else
-//        begin
-          lJPath := aName.Remove(0, Length(lVarName) + 1);
+        lJPath := aName.Remove(0, Length(lVarName) + 1);
+        if lJPath.IsEmpty then
+          Result := lJObj
+        else
           Result := lJObj.Path[lJPath].Value;
-//        end;
       end;
-
-//      lJArr := TJDOJsonArray(lVariable.VarValue.AsObject);
-//      if lHasMember and lPieces[1].StartsWith('@@') then
-//      begin
-//        Result := GetPseudoVariable(lVariable, lPieces[1]);
-//      end
-//      else
-//      begin
-//        lJPath := aName.Remove(0, Length(lPieces[0]) + 1);
-//        Result := lJArr[lVariable.VarIterator].Path[lJPath].Value;
-//      end;
     end
     else if viListOfObject in lVariable.VarOption then
     begin
-//      if not lIsAnIterator then
-//      begin
-//        Error(lDataSource + ' can be iterated only using its alias');
-//      end;
       if lVarMembers.StartsWith('@@') then
       begin
         Result := GetPseudoVariable(lCurrentIterator.IteratorPosition, lVarMembers);
@@ -1932,7 +1951,10 @@ begin
     end
     else if viObject in lVariable.VarOption then
     begin
-      Result := TTProRTTIUtils.GetProperty(lVariable.VarValue.AsObject, lVarMembers);
+      if lHasMember then
+        Result := TTProRTTIUtils.GetProperty(lVariable.VarValue.AsObject, lVarMembers)
+      else
+        Result := lVariable.VarValue;
     end
     else if viSimpleType in lVariable.VarOption then
     begin
@@ -2056,7 +2078,6 @@ begin
           begin
             Error('Pseudovariables (@@) can be used only on iterators');
           end;
-//          lVarValue := GetPseudoVariable(lVariable, lVarMembers);
           lVarValue := GetPseudoVariable(lCurrentIterator.IteratorPosition, lVarMembers);
         end
         else
@@ -2097,9 +2118,29 @@ begin
       end;
       Exit(lTmp);
     end
-    else if viObject in lVariable.VarOption then
+    else if [viObject, viJSONObject] * lVariable.VarOption <> [] then
     begin
-      Exit(lNegation xor Assigned(lVariable));
+      if lHasMember then
+      begin
+        if lVarMembers.StartsWith('@@') then
+        begin
+          lVarValue := GetPseudoVariable(lCurrentIterator.IteratorPosition, lVarMembers);
+        end
+        else
+        begin
+          lVarValue := GetVarAsTValue(lDataSourceName);
+        end;
+        lTmp := IsTruthy(lVarValue);
+      end
+      else
+      begin
+        lTmp := not lVarValue.IsEmpty;
+      end;
+      if lNegation then
+      begin
+        Exit(not lTmp);
+      end;
+      Exit(lTmp);
     end
     else if viSimpleType in lVariable.VarOption then
     begin
@@ -2434,6 +2475,7 @@ end;
 
 initialization
 GlContext := TRttiContext.Create;
+JsonSerializationConfig.LineBreak := sLineBreak;
 
 finalization
 GlContext.Free;

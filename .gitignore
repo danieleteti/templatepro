@@ -66,3 +66,5 @@ __recovery/
 *.stat
 templateprosample.res
 *.res
+tests/bin/output.tpc
+tests/bin/output.tp

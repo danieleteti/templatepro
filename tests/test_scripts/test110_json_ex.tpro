@@ -1,0 +1,9 @@
+{{:json2}}
+
+{{if (json2)}}OK{{else}}KO{{endif}}
+
+
+{{loop(json2.array) as j}}
+  {{:j.value}}
+  {{:j.subarray}}
+{{endloop}}

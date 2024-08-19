@@ -124,48 +124,52 @@ begin
           var lJSONObj := TJsonObject.Create;
           try
             lJSONObj.A['people'] := lJSONArr.Clone;
-            lItems := GetItems;
+            var lJSONObj2 := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'test.json')) as TJsonObject;
             try
-              lItemsWithFalsy := GetItems(True);
+              lItems := GetItems;
               try
-                lCompiledTemplate.SetData('obj', lItems[0]);
-                var lCustomers := GetCustomersDataset;
+                lItemsWithFalsy := GetItems(True);
                 try
-                  lCompiledTemplate.SetData('customers', lCustomers);
-                  lCompiledTemplate.SetData('objects', lItems);
-                  lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
-                  lCompiledTemplate.SetData('jsonobj', lJSONObj);
-                  var l := lJSONArr[0].Path['colors'];
-
-                  var lActualOutput := lCompiledTemplate.Render;
-                  var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
-                  if lActualOutput <> lExpectedOutput then
-                  begin
-                    WriteLn(': FAILED');
-                    lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
-                    TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
-                    lFailed := True;
-                  end
-                  else
-                  begin
-                    if TFile.Exists(lFile + '.failed.txt') then
+                  lCompiledTemplate.SetData('obj', lItems[0]);
+                  var lCustomers := GetCustomersDataset;
+                  try
+                    lCompiledTemplate.SetData('customers', lCustomers);
+                    lCompiledTemplate.SetData('objects', lItems);
+                    lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
+                    lCompiledTemplate.SetData('jsonobj', lJSONObj);
+                    lCompiledTemplate.SetData('json2', lJSONObj2);
+                    var lActualOutput := lCompiledTemplate.Render;
+                    var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
+                    if lActualOutput <> lExpectedOutput then
                     begin
-                      TFile.Delete(lFile + '.failed.txt');
-                    end;
-                    if TFile.Exists(lFile + '.failed.dump.txt') then
+                      WriteLn(' : FAILED');
+                      lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
+                      TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
+                      lFailed := True;
+                    end
+                    else
                     begin
-                      TFile.Delete(lFile + '.failed.dump.txt');
+                      if TFile.Exists(lFile + '.failed.txt') then
+                      begin
+                        TFile.Delete(lFile + '.failed.txt');
+                      end;
+                      if TFile.Exists(lFile + '.failed.dump.txt') then
+                      begin
+                        TFile.Delete(lFile + '.failed.dump.txt');
+                      end;
+                      WriteLn(' : OK');
                     end;
-                    WriteLn(' : OK');
+                  finally
+                    lCustomers.Free;
                   end;
                 finally
-                  lCustomers.Free;
+                  lItemsWithFalsy.Free;
                 end;
               finally
-                lItemsWithFalsy.Free;
+                lItems.Free;
               end;
             finally
-              lItems.Free;
+              lJSONObj2.Free;
             end;
           finally
             lJSONObj.Free;
@@ -198,8 +202,11 @@ begin
     Writeln('---| TEMPLATE PRO - UNIT TESTS |---');
     Writeln('   |---------------------------|');
     Writeln;
-    TestTokenWriteReadFromFile;
-    TestWriteReadFromFile;
+    if TestFileNameFilter = '*' then
+    begin
+      TestTokenWriteReadFromFile;
+      TestWriteReadFromFile;
+    end;
     Main;
   except
     on E: Exception do
