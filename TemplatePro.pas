@@ -156,7 +156,6 @@ type
     function MatchEndTag: Boolean;
     function MatchVariable(var aIdentifier: string): Boolean;
     function MatchFilterParamValue(var aParamValue: string): Boolean;
-    //function MatchReset(var aDataSet: string): Boolean;
     function MatchSymbol(const aSymbol: string): Boolean;
     function MatchSpace: Boolean;
     function MatchString(out aStringValue: string): Boolean;
@@ -329,19 +328,19 @@ end;
 
 procedure TTProCompiler.InternalMatchFilter(lIdentifier: String; var lStartVerbatim: UInt64; const CurrToken: TTokenType; aTokens: TList<TToken>; const lRef2: Integer);
 var
-  lFuncName: string;
-  lFuncParamsCount: Integer;
-  lFuncParams: TArray<String>;
+  lFilterName: string;
+  lFilterParamsCount: Integer;
+  lFilterParams: TArray<String>;
   I: Integer;
 begin
-  lFuncName := '';
-  lFuncParamsCount := -1; {-1 means "no filter applied to value"}
+  lFilterName := '';
+  lFilterParamsCount := -1; {-1 means "no filter applied to value"}
   if MatchSymbol('|') then
   begin
-    if not MatchVariable(lFuncName) then
+    if not MatchVariable(lFilterName) then
       Error('Invalid function name applied to variable or literal string "' + lIdentifier + '"');
-    lFuncParams := GetFunctionParameters;
-    lFuncParamsCount := Length(lFuncParams);
+    lFilterParams := GetFunctionParameters;
+    lFilterParamsCount := Length(lFilterParams);
   end;
 
   if not MatchEndTag then
@@ -349,17 +348,17 @@ begin
     Error('Expected end tag "' + END_TAG + '" near ' + GetSubsequentText);
   end;
   lStartVerbatim := fCharIndex;
-  aTokens.Add(TToken.Create(CurrToken, lIdentifier, '', lFuncParamsCount, lRef2));
+  aTokens.Add(TToken.Create(CurrToken, lIdentifier, '', lFilterParamsCount, lRef2));
 
   //add function with params
-  if not lFuncName.IsEmpty then
+  if not lFilterName.IsEmpty then
   begin
-    aTokens.Add(TToken.Create(ttFilterName, lFuncName, '', lFuncParamsCount));
-    if lFuncParamsCount > 0 then
+    aTokens.Add(TToken.Create(ttFilterName, lFilterName, '', lFilterParamsCount));
+    if lFilterParamsCount > 0 then
     begin
-      for I := 0 to lFuncParamsCount -1 do
+      for I := 0 to lFilterParamsCount -1 do
       begin
-        aTokens.Add(TToken.Create(ttFilterParameter, lFuncParams[I], ''));
+        aTokens.Add(TToken.Create(ttFilterParameter, lFilterParams[I], ''));
       end;
     end;
   end;
@@ -447,14 +446,6 @@ begin
     aParamValue := lTmp;
   end;
 end;
-
-
-//function TTProCompiler.MatchReset(var aDataSet: string): Boolean;
-//begin
-//  if not MatchSymbol('reset') then
-//    Exit(False);
-//  Result := MatchSymbol('(') and MatchVariable(aDataSet) and MatchSymbol(')');
-//end;
 
 function TTProCompiler.MatchSpace: Boolean;
 begin
