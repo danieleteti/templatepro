@@ -1,5 +1,0 @@
-File in the same folder
-{{include("included1.tpro")}}
-
-File in subfolder
-{{include("partials/included2.tpro")}}

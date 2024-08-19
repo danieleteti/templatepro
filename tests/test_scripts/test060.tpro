@@ -11,4 +11,11 @@ Customer: {{:cust.Name|lpad:10:_}}
 {{loop(objects) as obj}}
 {{:obj.Prop1|lpad:10}}
 {{endloop}}  
-{{endloop}}
+{{endloop}}{{exit}}
+
+Questa if non funziona. Sarebbe bello
+poter utilizzare i filtri sulla variabili anche
+nella if
+{{if(value2|sayhello)}}
+filter in if expression
+{{endif}}

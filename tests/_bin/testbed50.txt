@@ -1,1 +1,0 @@
-TemplatePro uses {{ as start tag and }} as end tag

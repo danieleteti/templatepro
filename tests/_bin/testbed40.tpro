@@ -1,6 +1,0 @@
-A{{if(!value0)}}
-B
-{{else}}
-C
-{{endif}}
-D

@@ -1,7 +1,0 @@
-File in the same folder
-I'm from the included file
-This is value 1 true
-
-File in subfolder
-I'm from the included file in partials folder
-This is value 1 true

@@ -1656,7 +1656,7 @@ begin
           // Ref2 is -1 if the variable must be HTMLEncoded, while contains 1 is the value must not be HTMLEncoded
           lRef2 := fTokens[lIdx].Ref2;
           lCurrTokenType := fTokens[lIdx].TokenType;
-          if fTokens[lIdx].Ref1 > -1 {has a function with Ref1 parameters} then
+          if fTokens[lIdx].Ref1 > -1 {has a filter with Ref1 parameters} then
           begin
             lVarName := fTokens[lIdx].Value1;
             Inc(lIdx);
