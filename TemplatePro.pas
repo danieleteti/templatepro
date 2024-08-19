@@ -1371,7 +1371,7 @@ var
   lBR: TBinaryReader;
   lTokens: TList<TToken>;
 begin
-  lBR := TBinaryReader.Create(TFileStream.Create(FileName, fmOpenRead or fmShareDenyNone));
+  lBR := TBinaryReader.Create(TFileStream.Create(FileName, fmOpenRead or fmShareDenyNone), nil, True);
   try
     lTokens := TList<TToken>.Create;
     try
