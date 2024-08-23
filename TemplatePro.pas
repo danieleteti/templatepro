@@ -33,6 +33,9 @@ uses
   System.DateUtils,
   System.RTTI;
 
+const
+  TEMPLATEPRO_VERSION = '0.2';
+
 type
   ETProException = class(Exception)
 
@@ -56,11 +59,11 @@ type
 
   TTokenType = (
     ttContent, ttInclude, ttLoop, ttEndLoop, ttIfThen, ttElse, ttEndIf, ttStartTag, ttComment,
-    ttLiteralString, ttEndTag, ttValue, ttFilterName, ttFilterParameter, ttReset, ttLineBreak, ttEOF);
+    ttLiteralString, ttEndTag, ttValue, ttFilterName, ttFilterParameter, ttReset, ttLineBreak, ttSystemVersion, ttEOF);
   const
     TOKEN_TYPE_DESCR: array [Low(TTokenType)..High(TTokenType)] of string =
       ('ttContent', 'ttInclude', 'ttLoop', 'ttEndLoop', 'ttIfThen', 'ttElse', 'ttEndIf', 'ttStartTag', 'ttComment',
-       'ttLiteralString', 'ttEndTag', 'ttValue', 'ttFilterName', 'ttFilterParameter', 'ttReset', 'ttLineBreak', 'ttEOF');
+       'ttLiteralString', 'ttEndTag', 'ttValue', 'ttFilterName', 'ttFilterParameter', 'ttReset', 'ttLineBreak', 'ttSystemVersion', 'ttEOF');
   type
     TToken = packed record
       TokenType: TTokenType;
@@ -201,11 +204,11 @@ type
 
   TTProConfiguration = class sealed
   private
-    class var fOnCustomFiltersRegistration: TTProCompiledTemplateEvent;
+    class var fOnContextConfiguration: TTProCompiledTemplateEvent;
   protected
     class procedure RegisterHandlers(const TemplateProCompiledTemplate: ITProCompiledTemplate);
   public
-    class property OnCustomFiltersRegistration: TTProCompiledTemplateEvent read fOnCustomFiltersRegistration write fOnCustomFiltersRegistration;
+    class property OnContextConfiguration: TTProCompiledTemplateEvent read fOnContextConfiguration write fOnContextConfiguration;
   end;
 
 
@@ -539,7 +542,6 @@ begin
     lTokens.Free;
     raise;
   end;
-  TTProConfiguration.RegisterHandlers(Result);
 end;
 
 procedure TTProCompiler.Compile(const aTemplate: string; const aTokens: TList<TToken>; const aFileNameRefPath: String);
@@ -570,6 +572,7 @@ var
   lRef2: Integer;
   lContentOnThisLine: Integer;
 begin
+  aTokens.Add(TToken.Create(ttSystemVersion, TEMPLATEPRO_VERSION, ''));
   lLastToken := ttEOF;
   lContentOnThisLine := 0;
   fCurrentFileName := aFileNameRefPath;
@@ -1377,6 +1380,7 @@ begin
   fLoopsStack := TObjectList<TLoopStackItem>.Create(True);
   fTokens := Tokens;
   fTemplateFunctions := TDictionary<string, TTProTemplateFunction>.Create;
+  TTProConfiguration.RegisterHandlers(Self);
 end;
 
 class function TTProCompiledTemplate.CreateFromFile(
@@ -1739,6 +1743,12 @@ begin
         ttLineBreak: begin
           lBuff.AppendLine;
         end;
+        ttSystemVersion: begin
+          if fTokens[lIdx].Value1 <> TEMPLATEPRO_VERSION then
+          begin
+            Error('Compiled template has been compiled with a different version. Expected ' +  TEMPLATEPRO_VERSION + ' got ' + fTokens[lIdx].Value1);
+          end;
+        end
         else
         begin
           Error('Invalid token: ' + fTokens[lIdx].TokenTypeAsString);
@@ -2517,9 +2527,9 @@ end;
 
 class procedure TTProConfiguration.RegisterHandlers(const TemplateProCompiledTemplate: ITProCompiledTemplate);
 begin
-  if Assigned(fOnCustomFiltersRegistration) then
+  if Assigned(fOnContextConfiguration) then
   begin
-    fOnCustomFiltersRegistration(TemplateProCompiledTemplate);
+    fOnContextConfiguration(TemplateProCompiledTemplate);
   end;
 end;
 
