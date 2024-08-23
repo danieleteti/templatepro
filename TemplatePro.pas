@@ -77,14 +77,12 @@ type
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
 
   TTProTemplateFunction = function(const aValue: TValue; const aParameters: TArray<string>): string;
-
   TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viIterable);
   TTProVariablesInfos = set of TTProVariablesInfo;
 
   TVarDataSource = class
     VarValue: TValue;
     VarOption: TTProVariablesInfos;
-//    VarIterator: Int64;
     constructor Create(const VarValue: TValue; const VarOption: TTProVariablesInfos);
   end;
 
@@ -92,6 +90,9 @@ type
   public
     constructor Create;
   end;
+
+
+  TTProCompiledTemplateGetValueEvent = reference to procedure(const DataSource, Members: string; var Value: TValue; var Handled: Boolean);
 
   ITProCompiledTemplate = interface
     ['{0BE04DE7-6930-456B-86EE-BFD407BA6C46}']
@@ -102,7 +103,12 @@ type
     procedure AddFilter(const FunctionName: string; const FunctionImpl: TTProTemplateFunction);
     procedure DumpToFile(const FileName: String);
     procedure SaveToFile(const FileName: String);
+    function GetOnGetValue: TTProCompiledTemplateGetValueEvent;
+    procedure SetOnGetValue(const Value: TTProCompiledTemplateGetValueEvent);
+    property OnGetValue: TTProCompiledTemplateGetValueEvent read GetOnGetValue write SetOnGetValue;
   end;
+
+  TTProCompiledTemplateEvent = reference to procedure(const TemplateProCompiledTemplate: ITProCompiledTemplate);
 
   TLoopStackItem = class
     DataSourceName: String;
@@ -120,6 +126,7 @@ type
     fVariables: TTProVariables;
     fTemplateFunctions: TDictionary<string, TTProTemplateFunction>;
     fLoopsStack: TObjectList<TLoopStackItem>;
+    fOnGetValue: TTProCompiledTemplateGetValueEvent;
     function PeekLoop: TLoopStackItem;
     procedure PopLoop;
     procedure PushLoop(const LoopStackItem: TLoopStackItem);
@@ -138,6 +145,9 @@ type
     procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
     function GetPseudoVariable(const VarIterator: Integer; const PseudoVarName: String): TValue; overload;
     function IsAnIterator(const VarName: String; out DataSourceName: String; out CurrentIterator: TLoopStackItem): Boolean;
+    function GetOnGetValue: TTProCompiledTemplateGetValueEvent;
+    procedure SetOnGetValue(const Value: TTProCompiledTemplateGetValueEvent);
+    procedure DoOnGetValue(const DataSource, Members: string; var Value: TValue; var Handled: Boolean);
   public
     destructor Destroy; override;
     function Render: String;
@@ -148,6 +158,7 @@ type
     procedure SetData(const Name: String; Value: TValue); overload;
     procedure AddFilter(const FunctionName: string; const FunctionImpl: TTProTemplateFunction);
     procedure DumpToFile(const FileName: String);
+    property OnGetValue: TTProCompiledTemplateGetValueEvent read GetOnGetValue write SetOnGetValue;
   end;
 
   TTProCompiler = class
@@ -187,8 +198,6 @@ type
     function IsWrappedList: Boolean; overload;
     function ItemIsObject(const AIndex: Integer; out AValue: TValue): Boolean;
   end;
-
-  TTProCompiledTemplateEvent = reference to procedure(const TemplateProCompiledTemplate: ITProCompiledTemplate);
 
   TTProConfiguration = class sealed
   private
@@ -265,6 +274,11 @@ end;
 procedure TTProCompiledTemplate.AddFilter(const FunctionName: string; const FunctionImpl: TTProTemplateFunction);
 begin
   fTemplateFunctions.Add(FunctionName.ToLower, FunctionImpl);
+end;
+
+function TTProCompiledTemplate.GetOnGetValue: TTProCompiledTemplateGetValueEvent;
+begin
+  Result := fOnGetValue;
 end;
 
 //function TTProCompiledTemplate.GetPseudoVariable(const Variable: TVarDataSource; const PseudoVarName: String): TValue;
@@ -1402,6 +1416,16 @@ begin
   inherited;
 end;
 
+procedure TTProCompiledTemplate.DoOnGetValue(const DataSource, Members: string;
+  var Value: TValue; var Handled: Boolean);
+begin
+  Handled := False;
+  if Assigned(fOnGetValue) then
+  begin
+    fOnGetValue(DataSource, Members, Value, Handled);
+  end;
+end;
+
 procedure TTProCompiledTemplate.DumpToFile(const FileName: String);
 var
   lToken: TToken;
@@ -1834,6 +1858,7 @@ var
   lVarMembers: string;
   lCurrentIterator: TLoopStackItem;
   lPJSONDataValue: TJsonDataValueHelper;
+  lHandled: Boolean;
 begin
   lCurrentIterator := nil;
   SplitVariableName(aName, lVarName, lVarMembers);
@@ -1966,7 +1991,11 @@ begin
   end
   else
   begin
-    Result := TValue.Empty;
+    DoOnGetValue(lDataSource, lVarMembers, Result, lHandled);
+    if not lHandled then
+    begin
+      Result := TValue.Empty;
+    end;
   end;
 end;
 
@@ -2046,6 +2075,7 @@ var
   lVarName, lVarMembers: String;
   lCurrentIterator: TLoopStackItem;
   lIsAnIterator: Boolean;
+  lHandled: Boolean;
 begin
   lNegation := aIdentifier.StartsWith('!');
   if lNegation then
@@ -2147,6 +2177,20 @@ begin
       lTmp := IsTruthy(lVariable.VarValue);
       Exit(lNegation xor lTmp)
     end;
+  end
+  else
+  begin
+    lHandled := False;
+    DoOnGetValue(lVarName, lVarMembers, lVarValue, lHandled);
+    if lHandled then
+    begin
+      lTmp := IsTruthy(lVarValue);
+      if lNegation then
+      begin
+        Exit(not lTmp);
+      end;
+      Exit(lTmp);
+    end;
   end;
   Exit(lNegation xor False);
 end;
@@ -2213,6 +2257,12 @@ begin
 
 end;
 
+
+procedure TTProCompiledTemplate.SetOnGetValue(
+  const Value: TTProCompiledTemplateGetValueEvent);
+begin
+  fOnGetValue := Value;
+end;
 
 procedure TTProCompiledTemplate.SplitVariableName(
   const VariableWithMember: String; out VarName, VarMembers: String);

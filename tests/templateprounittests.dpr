@@ -5,7 +5,6 @@ program templateprounittests;
 {$R *.res}
 
 uses
-  System.SysUtils,
   System.Generics.Collections,
   System.IOUtils,
   System.Rtti,
@@ -13,10 +12,10 @@ uses
   UtilsU in 'UtilsU.pas',
   TemplatePro in '..\TemplatePro.pas',
   JsonDataObjects in '..\JsonDataObjects.pas',
-  MVCFramework.Nullables in '..\MVCFramework.Nullables.pas';
+  MVCFramework.Nullables in '..\MVCFramework.Nullables.pas', System.SysUtils;
 
 const
-  TestFileNameFilter = '*'; // '*' means "all files'
+  TestFileNameFilter = '150'; // '*' means "all files'
 
 
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<string>): string;
@@ -119,6 +118,34 @@ begin
         lCompiledTemplate.SetData('myhtml','<div>this <strong>HTML</strong></div>');
         lCompiledTemplate.SetData('valuedate', EncodeDate(2024,8,20));
         lCompiledTemplate.AddFilter('sayhello', SayHelloFilter);
+        lCompiledTemplate.OnGetValue :=
+          procedure(const DataSource, Members: string; var Value: TValue; var Handled: Boolean)
+          begin
+            if SameText(DataSource, 'external') then
+            begin
+              if Members.IsEmpty then
+              begin
+                Value := 'this is an external value';
+              end
+              else
+              begin
+                if SameText(Members, 'proptrue') then
+                begin
+                  Value := True;
+                end
+                else if SameText(Members, 'propfalse') then
+                begin
+                  Value := False;
+                end
+                else
+                begin
+                  Value := TValue.Empty;
+                end;
+              end;
+              Handled := True;
+            end;
+          end;
+
         var lJSONArr := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'people.json')) as TJsonArray;
         try
           var lJSONObj := TJsonObject.Create;
