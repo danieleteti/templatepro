@@ -79,7 +79,7 @@ type
 
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
 
-  TTProTemplateFunction = function(const aValue: TValue; const aParameters: TArray<string>): string;
+  TTProTemplateFunction = function(const aValue: TValue; const aParameters: TArray<string>): TValue;
   TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viIterable);
   TTProVariablesInfos = set of TTProVariablesInfo;
 
@@ -138,12 +138,13 @@ type
     constructor Create(Tokens: TList<TToken>);
     procedure Error(const aMessage: String);
     function IsTruthy(const Value: TValue): Boolean;
-    function GetVarAsString(const aName: string): string;
+    function GetVarAsString(const Name: string): string;
+    function GetTValueVarAsString(const Value: TValue; const VarName: string = ''): String;
     function GetVarAsTValue(const aName: string): TValue;
     function EvaluateIfExpression(aIdentifier: string): Boolean;
     function GetVariables: TTProVariables;
     procedure SplitVariableName(const VariableWithMember: String; out VarName, VarMembers: String);
-    function ExecuteFilter(aFunctionName: string; aParameters: TArray<string>; aValue: TValue): string;
+    function ExecuteFilter(aFunctionName: string; aParameters: TArray<string>; aValue: TValue): TValue;
     procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
     procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
     function GetPseudoVariable(const VarIterator: Integer; const PseudoVarName: String): TValue; overload;
@@ -309,6 +310,98 @@ begin
   end;
 end;
 
+
+function TTProCompiledTemplate.GetTValueVarAsString(const Value: TValue; const VarName: string): String;
+var
+  lIsObject: Boolean;
+  lAsObject: TObject;
+begin
+  if Value.IsEmpty then
+  begin
+    Exit('');
+  end;
+
+  lIsObject := False;
+  lAsObject := nil;
+  if Value.IsObject then
+  begin
+    lIsObject := True;
+    lAsObject := Value.AsObject;
+  end;
+
+  if lIsObject then
+  begin
+    if lAsObject is TField then
+      Result := TField(Value.AsObject).AsString
+    else if lAsObject is TJsonBaseObject then
+      Result := TJsonBaseObject(lAsObject).ToJSON()
+    else
+      Result := lAsObject.ToString;
+  end
+  else
+  begin
+    if Value.TypeInfo.Kind = tkRecord then
+    begin
+      if Value.TypeInfo = TypeInfo(NullableInt32) then
+      begin
+        Result := Value.AsType<NullableInt32>.Value.ToString;
+      end
+      else if Value.TypeInfo = TypeInfo(NullableUInt32) then
+      begin
+        Result := Value.AsType<NullableInt32>.Value.ToString;
+      end
+      else if Value.TypeInfo = TypeInfo(NullableInt16) then
+      begin
+        Result := Value.AsType<NullableInt16>.Value.ToString;
+      end
+      else if Value.TypeInfo = TypeInfo(NullableUInt16) then
+      begin
+        Result := Value.AsType<NullableUInt16>.Value.ToString;
+      end
+      else if Value.TypeInfo = TypeInfo(NullableInt64) then
+      begin
+        Result := Value.AsType<NullableInt64>.Value.ToString;
+      end
+      else if Value.TypeInfo = TypeInfo(NullableUInt64) then
+      begin
+        Result := Value.AsType<NullableUInt64>.Value.ToString;
+      end
+      else if Value.TypeInfo = TypeInfo(NullableString) then
+      begin
+        Result := Value.AsType<NullableString>.Value;
+      end
+      else if Value.TypeInfo = TypeInfo(NullableCurrency) then
+      begin
+        Result := Value.AsType<NullableCurrency>.Value.ToString;
+      end
+      else if Value.TypeInfo = TypeInfo(NullableBoolean) then
+      begin
+        Result := Value.AsType<NullableBoolean>.Value.ToString;
+      end
+      else if Value.TypeInfo = TypeInfo(NullableTDate) then
+      begin
+        Result := DateToISO8601(Value.AsType<NullableTDate>.Value);
+      end
+      else if Value.TypeInfo = TypeInfo(NullableTTime) then
+      begin
+        Result := DateToISO8601(Value.AsType<NullableTTime>.Value);
+      end
+      else if Value.TypeInfo = TypeInfo(NullableTDateTime) then
+      begin
+        Result := DateToISO8601(Value.AsType<NullableTDateTime>.Value);
+      end
+      else
+      begin
+        raise ETProException.Create('Unsupported type for variable "' + VarName + '"');
+      end;
+    end
+    else
+    begin
+      Result := Value.ToString;
+    end;
+  end;
+
+end;
 
 procedure TTProCompiledTemplate.CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
   const aParameters: TArray<string>);
@@ -955,7 +1048,7 @@ begin
 end;
 
 function TTProCompiledTemplate.ExecuteFilter(aFunctionName: string; aParameters: TArray<string>;
-  aValue: TValue): string;
+  aValue: TValue): TValue;
 var
   lDateValue: TDate;
   lDateTimeValue: TDateTime;
@@ -1480,7 +1573,7 @@ var
   I: Integer;
   lFilterName: string;
   lVarName: string;
-  lVarValue: String;
+  lVarValue: TValue;
   lRef2: Integer;
   lJArr: TJDOJsonArray;
   lJObj: TJDOJsonObject;
@@ -1718,9 +1811,13 @@ begin
             end;
           end;
           if lRef2 = -1 {encoded} then
-            lBuff.Append(HTMLEncode(lVarValue))
+            lBuff.Append(HTMLEncode(lVarValue.ToString))
           else
-            lBuff.Append(lVarValue);
+            lBuff.Append(lVarValue.ToString);
+          if lVarValue.IsObjectInstance then
+          begin
+            lVarValue.AsObject.Free;
+          end;
         end;
 //        ttReset: begin
 //          if GetVariables.TryGetValue(fTokens[lIdx].Value1, lVariable) then
@@ -1762,97 +1859,12 @@ begin
   end;
 end;
 
-function TTProCompiledTemplate.GetVarAsString(const aName: string): string;
+function TTProCompiledTemplate.GetVarAsString(const Name: string): string;
 var
   lValue: TValue;
-  lIsObject: Boolean;
-  lAsObject: TObject;
 begin
-  lValue := GetVarAsTValue(aName);
-  if lValue.IsEmpty then
-  begin
-    Exit('');
-  end;
-
-  lIsObject := False;
-  lAsObject := nil;
-  if lValue.IsObject then
-  begin
-    lIsObject := True;
-    lAsObject := lValue.AsObject;
-  end;
-
-  if lIsObject then
-  begin
-    if lAsObject is TField then
-      Result := TField(lValue.AsObject).AsString
-    else if lAsObject is TJsonBaseObject then
-      Result := TJsonBaseObject(lAsObject).ToJSON()
-    else
-      Result := lAsObject.ToString;
-  end
-  else
-  begin
-    if lValue.TypeInfo.Kind = tkRecord then
-    begin
-      if lValue.TypeInfo = TypeInfo(NullableInt32) then
-      begin
-        Result := lValue.AsType<NullableInt32>.Value.ToString;
-      end
-      else if lValue.TypeInfo = TypeInfo(NullableUInt32) then
-      begin
-        Result := lValue.AsType<NullableInt32>.Value.ToString;
-      end
-      else if lValue.TypeInfo = TypeInfo(NullableInt16) then
-      begin
-        Result := lValue.AsType<NullableInt16>.Value.ToString;
-      end
-      else if lValue.TypeInfo = TypeInfo(NullableUInt16) then
-      begin
-        Result := lValue.AsType<NullableUInt16>.Value.ToString;
-      end
-      else if lValue.TypeInfo = TypeInfo(NullableInt64) then
-      begin
-        Result := lValue.AsType<NullableInt64>.Value.ToString;
-      end
-      else if lValue.TypeInfo = TypeInfo(NullableUInt64) then
-      begin
-        Result := lValue.AsType<NullableUInt64>.Value.ToString;
-      end
-      else if lValue.TypeInfo = TypeInfo(NullableString) then
-      begin
-        Result := lValue.AsType<NullableString>.Value;
-      end
-      else if lValue.TypeInfo = TypeInfo(NullableCurrency) then
-      begin
-        Result := lValue.AsType<NullableCurrency>.Value.ToString;
-      end
-      else if lValue.TypeInfo = TypeInfo(NullableBoolean) then
-      begin
-        Result := lValue.AsType<NullableBoolean>.Value.ToString;
-      end
-      else if lValue.TypeInfo = TypeInfo(NullableTDate) then
-      begin
-        Result := DateToISO8601(lValue.AsType<NullableTDate>.Value);
-      end
-      else if lValue.TypeInfo = TypeInfo(NullableTTime) then
-      begin
-        Result := DateToISO8601(lValue.AsType<NullableTTime>.Value);
-      end
-      else if lValue.TypeInfo = TypeInfo(NullableTDateTime) then
-      begin
-        Result := DateToISO8601(lValue.AsType<NullableTDateTime>.Value);
-      end
-      else
-      begin
-        raise ETProException.Create('Unsupported type for variable "' + aName + '"');
-      end;
-    end
-    else
-    begin
-      Result := lValue.ToString;
-    end;
-  end;
+  lValue := GetVarAsTValue(Name);
+  Result := GetTValueVarAsString(lValue, Name);
 end;
 
 function TTProCompiledTemplate.GetVarAsTValue(const aName: string): TValue;

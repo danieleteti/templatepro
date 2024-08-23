@@ -1,0 +1,10 @@
+true
+
+this is an external value
+True
+False
+
+external is true
+external.proptrue is true
+
+external.propfalse is false
