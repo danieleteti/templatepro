@@ -34,7 +34,7 @@ uses
   System.RTTI;
 
 const
-  TEMPLATEPRO_VERSION = '0.2';
+  TEMPLATEPRO_VERSION = '0.3';
 
 type
   ETProException = class(Exception)
@@ -59,11 +59,11 @@ type
 
   TTokenType = (
     ttContent, ttInclude, ttLoop, ttEndLoop, ttIfThen, ttBoolExpression, ttElse, ttEndIf, ttStartTag, ttComment,
-    ttLiteralString, ttEndTag, ttValue, ttFilterName, ttFilterParameter, ttReset, ttLineBreak, ttSystemVersion, ttEOF);
+    ttLiteralString, ttEndTag, ttValue, ttFilterName, ttFilterParameter, ttLineBreak, ttSystemVersion, ttEOF);
   const
     TOKEN_TYPE_DESCR: array [Low(TTokenType)..High(TTokenType)] of string =
       ('ttContent', 'ttInclude', 'ttLoop', 'ttEndLoop', 'ttIfThen', 'ttBoolExpression', 'ttElse', 'ttEndIf', 'ttStartTag', 'ttComment',
-       'ttLiteralString', 'ttEndTag', 'ttValue', 'ttFilterName', 'ttFilterParameter', 'ttReset', 'ttLineBreak', 'ttSystemVersion', 'ttEOF');
+       'ttLiteralString', 'ttEndTag', 'ttValue', 'ttFilterName', 'ttFilterParameter', 'ttLineBreak', 'ttSystemVersion', 'ttEOF');
   type
     TToken = packed record
       TokenType: TTokenType;
@@ -1522,12 +1522,20 @@ begin
   try
     lTokens := TList<TToken>.Create;
     try
+      try
       while True do
       begin
         lTokens.Add(TToken.CreateFromBytes(lBR));
         if lTokens.Last.TokenType = ttEOF then
         begin
           Break;
+        end;
+      end;
+      except
+        on E: Exception do
+        begin
+          raise ETProRenderException.CreateFmt('Cannot load compiled template from [FILE: %s][CLASS: %s][MSG: %s] - consider to delete templates cache.',
+            [FileName, E.ClassName, E.Message])
         end;
       end;
       Result := TTProCompiledTemplate.Create(lTokens);
@@ -1600,17 +1608,11 @@ var
   lBuff: TStringBuilder;
   lLoopStmIndex: Integer;
   lDataSourceName: string;
-  lCurrTokenType: TTokenType;
   lVariable: TVarDataSource;
   lWrapped: ITProWrappedList;
   lJumpTo: Integer;
-  lFilterParCount: Integer;
-  lFilterParameters: TArray<String>;
-  I: Integer;
-  lFilterName: string;
   lVarName: string;
   lVarValue: TValue;
-  lRef2: Integer;
   lJArr: TJDOJsonArray;
   lJObj: TJDOJsonObject;
   lVarMember: string;
