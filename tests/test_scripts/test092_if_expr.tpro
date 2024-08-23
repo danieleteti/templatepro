@@ -1,0 +1,31 @@
+{{if(value1|empty)}}
+1-THEN
+{{else}}  
+2-ELSE
+{{endif}}
+
+3-{{:value1|uppercase}}
+
+{{if(value1|uppercase)}}
+4-THEN
+{{else}}  
+5-ELSE
+{{endif}}
+
+{{if(!value1|empty)}}
+6-THEN
+{{else}}  
+7-ELSE
+{{endif}}
+
+***
+
+{{loop(objectsb) as objb}}
+**{{:objb.@@index}}
+Prop1 = {{:objb.Prop1}}
+{{if(objb.Prop1|uppercase)}}
+Prop1 is TRUE
+{{else}}
+Prop1 is FALSE
+{{endif}}
+{{endloop}}

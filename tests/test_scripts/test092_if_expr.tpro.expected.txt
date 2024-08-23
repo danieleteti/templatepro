@@ -1,0 +1,20 @@
+  
+2-ELSE
+
+3-TRUE
+
+4-THEN
+
+6-THEN
+
+***
+
+**1
+Prop1 = true
+Prop1 is TRUE
+**2
+Prop1 = false
+Prop1 is FALSE
+**3
+Prop1 = 1
+Prop1 is TRUE

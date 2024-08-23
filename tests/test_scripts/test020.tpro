@@ -12,9 +12,9 @@ Prop1: {{:obj.Prop1}} {{:value2}}
 {{endloop}}
 
 
-{{#reset(customers)}}{{loop(customers) as cust}}
+{{loop(customers) as cust}}
 {{:cust.@@index}}) Code: {{:cust.Code}} - Name: {{:cust.Name}}
-{{#reset(objects)}}{{loop(objects) as obj}}
+{{loop(objects) as obj}}
     - Prop1: {{:obj.Prop1}}
 {{endloop}}
 {{endloop}}
