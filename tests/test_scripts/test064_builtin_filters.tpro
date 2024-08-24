@@ -1,0 +1,18 @@
+{{:value2}} => {{:value2|lowercase}}
+{{:valuedate|formatdatetime:yyyy-mm-dd}}
+{{loop(objects) as obj}}
+  {{:obj.Prop1|lpad:10}}
+{{endloop}}
+
+{{:datevalue|datetostr}}
+
+{{loop(customers) as cust}}
+  Customer uppercase: {{:cust.Name|uppercase}}
+  Customer lowercase: {{:cust.Name|lowercase}}  
+  Customer lpad: {{:cust.Name|lpad:10}}
+  Customer lpad: {{:cust.Name|lpad:10:_}}
+  Customer rpad: {{:cust.Name|rpad:10}}
+  Customer rpad: {{:cust.Name|rpad:10:_}} 
+  Customer capitalize: {{:cust.Name|capitalize}}   
+  {{exit}} 
+{{endloop}}

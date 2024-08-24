@@ -84,6 +84,7 @@ type
   TTProVariablesInfos = set of TTProVariablesInfo;
 
   TVarDataSource = class
+  protected
     VarValue: TValue;
     VarOption: TTProVariablesInfos;
     constructor Create(const VarValue: TValue; const VarOption: TTProVariablesInfos);
@@ -114,6 +115,7 @@ type
   TTProCompiledTemplateEvent = reference to procedure(const TemplateProCompiledTemplate: ITProCompiledTemplate);
 
   TLoopStackItem = class
+  protected
     DataSourceName: String;
     LoopExpression: String;
     FullPath: String;
@@ -1082,6 +1084,7 @@ function TTProCompiledTemplate.ExecuteFilter(aFunctionName: string; aParameters:
   aValue: TValue): TValue;
 var
   lDateValue: TDate;
+  lDoubleDateValue: Extended;
   lDateTimeValue: TDateTime;
   lStrValue: string;
   lDateAsString: string;
@@ -1145,9 +1148,19 @@ begin
 
   if aFunctionName = 'datetostr' then
   begin
-    if not aValue.TryAsType<TDate>(lDateValue) then
-      Error('Invalid Date');
-    Exit(DateToStr(lDateValue));
+    if aValue.IsEmpty then
+    begin
+      Exit('');
+    end;
+    if not aValue.TryAsType<Extended>(lDoubleDateValue) then
+    begin
+      lDateValue := TDate(lDoubleDateValue);
+      Exit(DateToStr(lDateValue));
+    end
+    else
+    begin
+      Error('Invalid Date: "' + aValue.AsString + '"');
+    end;
   end;
   if aFunctionName = 'datetimetostr' then
   begin
@@ -1606,7 +1619,6 @@ function TTProCompiledTemplate.Render: String;
 var
   lIdx: UInt64;
   lBuff: TStringBuilder;
-  lLoopStmIndex: Integer;
   lDataSourceName: string;
   lVariable: TVarDataSource;
   lWrapped: ITProWrappedList;
@@ -1735,7 +1747,6 @@ begin
           end;
 
           lLoopItem := PeekLoop;
-          lLoopStmIndex := fTokens[lIdx].Ref1;
           lDataSourceName := lLoopItem.DataSourceName;
           if GetVariables.TryGetValue(lDataSourceName, lVariable) then
           begin
@@ -2046,9 +2057,13 @@ begin
     else if viSimpleType in lVariable.VarOption then
     begin
       if lVariable.VarValue.IsEmpty then
-        Result := TValue.Empty
+      begin
+        Result := TValue.Empty;
+      end
       else
+      begin
         Result := lVariable.VarValue;
+      end;
     end;
   end
   else
@@ -2385,7 +2400,15 @@ begin
         end;
       end;
     end;
-    tkInteger, tkString, tkUString, tkFloat, tkEnumeration : GetVariables.Add(Name, TVarDataSource.Create(Value, [viSimpleType]));
+    tkInteger, tkString, tkUString, tkEnumeration : GetVariables.Add(Name, TVarDataSource.Create(Value, [viSimpleType]));
+    tkFloat : begin
+      if Value.TypeInfo.Name = 'TDateTime' then
+      begin
+        GetVariables.Add(Name, TVarDataSource.Create(TDate(Value.AsExtended), [viSimpleType]));
+      end
+      else
+        GetVariables.Add(Name, TVarDataSource.Create(Value, [viSimpleType]));
+    end
     else
       raise ETProException.Create('Invalid type for variable "' + Name + '": ' + TRttiEnumerationType.GetName<TTypeKind>(Value.Kind));
   end;
@@ -2424,7 +2447,6 @@ begin
   begin
     if VarName = fLoopsStack[I].IteratorName then
     begin
-//      deve ritornare sempre un array
       BaseVarName := fLoopsStack[I].DataSourceName;
       FullPath := fLoopsStack[I].FullPath + '[' + fLoopsStack[I].IteratorPosition.ToString + ']';
       Result := True;

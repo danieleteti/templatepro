@@ -9,13 +9,14 @@ uses
   System.IOUtils,
   System.Rtti,
   System.Classes,
+  System.DateUtils,
   UtilsU in 'UtilsU.pas',
   TemplatePro in '..\TemplatePro.pas',
   JsonDataObjects in '..\JsonDataObjects.pas',
   MVCFramework.Nullables in '..\MVCFramework.Nullables.pas', System.SysUtils;
 
 const
-  TestFileNameFilter = '*'; // '*' means "all files'
+  TestFileNameFilter = '064'; // '*' means "all files'
 
 
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<string>): TValue;
@@ -116,7 +117,9 @@ begin
         lCompiledTemplate.SetData('value5','DANIELE5');
         lCompiledTemplate.SetData('value6','DANIELE6');
         lCompiledTemplate.SetData('myhtml','<div>this <strong>HTML</strong></div>');
-        lCompiledTemplate.SetData('valuedate', EncodeDate(2024,8,20));
+        lCompiledTemplate.SetData('valuedate', EncodeDate(2024, 8,20));
+        lCompiledTemplate.SetData('valuedatetime', EncodeDateTime(2024, 8, 20, 10, 20, 30, 0));
+        lCompiledTemplate.SetData('valuetime', EncodeTime(10, 20, 30, 0));
         lCompiledTemplate.AddFilter('sayhello', SayHelloFilter);
         lCompiledTemplate.OnGetValue :=
           procedure(const DataSource, Members: string; var Value: TValue; var Handled: Boolean)
