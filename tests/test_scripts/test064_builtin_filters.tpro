@@ -1,10 +1,21 @@
 {{:value2}} => {{:value2|lowercase}}
-{{:valuedate|formatdatetime:yyyy-mm-dd}}
+{{:valuedate|formatdatetime:"yyyy-mm-dd"}}
+
+filter: datetostr
+1) {{:valuedate|datetostr}}
+2) {{:valuedate|datetostr:"yy-mm-dd"}}
+
+
+filter: datetimetostr
+1) {{:valuedatetime|datetimetostr}}
+2) {{:valuedatetime|datetimetostr:"dddd d mmmm yyyy hh:nn:ss"}}
+
+
 {{loop(objects) as obj}}
   {{:obj.Prop1|lpad:10}}
 {{endloop}}
 
-{{:datevalue|datetostr}}
+empty var ==> {{:datevalue|datetostr}}
 
 {{loop(customers) as cust}}
   Customer uppercase: {{:cust.Name|uppercase}}

@@ -1083,114 +1083,114 @@ end;
 function TTProCompiledTemplate.ExecuteFilter(aFunctionName: string; aParameters: TArray<string>;
   aValue: TValue): TValue;
 var
-  lDateValue: TDate;
-  lDoubleDateValue: Extended;
-  lDateTimeValue: TDateTime;
+  lDateValue: TDateTime;
   lStrValue: string;
-  lDateAsString: string;
   lFunc: TTProTemplateFunction;
+  lFormatSettings: TFormatSettings;
+  procedure FunctionError(const ErrMessage: string);
+  begin
+    Error(Format('%s in function %s', [ErrMessage, aFunctionName]));
+  end;
 begin
   aFunctionName := lowercase(aFunctionName);
-  if fTemplateFunctions.TryGetValue(aFunctionName, lFunc) then
-  begin
-    Exit(lFunc(aValue, aParameters));
-  end;
   if aFunctionName = 'uppercase' then
   begin
-    Exit(UpperCase(aValue.AsString));
-  end;
-  if aFunctionName = 'lowercase' then
+    Result := UpperCase(aValue.AsString);
+  end else if aFunctionName = 'lowercase' then
   begin
-    Exit(lowercase(aValue.AsString));
-  end;
-  if aFunctionName = 'capitalize' then
+    Result := lowercase(aValue.AsString);
+  end else if aFunctionName = 'capitalize' then
   begin
-    Exit(CapitalizeString(aValue.AsString, True));
-  end;
-  if aFunctionName = 'rpad' then
+    Result := CapitalizeString(aValue.AsString, True);
+  end else if aFunctionName = 'rpad' then
   begin
     if aValue.IsType<Integer> then
       lStrValue := aValue.AsInteger.ToString
     else if aValue.IsType<string> then
       lStrValue := aValue.AsString
     else
-      Error(Format('Invalid parameter/s for function: %s', [aFunctionName]));
+      FunctionError('Invalid parameter/s');
 
     CheckParNumber(1, 2, aParameters);
     if Length(aParameters) = 1 then
     begin
-      Exit(lStrValue.PadRight(aParameters[0].ToInteger));
+      Result := lStrValue.PadRight(aParameters[0].ToInteger);
     end
     else
     begin
-      Exit(lStrValue.PadRight(aParameters[0].ToInteger, aParameters[1].Chars[0]));
+      Result := lStrValue.PadRight(aParameters[0].ToInteger, aParameters[1].Chars[0]);
     end;
-  end;
-  if aFunctionName = 'lpad' then
+  end else if aFunctionName = 'lpad' then
   begin
     if aValue.IsType<Integer> then
       lStrValue := aValue.AsInteger.ToString
     else if aValue.IsType<string> then
       lStrValue := aValue.AsString
     else
-      Error(Format('Invalid parameter/s for function: ', [aFunctionName]));
+      FunctionError('Invalid parameter/s');
 
     CheckParNumber(1, 2, aParameters);
     if Length(aParameters) = 1 then
     begin
-      Exit(lStrValue.PadLeft(aParameters[0].ToInteger));
+      Result := lStrValue.PadLeft(aParameters[0].ToInteger);
     end
     else
     begin
-      Exit(lStrValue.PadLeft(aParameters[0].ToInteger, aParameters[1].Chars[0]));
+      Result := lStrValue.PadLeft(aParameters[0].ToInteger, aParameters[1].Chars[0]);
     end;
-  end;
-
-  if aFunctionName = 'datetostr' then
+  end else if aFunctionName = 'datetostr' then
   begin
     if aValue.IsEmpty then
     begin
-      Exit('');
-    end;
-    if not aValue.TryAsType<Extended>(lDoubleDateValue) then
+      Result := '';
+    end else if aValue.TryAsType<TDateTime>(lDateValue) then
     begin
-      lDateValue := TDate(lDoubleDateValue);
-      Exit(DateToStr(lDateValue));
+      if Length(aParameters) = 0 then
+      begin
+        Result := DateToStr(lDateValue)
+      end
+      else
+      begin
+        CheckParNumber(1, aParameters);
+        lFormatSettings.ShortDateFormat := aParameters[0];
+        Result := DateToStr(lDateValue, lFormatSettings)
+      end;
     end
     else
     begin
-      Error('Invalid Date: "' + aValue.AsString + '"');
+      FunctionError('Invalid date ' + aValue.AsString.QuotedString);
     end;
-  end;
-  if aFunctionName = 'datetimetostr' then
+  end else if (aFunctionName = 'datetimetostr') or (aFunctionName = 'formatdatetime') then
   begin
-    if not aValue.TryAsType<TDateTime>(lDateTimeValue) then
-      Error('Invalid DateTime');
-    Exit(DateTimeToStr(lDateTimeValue));
-  end;
-  if aFunctionName = 'formatdatetime' then
-  begin
-    CheckParNumber(1, aParameters);
-    if aValue.IsType<String> then
+    if aValue.IsEmpty then
     begin
-      lDateAsString := aValue.AsString;
-      //lDateTimeValue := ISO8601ToDate(aValue.AsString, False);
-      lDateTimeValue := StrToDate(aValue.AsString);
+      Result := '';
+    end else if aValue.TryAsType<TDateTime>(lDateValue) then
+    begin
+      if Length(aParameters) = 0 then
+        Result := DateTimeToStr(lDateValue)
+      else
+      begin
+        CheckParNumber(1, aParameters);
+        Result := FormatDateTime(aParameters[0], lDateValue);
+      end;
     end
     else
     begin
-      if not aValue.TryAsType<TDateTime>(lDateTimeValue) then
-        Error('Invalid DateTime');
+      FunctionError('Invalid datetime ' + aValue.AsString.QuotedString);
     end;
-    Exit(FormatDateTime(aParameters[0], lDateTimeValue));
-  end;
-  if aFunctionName = 'empty' then
+  end else if aFunctionName = 'empty' then
   begin
     CheckParNumber(0, aParameters);
-    Exit(TValue.Empty);
+    Result := TValue.Empty;
+  end else if fTemplateFunctions.TryGetValue(aFunctionName, lFunc) then
+  begin
+    Result := lFunc(aValue, aParameters);
+  end
+  else
+  begin
+    Error(Format('Unknown function [%s]', [aFunctionName]));
   end;
-
-  Error(Format('Unknown function [%s]', [aFunctionName]));
 end;
 
 function HTMLEncode(s: string): string;
@@ -2400,15 +2400,7 @@ begin
         end;
       end;
     end;
-    tkInteger, tkString, tkUString, tkEnumeration : GetVariables.Add(Name, TVarDataSource.Create(Value, [viSimpleType]));
-    tkFloat : begin
-      if Value.TypeInfo.Name = 'TDateTime' then
-      begin
-        GetVariables.Add(Name, TVarDataSource.Create(TDate(Value.AsExtended), [viSimpleType]));
-      end
-      else
-        GetVariables.Add(Name, TVarDataSource.Create(Value, [viSimpleType]));
-    end
+    tkInteger, tkString, tkUString, tkFloat, tkEnumeration : GetVariables.Add(Name, TVarDataSource.Create(Value, [viSimpleType]));
     else
       raise ETProException.Create('Invalid type for variable "' + Name + '": ' + TRttiEnumerationType.GetName<TTypeKind>(Value.Kind));
   end;

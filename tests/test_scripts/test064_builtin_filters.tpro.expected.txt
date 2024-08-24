@@ -1,73 +1,27 @@
-Hello DANIELE2
 DANIELE2 => daniele2
 2024-08-20
+
+filter: datetostr
+1) 20/08/2024
+2) 24-08-20
+
+
+filter: datetimetostr
+1) 20/08/2024 10:20:30
+2) marted&igrave; 20 agosto 2024 10:20:30
+
+
     value1.1
     value1.2
     value1.3
 
-Customer: ______Ford
-  value1.1
-  value1.2
-  value1.3
+empty var ==> 
+
+  Customer uppercase: FORD
+  Customer lowercase: ford  
+  Customer lpad:       Ford
+  Customer lpad: ______Ford
+  Customer rpad: Ford      
+  Customer rpad: Ford______ 
+  Customer capitalize: Ford   
   
-Customer: ___Ferrari
-  value1.1
-  value1.2
-  value1.3
-  
-Customer: _____Lotus
-  value1.1
-  value1.2
-  value1.3
-  
-Customer: _______FCA
-  value1.1
-  value1.2
-  value1.3
-  
-Customer: ___Hyundai
-  value1.1
-  value1.2
-  value1.3
-  
-Customer: _De Tomaso
-  value1.1
-  value1.2
-  value1.3
-  
-Customer: _____Dodge
-  value1.1
-  value1.2
-  value1.3
-  
-Customer: _____Tesla
-  value1.1
-  value1.2
-  value1.3
-  
-Customer: _______Kia
-  value1.1
-  value1.2
-  value1.3
-  
-Customer: ______Tata
-  value1.1
-  value1.2
-  value1.3
-  
-Customer: Volkswagen
-  value1.1
-  value1.2
-  value1.3
-  
-Customer: ______Audi
-  value1.1
-  value1.2
-  value1.3
-  
-Customer: _____Skoda
-  value1.1
-  value1.2
-  value1.3
-  
-filter in if expression

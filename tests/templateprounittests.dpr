@@ -16,7 +16,7 @@ uses
   MVCFramework.Nullables in '..\MVCFramework.Nullables.pas', System.SysUtils;
 
 const
-  TestFileNameFilter = '064'; // '*' means "all files'
+  TestFileNameFilter = '*'; // '*' means "all files'
 
 
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<string>): TValue;
