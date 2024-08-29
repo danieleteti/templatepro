@@ -11,13 +11,13 @@ filter: datetimetostr
 2) {{:valuedatetime|datetimetostr:"dddd d mmmm yyyy hh:nn:ss"}}
 
 
-{{loop(objects) as obj}}
+{{for obj in objects}}
   {{:obj.Prop1|lpad:10}}
-{{endloop}}
+{{endfor}}
 
 empty var ==> {{:datevalue|datetostr}}
 
-{{loop(customers) as cust}}
+{{for cust in customers}}
   Customer uppercase: {{:cust.Name|uppercase}}
   Customer lowercase: {{:cust.Name|lowercase}}  
   Customer lpad: {{:cust.Name|lpad:10}}
@@ -26,4 +26,4 @@ empty var ==> {{:datevalue|datetostr}}
   Customer rpad: {{:cust.Name|rpad:10:_}} 
   Customer capitalize: {{:cust.Name|capitalize}}   
   {{exit}} 
-{{endloop}}
+{{endfor}}

@@ -4,7 +4,7 @@
 {{if (!json2)}}OK{{else}}KO{{endif}}
 
 
-{{loop(json2.array) as j}}
+{{for j in json2.array}}
   {{:j.value}}
   {{:j.subarray}}
-{{endloop}}
+{{endfor}}

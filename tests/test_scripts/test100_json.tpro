@@ -1,25 +1,25 @@
 ** JSON **
-{{loop(jsonobj.people) as person}}
+{{for person in jsonobj.people}}
 {{:person.@@index}}) {{:person.first_name|uppercase}} {{:person.last_name|uppercase}} (age {{:person.age}})
-{{loop(person.devices) as device}}
+{{for device in person.devices}}
   {{:device.@@index}}° {{:device}}
-{{endloop}}
+{{endfor}}
 {{:person.car.brand}} (Model {{:person.car.model|uppercase}})
 {{if(person.@@odd)}}this line is odd{{endif}}
 
 {{if(person.@@even)}}this line is even{{endif}}
 
-{{loop(person.colors) as color}}
+{{for color in person.colors}}
   {{:color.name}} - {{:color.rgb}}
     color: {{:color.@@index}}
-{{endloop}}
+{{endfor}}
 
-{{endloop}}
+{{endfor}}
 
 ** JSON Pseudo Variable **
 {{#reset(jsonobj)}}{{# ignored }}
-{{loop(jsonobj.people) as jarr}}
+{{for jarr in jsonobj.people}}
 {{:jarr.@@index}} - {{:jarr.@@odd}} - {{:jarr.@@even}}
-{{endloop}}
+{{endfor}}
 
 <hello>world

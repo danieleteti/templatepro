@@ -20,7 +20,7 @@
 
 ***
 
-{{loop(objectsb) as objb}}
+{{for objb in objectsb}}
 **{{:objb.@@index}}
 Prop1 = {{:objb.Prop1}}
 {{if(objb.Prop1|uppercase)}}
@@ -28,4 +28,4 @@ Prop1 is TRUE
 {{else}}
 Prop1 is FALSE
 {{endif}}
-{{endloop}}
+{{endfor}}

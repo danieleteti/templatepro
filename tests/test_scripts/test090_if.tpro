@@ -1,4 +1,4 @@
-{{loop(objectsb) as objb}}
+{{for objb in objectsb}}
 Prop1 = {{:objb.Prop1}}
 {{if(objb.Prop1)}}
 Prop1 is TRUE
@@ -26,4 +26,4 @@ PropInt is FALSE
 
 ----------------------------
 
-{{endloop}}
+{{endfor}}

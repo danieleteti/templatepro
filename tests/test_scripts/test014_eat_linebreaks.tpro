@@ -5,8 +5,8 @@ YY
 {{:value3}}
 
 
-{{loop(customers) as cust}}{{#pippo}}
-{{endloop}}
+{{for cust in customers}}{{#pippo}}
+{{endfor}}
 
 
 {{:value4}}-GHI-{{:value5}}-JKL-{{:value6}}

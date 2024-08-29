@@ -33,7 +33,7 @@ var
 begin
   lBW := TBinaryWriter.Create(TFileStream.Create('output.tp', fmOpenWrite or fmShareDenyNone), nil, True);
   try
-    lToken := TToken.Create(ttLoop, 'value1','value2', -1, 2);
+    lToken := TToken.Create(ttFor, 'value1','value2', -1, 2);
     lToken.SaveToBytes(lBW);
   finally
     lBW.Free;
