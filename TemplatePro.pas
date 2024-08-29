@@ -34,7 +34,7 @@ uses
   System.RTTI;
 
 const
-  TEMPLATEPRO_VERSION = '0.3';
+  TEMPLATEPRO_VERSION = '0.4';
 
 type
   ETProException = class(Exception)
