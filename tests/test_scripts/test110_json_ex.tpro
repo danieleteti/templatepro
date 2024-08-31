@@ -1,7 +1,7 @@
 {{:json2}}
 
-{{if (json2)}}OK{{else}}KO{{endif}}
-{{if (!json2)}}OK{{else}}KO{{endif}}
+{{if  json2 }}OK{{else}}KO{{endif}}
+{{if  !json2 }}OK{{else}}KO{{endif}}
 
 
 {{for j in json2.array}}

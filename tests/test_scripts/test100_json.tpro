@@ -5,9 +5,9 @@
   {{:device.@@index}}° {{:device}}
 {{endfor}}
 {{:person.car.brand}} (Model {{:person.car.model|uppercase}})
-{{if(person.@@odd)}}this line is odd{{endif}}
+{{if person.@@odd }}this line is odd{{endif}}
 
-{{if(person.@@even)}}this line is even{{endif}}
+{{if person.@@even }}this line is even{{endif}}
 
 {{for color in person.colors}}
   {{:color.name}} - {{:color.rgb}}

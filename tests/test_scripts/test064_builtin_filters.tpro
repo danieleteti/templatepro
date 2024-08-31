@@ -1,18 +1,18 @@
 {{:value2}} => {{:value2|lowercase}}
-{{:valuedate|formatdatetime:"yyyy-mm-dd"}}
+{{:valuedate|formatdatetime,"yyyy-mm-dd"}}
 
 filter: datetostr
 1) {{:valuedate|datetostr}}
-2) {{:valuedate|datetostr:"yy-mm-dd"}}
+2) {{:valuedate|datetostr,"yy-mm-dd"}}
 
 
 filter: datetimetostr
 1) {{:valuedatetime|datetimetostr}}
-2) {{:valuedatetime|datetimetostr:"dddd d mmmm yyyy hh:nn:ss"}}
+2) {{:valuedatetime|datetimetostr,"dddd d mmmm yyyy hh:nn:ss"}}
 
 
 {{for obj in objects}}
-  {{:obj.Prop1|lpad:10}}
+  {{:obj.Prop1 | lpad , 10 }}
 {{endfor}}
 
 empty var ==> {{:datevalue|datetostr}}
@@ -20,10 +20,10 @@ empty var ==> {{:datevalue|datetostr}}
 {{for cust in customers}}
   Customer uppercase: {{:cust.Name|uppercase}}
   Customer lowercase: {{:cust.Name|lowercase}}  
-  Customer lpad: {{:cust.Name|lpad:10}}
-  Customer lpad: {{:cust.Name|lpad:10:_}}
-  Customer rpad: {{:cust.Name|rpad:10}}
-  Customer rpad: {{:cust.Name|rpad:10:_}} 
+  Customer lpad: {{:cust.Name|lpad,10}}
+  Customer lpad: {{:cust.Name|lpad,10,_}}
+  Customer rpad: {{:cust.Name|rpad,10}}
+  Customer rpad: {{:cust.Name|rpad,10,_}} 
   Customer capitalize: {{:cust.Name|capitalize}}   
   {{exit}} 
 {{endfor}}

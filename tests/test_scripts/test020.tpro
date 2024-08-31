@@ -1,5 +1,5 @@
 DataSets
-{{if(customers)}}
+{{if customers}}
 {{for cust in customers}}
 Code: {{:cust.Code}} - Name: {{:cust.Name}}
 {{endfor}}

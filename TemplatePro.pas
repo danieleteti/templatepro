@@ -34,7 +34,7 @@ uses
   System.RTTI;
 
 const
-  TEMPLATEPRO_VERSION = '0.4';
+  TEMPLATEPRO_VERSION = '0.5';
 
 type
   ETProException = class(Exception)
@@ -558,7 +558,7 @@ begin
       Inc(fCharIndex);
     end;
     Result := True;
-    aParamValue := lTmp;
+    aParamValue := lTmp.Trim;
   end;
 end;
 
@@ -742,12 +742,16 @@ begin
           lFuncName := '';
           lFuncParamsCount := -1; {-1 means "no filter applied to value"}
           lRef2 := IfThen(MatchSymbol('$'),1,-1); // {{value$}} means no escaping
+          MatchSpace;
           if MatchSymbol('|') then
           begin
+            MatchSpace;
             if not MatchVariable(lFuncName) then
               Error('Invalid function name applied to variable ' + lVarName);
+            MatchSpace;
             lFuncParams := GetFunctionParameters;
             lFuncParamsCount := Length(lFuncParams);
+            MatchSpace;
           end;
 
           if not MatchEndTag then
@@ -884,13 +888,13 @@ begin
         end else if MatchSymbol('if') then
         begin
           MatchSpace;
-          if not MatchSymbol('(') then
-            Error('Expected "("');
-          MatchSpace;
+//          if not MatchSymbol('(') then
+//            Error('Expected "("');
+//          MatchSpace;
           lNegation := MatchSymbol('!');
           MatchSpace;
           if not MatchVariable(lIdentifier) then
-            Error('Expected identifier after "if("');
+            Error('Expected identifier after "if"');
           lFuncParamsCount := -1; {lFuncParamsCount = -1 means "no filter applied"}
           lFuncName := '';
           if MatchSymbol('|') then
@@ -902,11 +906,11 @@ begin
             lFuncParamsCount := Length(lFuncParams);
           end;
           MatchSpace;
-          if not MatchSymbol(')') then
-            Error('Expected ")" after "' + lIdentifier + '"');
-          MatchSpace;
+//          if not MatchSymbol(')') then
+//            Error('Expected ")" after "' + lIdentifier + '"');
+//          MatchSpace;
           if not MatchEndTag then
-            Error('Expected closing tag for "if(' + lIdentifier + ')"');
+            Error('Expected closing tag for "if"');
           if lNegation then
           begin
             lIdentifier := '!' + lIdentifier;
@@ -955,19 +959,20 @@ begin
         end
         else if MatchSymbol('include') then {include}
         begin
-          if not MatchSymbol('(') then
-            Error('Expected "("');
+          if not MatchSpace then
+            Error('Expected "space" after "include"');
 
           {In a future version we could implement a function call}
           if not MatchString(lStringValue) then
           begin
-            Error('Expected string after "include("');
+            Error('Expected string after "include"');
           end;
 
-          if not MatchSymbol(')') then
-            Error('Expected ")" after "' + lStringValue + '"');
+          MatchSpace;
+
           if not MatchEndTag then
-            Error('Expected closing tag for "include(' + lStringValue + ')"');
+            Error('Expected closing tag for "include"');
+
           // create another element in the sections stack
           try
             if TDirectory.Exists(aFileNameRefPath) then
@@ -989,14 +994,6 @@ begin
           InternalCompileIncludedTemplate(lIncludeFileContent, aTokens, lCurrentFileName);
           lStartVerbatim := fCharIndex;
         end
-//        else if MatchReset(lIdentifier) then  {reset}
-//        begin
-//          if not MatchEndTag then
-//            Error('Expected closing tag');
-//          lLastToken := ttReset;
-//          aTokens.Add(TToken.Create(lLastToken, lIdentifier, ''));
-//          lStartVerbatim := fCharIndex;
-//        end
         else if MatchSymbol('exit') then {exit}
         begin
           lLastToken := ttEOF;
@@ -1008,6 +1005,7 @@ begin
           lLastToken := ttLiteralString;
           Inc(lContentOnThisLine);
           lRef2 := IfThen(MatchSymbol('$'),1,-1); // {{value$}} means no escaping
+          MatchSpace;
           InternalMatchFilter(lStringValue, lStartVerbatim, ttLiteralString, aTokens, lRef2);
         end
         else if MatchSymbol('#') then
@@ -1069,12 +1067,14 @@ var
   lFuncPar: string;
 begin
   Result := [];
-  while MatchSymbol(':') do
+  while MatchSymbol(',') do
   begin
     lFuncPar := '';
+    MatchSpace;
     if not MatchFilterParamValue(lFuncPar) then
       Error('Expected function parameter');
     Result := Result + [lFuncPar];
+    MatchSpace;
   end;
 end;
 

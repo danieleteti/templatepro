@@ -1,7 +1,7 @@
-{{include("included1.tpro")}}
+{{include "included1.tpro"}}
 {{:value2|sayhello}}
-{{include("partials/included2.tpro")}}
+{{include "partials/included2.tpro" }}
 {{:value2|sayhello}}
-{{include("included1.tpro")}}
+{{include "included1.tpro" }}
 {{:value2}} => {{:value2|lowercase}}
-{{include("included1.tpro")}}
+{{include "included1.tpro" }}

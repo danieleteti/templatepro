@@ -228,9 +228,9 @@ end;
 begin
   ReportMemoryLeaksOnShutdown := True;
   try
-    Writeln('   |---------------------------|');
-    Writeln('---| TEMPLATE PRO - UNIT TESTS |---');
-    Writeln('   |---------------------------|');
+    Writeln('   |--------------------------------|');
+    Writeln('---| TEMPLATE PRO ' + TEMPLATEPRO_VERSION + '  - UNIT TESTS |---');
+    Writeln('   |--------------------------------|');
     Writeln;
     if TestFileNameFilter = '*' then
     begin

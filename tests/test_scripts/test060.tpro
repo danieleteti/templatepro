@@ -1,17 +1,17 @@
 {{:value2|sayhello}}
-{{:value2}} => {{:value2|lowercase}}
-{{:valuedate|formatdatetime:yyyy-mm-dd}}
+{{:value2}} => {{:value2 | lowercase}}
+{{:valuedate|formatdatetime,"yyyy-mm-dd"}}
 {{for obj in objects}}
-  {{:obj.Prop1|lpad:10}}
+  {{:obj.Prop1 | lpad, 10 }}
 {{endfor}}
 
 {{for cust in customers}}
-Customer: {{:cust.Name|lpad:10:_}}
+Customer: {{:cust.Name|lpad, 10, "_"}}
 {{#reset(objects)}}
 {{for obj in objects}}
-{{:obj.Prop1|lpad:10}}
+{{:obj.Prop1|lpad, 10}}
 {{endfor}}  
 {{endfor}}
-{{if(value2|sayhello)}}
+{{if value2|sayhello }}
 filter in if expression
 {{endif}}

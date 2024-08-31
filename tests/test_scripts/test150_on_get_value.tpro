@@ -4,12 +4,12 @@
 {{:external.proptrue}}
 {{:external.propfalse}}
 
-{{if(external)}}external is true{{endif}}
-{{if(!external)}}WRONG{{endif}}
+{{if external }}external is true{{endif}}
+{{if !external }}WRONG{{endif}}
 
-{{if(external.proptrue)}}external.proptrue is true{{endif}}
-{{if(!external.proptrue)}}WRONG{{endif}}
+{{if external.proptrue }}external.proptrue is true{{endif}}
+{{if !external.proptrue }}WRONG{{endif}}
 
 
-{{if(!external.propfalse)}}external.propfalse is false{{endif}}
-{{if(external.propfalse)}}WRONG{{endif}}
+{{if !external.propfalse }}external.propfalse is false{{endif}}
+{{if external.propfalse }}WRONG{{endif}}

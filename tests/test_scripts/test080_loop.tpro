@@ -1,8 +1,8 @@
 ************* DataSets
 {{for cust in customers}}
 {{:cust.@@index}} Code: {{:cust.Code}} - Name: {{:cust.Name}}
-{{if(cust.@@odd)}}this line is odd{{endif}}
-{{if(cust.@@even)}}this line is even{{endif}}
+{{if cust.@@odd }}this line is odd{{endif}}
+{{if cust.@@even }}this line is even{{endif}}
 
 {{endfor}}
 
@@ -10,8 +10,8 @@
 {{for obj in objects}}
 Prop1: {{:obj.Prop1}} {{:value2}}
 {{:obj.@@index}}
-{{if(obj.@@odd)}}this line is odd{{endif}}
-{{if(obj.@@even)}}this line is even{{endif}}
+{{if obj.@@odd }}this line is odd{{endif}}
+{{if obj.@@even }}this line is even{{endif}}
 
 ---
 {{endfor}}
