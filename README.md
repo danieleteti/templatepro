@@ -1,4 +1,3 @@
 ## TemplatePro
 
-More info
-https://www.danieleteti.it/post/templatepro-reborn/
+### ⭐ [Official Documentation and Examples](https://www.danieleteti.it/templatepro/)
