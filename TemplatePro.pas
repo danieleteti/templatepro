@@ -138,7 +138,8 @@ type
     function LoopStackIsEmpty: Boolean;
     function WalkThroughLoopStack(const VarName: String; out BaseVarName: String; out FullPath: String): Boolean;
     constructor Create(Tokens: TList<TToken>);
-    procedure Error(const aMessage: String);
+    procedure Error(const aMessage: String); overload;
+    procedure Error(const aMessage: String; const Params: array of const); overload;
     function IsTruthy(const Value: TValue): Boolean;
     function GetVarAsString(const Name: string): string;
     function GetTValueVarAsString(const Value: TValue; const VarName: string = ''): String;
@@ -1970,18 +1971,21 @@ begin
         if lHasMember and lVarMembers.StartsWith('@@') then
         begin
           lCurrentIterator.IteratorPosition := TDataSet(lVariable.VarValue.AsObject).RecNo - 1;
-          //lVariable.VarIterator := TDataSet(lVariable.VarValue.AsObject).RecNo - 1;
           Result := GetPseudoVariable(lCurrentIterator.IteratorPosition, lVarMembers);
         end
         else
         begin
+          if lVarMembers.IsEmpty then
+          begin
+            Error('Empty field name while reading from iterator "%s"', [lVarName]);
+          end;
           lField := TDataSet(lVariable.VarValue.AsObject).FieldByName(lVarMembers);
           case lField.DataType of
             ftInteger: Result := lField.AsInteger;
             ftLargeint, ftAutoInc: Result := lField.AsLargeInt;
             ftString, ftWideString, ftMemo, ftWideMemo: Result := lField.AsWideString;
             else
-              Error('Invalid data type for field "' + lVarMembers + '": ' + TRttiEnumerationType.GetName<TFieldType>(lField.DataType));
+              Error('Invalid data type for field "%s": %s', [lVarMembers, TRttiEnumerationType.GetName<TFieldType>(lField.DataType)]);
           end;
         end;
       end
@@ -2211,6 +2215,12 @@ end;
 procedure TTProCompiledTemplate.PushLoop(const LoopStackItem: TLoopStackItem);
 begin
   fLoopsStack.Add(LoopStackItem);
+end;
+
+procedure TTProCompiledTemplate.Error(const aMessage: String;
+  const Params: array of const);
+begin
+  Error(Format(aMessage, Params));
 end;
 
 //function TTProCompiledTemplate.EvaluateIfExpression(aIdentifier: string): Boolean;
@@ -2453,9 +2463,9 @@ begin
         GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonObject(Value.AsObject), [viJSONObject]));
       end
       else
-      if Value.AsObject is TJDOJsonObject then
+      if Value.AsObject is TJDOJsonArray then
       begin
-        GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonObject(Value.AsObject), [viJSONObject]));
+        raise ETProRenderException.Create('JSONArray cannot be used directly [HINT] Define a JSONObject variable with a JSONArray property');
       end
       else
       begin
