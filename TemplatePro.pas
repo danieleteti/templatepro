@@ -647,11 +647,8 @@ end;
 
 procedure TTProCompiler.Compile(const aTemplate: string; const aTokens: TList<TToken>; const aFileNameRefPath: String);
 var
-  lSectionStack: array [0..49] of Integer; //max 50 nested loops
-  lCurrentSectionIndex: Integer;
-
-  lIfStatementStack: array [0..49] of TIfThenElseIndex; //max 50 nested ifs
-  lCurrentIfIndex: Integer;
+  lForStatementCount: Integer;
+  lIfStatementCount: Integer;
   lLastToken: TTokenType;
   lChar: Char;
   lVarName: string;
@@ -660,9 +657,6 @@ var
   lIteratorName: string;
   lStartVerbatim: UInt64;
   lEndVerbatim: UInt64;
-  lIndexOfLatestIfStatement: UInt64;
-  lIndexOfLatestLoopStatement: Integer;
-  lIndexOfLatestElseStatement: Int64;
   lNegation: Boolean;
   lFuncParams: TArray<String>;
   lFuncParamsCount: Integer;
@@ -679,8 +673,8 @@ begin
   fCurrentFileName := aFileNameRefPath;
   fCharIndex := -1;
   fCurrentLine := 1;
-  lCurrentIfIndex := -1;
-  lCurrentSectionIndex := -1;
+  lIfStatementCount := -1;
+  lForStatementCount := -1;
   fInputString := aTemplate;
   lStartVerbatim := 0;
   if fInputString.Length > 0 then
@@ -809,8 +803,7 @@ begin
             Error('Expected closing tag for "for"');
 
           // create another element in the sections stack
-          Inc(lCurrentSectionIndex);
-          lSectionStack[lCurrentSectionIndex] := aTokens.Count;
+          Inc(lForStatementCount);
           lLastToken := ttFor;
           if lIdentifier = lIteratorName then
           begin
@@ -822,27 +815,17 @@ begin
         begin
           if not MatchEndTag then
             Error('Expected closing tag');
-          if lCurrentSectionIndex = -1 then
+          if lForStatementCount = -1 then
           begin
             Error('endfor without loop');
           end;
           lLastToken := ttEndFor;
-          //aTokens.Add(TToken.Create(lLastToken, '', '', lSectionStack[lCurrentSectionIndex]));
           aTokens.Add(TToken.Create(lLastToken, '', ''));
-
-          // let the loop know where the endfor is
-          lIndexOfLatestLoopStatement := lSectionStack[lCurrentSectionIndex];
-//          aTokens[lIndexOfLatestLoopStatement] :=
-//            TToken.Create(ttFor,
-//              aTokens[lIndexOfLatestLoopStatement].Value1,
-//              aTokens[lIndexOfLatestLoopStatement].Value2,
-//              aTokens.Count - 1);
-
-          Dec(lCurrentSectionIndex);
+          Dec(lForStatementCount);
           lStartVerbatim := fCharIndex;
         end else if MatchSymbol('endif') then {endif}
         begin
-          if lCurrentIfIndex = -1 then
+          if lIfStatementCount = -1 then
           begin
             Error('"endif" without "if"');
           end;
@@ -854,35 +837,13 @@ begin
           lLastToken := ttEndIf;
           aTokens.Add(TToken.Create(lLastToken, '', ''));
 
-          // jumps handling...
-          lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex].IfIndex;
-
-          //rewrite current "ifthen" references
-          aTokens[lIndexOfLatestIfStatement] :=
-            TToken.Create(ttIfThen,
-              aTokens[lIndexOfLatestIfStatement].Value1,
-              '',
-              aTokens[lIndexOfLatestIfStatement].Ref1,
-              aTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
-
-          if aTokens[lIndexOfLatestIfStatement].Ref1 > -1 then {ttIfThen.Ref1 points always to relative "else", if any}
-          begin
-            lIndexOfLatestElseStatement := aTokens[lIndexOfLatestIfStatement].Ref1;
-            aTokens[lIndexOfLatestElseStatement] :=
-              TToken.Create(ttElse,
-                aTokens[lIndexOfLatestElseStatement].Value1,
-                '',
-                -1 {Ref1 is not used by ttElse},
-                aTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
-          end;
-
-          Dec(lCurrentIfIndex);
+          Dec(lIfStatementCount);
           lStartVerbatim := fCharIndex;
         end else if MatchSymbol('if') then
         begin
           if not MatchSpace then
           begin
-			Error('Expected <space> after "if"');            
+      			Error('Expected <space> after "if"');
           end;
           lNegation := MatchSymbol('!');
           MatchSpace;
@@ -907,9 +868,7 @@ begin
           end;
           lLastToken := ttIfThen;
           aTokens.Add(TToken.Create(lLastToken, '' {lIdentifier}, ''));
-          Inc(lCurrentIfIndex);
-          lIfStatementStack[lCurrentIfIndex].IfIndex := aTokens.Count - 1;
-          lIfStatementStack[lCurrentIfIndex].ElseIndex := -1;
+          Inc(lIfStatementCount);
           lStartVerbatim := fCharIndex;
 
           lLastToken := ttBoolExpression;
@@ -936,15 +895,6 @@ begin
 
           lLastToken := ttElse;
           aTokens.Add(TToken.Create(lLastToken, '', ''));
-
-          // jumps handling...
-          lIndexOfLatestIfStatement := lIfStatementStack[lCurrentIfIndex].IfIndex;
-          lIfStatementStack[lCurrentIfIndex].ElseIndex := aTokens.Count - 1;
-          aTokens[lIndexOfLatestIfStatement] := TToken.Create(ttIfThen,
-            aTokens[lIndexOfLatestIfStatement].Value1,
-            '',
-            lIfStatementStack[lCurrentIfIndex].ElseIndex, {ttIfThen.Ref1 points always to relative else (if present otherwise -1)}
-            -1);
           lStartVerbatim := fCharIndex;
         end
         else if MatchSymbol('include') then {include}
@@ -1055,15 +1005,15 @@ end;
 procedure TTProCompiler.FixJumps(const aTokens: TList<TToken>);
 var
   lForInStack: TStack<UInt64>;
-  lIfStatementStack: TStack<UInt64>;
+  lIfStatementStack: TStack<TIfThenElseIndex>;
   I: UInt64;
-  lIfAddress: UInt64;
   lToken: TToken;
   lForAddress: UInt64;
+  lIfStackItem: TIfThenElseIndex;
 begin
   lForInStack := TStack<UInt64>.Create;
   try
-    lIfStatementStack := TStack<UInt64>.Create;
+    lIfStatementStack := TStack<TIfThenElseIndex>.Create;
     try
       for I := 0 to aTokens.Count - 1 do
       begin
@@ -1087,14 +1037,35 @@ begin
           {ttIfThen.Ref1 points always to relative else (if present otherwise -1)}
           {ttIfThen.Ref2 points always to relative endif}
 
-//          ttIfThen: begin
-//            lIfStatementStack.Push(I);
-//          end;
-//          ttEndIf: begin
-//
-//          end;
+          ttIfThen: begin
+            lIfStackItem.IfIndex := I;
+            lIfStackItem.ElseIndex := -1; {-1 means: "there isn't ttElse"}
+            lIfStatementStack.Push(lIfStackItem);
+          end;
+          ttElse: begin
+            lIfStackItem := lIfStatementStack.Pop;
+            lIfStackItem.ElseIndex := I;
+            lIfStatementStack.Push(lIfStackItem);
+          end;
+          ttEndIf: begin
+            lIfStackItem := lIfStatementStack.Pop;
+
+            {fixup ifthen}
+            lToken := aTokens[lIfStackItem.IfIndex];
+            lToken.Ref2 := I; {ttIfThen.Ref2 points always to relative endif}
+            lToken.Ref1 := lIfStackItem.ElseIndex; {ttIfThen.Ref1 points always to relative else (if present, otherwise -1)}
+            aTokens[lIfStackItem.IfIndex] := lToken;
+
+            {fixup else}
+            if lIfStackItem.ElseIndex > -1 then
+            begin
+              lToken := aTokens[lIfStackItem.ElseIndex];
+              lToken.Ref2 := I; {ttElse.Ref2 points always to relative endif}
+              aTokens[lIfStackItem.ElseIndex] := lToken;
+            end;
+          end;
         end;
-      end;
+      end; // for
     finally
       lIfStatementStack.Free;
     end;
