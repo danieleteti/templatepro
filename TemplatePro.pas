@@ -683,7 +683,7 @@ begin
   lStartVerbatim := 0;
   if fInputString.Length > 0 then
   begin
-  Step;
+    Step;
   end
   else
   begin
@@ -788,25 +788,6 @@ begin
       end
       else
       begin
-//        if MatchSymbol('loop') then {loop}
-//        begin
-//          if not MatchSymbol('(') then
-//            Error('Expected "("');
-//          if not MatchVariable(lIdentifier) then
-//            Error('Expected identifier after "loop("');
-//          if not MatchSymbol(')') then
-//            Error('Expected ")" after "' + lIdentifier + '"');
-//          if not MatchSpace then
-//            Error('Expected "space" after "loop(' + lIdentifier + ')');
-//          if not MatchSymbol('as') then
-//            Error('Expected "as" after "loop(' + lIdentifier + ')');
-//          if not MatchSpace then
-//            Error('Expected <space> after "loop(' + lIdentifier + ') - EXAMPLE: loop(' + lIdentifier + ') as myalias');
-//          if not MatchVariable(lIteratorName) then
-//            Error('Expected iterator name after "loop" - EXAMPLE: loop(' + lIdentifier + ') as myalias');
-//          if not MatchEndTag then
-//            Error('Expected closing tag for "loop(' + lIdentifier + ')"');
-
         if MatchSymbol('for') then {loop}
         begin
           if not MatchSpace then
@@ -896,10 +877,10 @@ begin
           lStartVerbatim := fCharIndex;
         end else if MatchSymbol('if') then
         begin
-          MatchSpace;
-//          if not MatchSymbol('(') then
-//            Error('Expected "("');
-//          MatchSpace;
+          if not MatchSpace then
+          begin
+			Error('Expected <space> after "if"');            
+          end;
           lNegation := MatchSymbol('!');
           MatchSpace;
           if not MatchVariable(lIdentifier) then
@@ -915,9 +896,6 @@ begin
             lFuncParamsCount := Length(lFuncParams);
           end;
           MatchSpace;
-//          if not MatchSymbol(')') then
-//            Error('Expected ")" after "' + lIdentifier + '"');
-//          MatchSpace;
           if not MatchEndTag then
             Error('Expected closing tag for "if"');
           if lNegation then
