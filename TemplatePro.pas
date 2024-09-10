@@ -192,6 +192,7 @@ type
     function CurrentChar: Char;
     function GetSubsequentText: String;
     procedure InternalCompileIncludedTemplate(const aTemplate: string; const aTokens: TList<TToken>; const aFileNameRefPath: String);
+    procedure FixJumps(const aTokens: TList<TToken>);
     procedure Compile(const aTemplate: string; const aTokens: TList<TToken>; const aFileNameRefPath: String); overload;
   public
     function Compile(const aTemplate: string; const aFileNameRefPath: String = ''): ITProCompiledTemplate; overload;
@@ -636,6 +637,7 @@ begin
   lTokens := TList<TToken>.Create;
   try
     Compile(aTemplate, lTokens, fCurrentFileName);
+    FixJumps(lTokens);
     Result := TTProCompiledTemplate.Create(lTokens);
   except
     lTokens.Free;
@@ -825,15 +827,16 @@ begin
             Error('endfor without loop');
           end;
           lLastToken := ttEndFor;
-          aTokens.Add(TToken.Create(lLastToken, '', '', lSectionStack[lCurrentSectionIndex]));
+          //aTokens.Add(TToken.Create(lLastToken, '', '', lSectionStack[lCurrentSectionIndex]));
+          aTokens.Add(TToken.Create(lLastToken, '', ''));
 
           // let the loop know where the endfor is
           lIndexOfLatestLoopStatement := lSectionStack[lCurrentSectionIndex];
-          aTokens[lIndexOfLatestLoopStatement] :=
-            TToken.Create(ttFor,
-              aTokens[lIndexOfLatestLoopStatement].Value1,
-              aTokens[lIndexOfLatestLoopStatement].Value2,
-              aTokens.Count - 1);
+//          aTokens[lIndexOfLatestLoopStatement] :=
+//            TToken.Create(ttFor,
+//              aTokens[lIndexOfLatestLoopStatement].Value1,
+//              aTokens[lIndexOfLatestLoopStatement].Value2,
+//              aTokens.Count - 1);
 
           Dec(lCurrentSectionIndex);
           lStartVerbatim := fCharIndex;
@@ -862,7 +865,7 @@ begin
               aTokens[lIndexOfLatestIfStatement].Ref1,
               aTokens.Count - 1); {ttIfThen.Ref2 points always to relative "endif"}
 
-          if aTokens[lIndexOfLatestIfStatement].Ref1 > -1 then
+          if aTokens[lIndexOfLatestIfStatement].Ref1 > -1 then {ttIfThen.Ref1 points always to relative "else", if any}
           begin
             lIndexOfLatestElseStatement := aTokens[lIndexOfLatestIfStatement].Ref1;
             aTokens[lIndexOfLatestElseStatement] :=
@@ -1047,6 +1050,57 @@ end;
 procedure TTProCompiler.Error(const aMessage: string);
 begin
   raise ETProCompilerException.CreateFmt('%s - at line %d in file %s', [aMessage, fCurrentLine, fCurrentFileName]);
+end;
+
+procedure TTProCompiler.FixJumps(const aTokens: TList<TToken>);
+var
+  lForInStack: TStack<UInt64>;
+  lIfStatementStack: TStack<UInt64>;
+  I: UInt64;
+  lIfAddress: UInt64;
+  lToken: TToken;
+  lForAddress: UInt64;
+begin
+  lForInStack := TStack<UInt64>.Create;
+  try
+    lIfStatementStack := TStack<UInt64>.Create;
+    try
+      for I := 0 to aTokens.Count - 1 do
+      begin
+        case aTokens[I].TokenType of
+          ttFor: begin
+            lForInStack.Push(I);
+          end;
+          ttEndFor: begin
+            {ttFor.Ref1 --> endfor}
+            lForAddress := lForInStack.Pop;
+            lToken := aTokens[lForAddress];
+            lToken.Ref1 := I;
+            aTokens[lForAddress] := lToken;
+
+            {ttEndFor.Ref1 --> for}
+            lToken := aTokens[I];
+            lToken.Ref1 := lForAddress;
+            aTokens[I] := lToken;
+          end;
+
+          {ttIfThen.Ref1 points always to relative else (if present otherwise -1)}
+          {ttIfThen.Ref2 points always to relative endif}
+
+//          ttIfThen: begin
+//            lIfStatementStack.Push(I);
+//          end;
+//          ttEndIf: begin
+//
+//          end;
+        end;
+      end;
+    finally
+      lIfStatementStack.Free;
+    end;
+  finally
+    lForInStack.Free;
+  end;
 end;
 
 function TTProCompiler.GetFunctionParameters: TArray<String>;
