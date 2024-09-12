@@ -31,7 +31,7 @@ var
   lBR: TBinaryReader;
   lToken2: TToken;
 begin
-  lBW := TBinaryWriter.Create(TFileStream.Create('output.tp', fmOpenWrite or fmShareDenyNone), nil, True);
+  lBW := TBinaryWriter.Create(TFileStream.Create('output.tp', fmCreate or fmShareDenyNone), nil, True);
   try
     lToken := TToken.Create(ttFor, 'value1','value2', -1, 2);
     lToken.SaveToBytes(lBW);
@@ -116,6 +116,9 @@ begin
         lCompiledTemplate.SetData('value4','DANIELE4');
         lCompiledTemplate.SetData('value5','DANIELE5');
         lCompiledTemplate.SetData('value6','DANIELE6');
+        lCompiledTemplate.SetData('intvalue0',0);
+        lCompiledTemplate.SetData('intvalue1',1);
+        lCompiledTemplate.SetData('intvalue2',2);
         lCompiledTemplate.SetData('myhtml','<div>this <strong>HTML</strong></div>');
         lCompiledTemplate.SetData('valuedate', EncodeDate(2024, 8,20));
         lCompiledTemplate.SetData('valuedatetime', EncodeDateTime(2024, 8, 20, 10, 20, 30, 0));
@@ -228,6 +231,7 @@ end;
 begin
   ReportMemoryLeaksOnShutdown := True;
   try
+    TDirectory.CreateDirectory('output');
     Writeln('   |--------------------------------|');
     Writeln('---| TEMPLATE PRO ' + TEMPLATEPRO_VERSION + '  - UNIT TESTS |---');
     Writeln('   |--------------------------------|');

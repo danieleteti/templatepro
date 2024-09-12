@@ -17,6 +17,19 @@ filter: datetimetostr
 
 empty var ==> 
 
+gt 1 > 0
+
+lt 0 < 123
+
+ge 1 > 0
+
+le 0 = 0
+
+eq 0 = 0
+
+ne 0 = 1
+
+
   Customer uppercase: FORD
   Customer lowercase: ford  
   Customer lpad:       Ford

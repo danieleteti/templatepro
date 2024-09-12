@@ -17,13 +17,39 @@ filter: datetimetostr
 
 empty var ==> {{:datevalue|datetostr}}
 
+{{if intvalue1|gt,0}}
+gt 1 > 0
+{{endif}}
+
+{{if intvalue0|lt,123}}
+lt 0 < 123
+{{endif}}
+
+{{if intvalue1|ge,0}}
+ge 1 > 0
+{{endif}}
+
+{{if intvalue0|le,0}}
+le 0 = 0
+{{endif}}
+
+{{if intvalue0|eq,0}}
+eq 0 = 0
+{{endif}}
+
+{{if intvalue0|ne,1}}
+ne 0 = 1
+{{endif}}
+
+
 {{for cust in customers}}
   Customer uppercase: {{:cust.Name|uppercase}}
   Customer lowercase: {{:cust.Name|lowercase}}  
   Customer lpad: {{:cust.Name|lpad,10}}
-  Customer lpad: {{:cust.Name|lpad,10,_}}
+  Customer lpad: {{:cust.Name|lpad,10,"_"}}
   Customer rpad: {{:cust.Name|rpad,10}}
-  Customer rpad: {{:cust.Name|rpad,10,_}} 
+  Customer rpad: {{:cust.Name|rpad,10,"_"}} 
   Customer capitalize: {{:cust.Name|capitalize}}   
   {{exit}} 
 {{endfor}}
+
