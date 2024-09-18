@@ -1,0 +1,7 @@
+DataSets
+{{if customers}}
+{{for cust in customers}}
+Code: {{:cust.Code}} - Name: {{:cust.Name}}
+SINGLE {{:customer.Code}} {{:customer.Name}}
+{{endfor}}
+{{endif}}

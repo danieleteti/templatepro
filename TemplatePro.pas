@@ -144,7 +144,7 @@ type
     function GetVarAsString(const Name: string): string;
     function GetTValueVarAsString(const Value: TValue; const VarName: string = ''): String;
     function GetVarAsTValue(const aName: string): TValue;
-//    function EvaluateIfExpression(aIdentifier: string): Boolean;
+    function GetDataSetFieldAsTValue(const aDataSet: TDataSet; const FieldName: String): TValue;
     function EvaluateIfExpressionAt(var Idx: UInt64): Boolean;
     function GetVariables: TTProVariables;
     procedure SplitVariableName(const VariableWithMember: String; out VarName, VarMembers: String);
@@ -289,15 +289,24 @@ begin
   fTemplateFunctions.Add(FunctionName.ToLower, FunctionImpl);
 end;
 
+function TTProCompiledTemplate.GetDataSetFieldAsTValue(const aDataSet: TDataSet; const FieldName: String): TValue;
+var
+  lField: TField;
+begin
+  lField := aDataSet.FieldByName(FieldName);
+  case lField.DataType of
+    ftInteger: Result := lField.AsInteger;
+    ftLargeint, ftAutoInc: Result := lField.AsLargeInt;
+    ftString, ftWideString, ftMemo, ftWideMemo: Result := lField.AsWideString;
+    else
+      Error('Invalid data type for field "%s": %s', [FieldName, TRttiEnumerationType.GetName<TFieldType>(lField.DataType)]);
+  end;
+end;
+
 function TTProCompiledTemplate.GetOnGetValue: TTProCompiledTemplateGetValueEvent;
 begin
   Result := fOnGetValue;
 end;
-
-//function TTProCompiledTemplate.GetPseudoVariable(const Variable: TVarDataSource; const PseudoVarName: String): TValue;
-//begin
-//  Result := GetPseudoVariable(Variable.VarIterator, PseudoVarName);
-//end;
 
 function TTProCompiledTemplate.GetPseudoVariable(const VarIterator: Integer; const PseudoVarName: String): TValue;
 begin
@@ -2040,21 +2049,16 @@ begin
           begin
             Error('Empty field name while reading from iterator "%s"', [lVarName]);
           end;
-          lField := TDataSet(lVariable.VarValue.AsObject).FieldByName(lVarMembers);
-          case lField.DataType of
-            ftInteger: Result := lField.AsInteger;
-            ftLargeint, ftAutoInc: Result := lField.AsLargeInt;
-            ftString, ftWideString, ftMemo, ftWideMemo: Result := lField.AsWideString;
-            else
-              Error('Invalid data type for field "%s": %s', [lVarMembers, TRttiEnumerationType.GetName<TFieldType>(lField.DataType)]);
-          end;
+          Result := GetDataSetFieldAsTValue(TDataSet(lVariable.VarValue.AsObject), lVarMembers);
         end;
       end
       else
       begin
         { not an interator }
         if lHasMember then
-          Error(lDataSource + ' members can be read only through an iterator')
+        begin
+          Result := GetDataSetFieldAsTValue(TDataSet(lVariable.VarValue.AsObject), lVarMembers);
+        end
         else
         begin
           Result := lVariable.VarValue.AsObject;

@@ -23,6 +23,7 @@ type
 function GetItems(const WithFalsyValues: Boolean = False): TObjectList<TDataItem>;
 function GetCustomersDataset: TDataSet;
 function GetPeopleDataset: TDataSet;
+function GetSingleCustomerDataset: TDataSet;
 
 implementation
 
@@ -54,6 +55,25 @@ begin
     lMT.AppendRecord([11, 'Volkswagen']);
     lMT.AppendRecord([12, 'Audi']);
     lMT.AppendRecord([13, 'Skoda']);
+    lMT.First;
+    Result := lMT;
+  except
+    lMT.Free;
+    raise;
+  end;
+end;
+
+function GetSingleCustomerDataset: TDataSet;
+var
+  lMT: TFDMemTable;
+begin
+  lMT := TFDMemTable.Create(nil);
+  try
+    lMT.FieldDefs.Clear;
+    lMT.FieldDefs.Add('Code', ftInteger);
+    lMT.FieldDefs.Add('Name', ftString, 20);
+    lMT.Active := True;
+    lMT.AppendRecord([1, 'Ford']);
     lMT.First;
     Result := lMT;
   except
