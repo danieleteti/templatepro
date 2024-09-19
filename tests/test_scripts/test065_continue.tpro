@@ -1,0 +1,14 @@
+{{for cust in customers}}
+{{if cust.Name|eq,"Skoda"}}
+{{continue}}
+{{else}}
+{{if cust.Name|eq,"Kia"}}
+{{continue}}
+{{else}}
+{{if cust.Name|eq,"Hyundai"}}
+{{continue}}
+{{endif}}
+{{endif}}
+{{endif}}
+  Customer: {{:cust.Name}}
+{{endfor}}

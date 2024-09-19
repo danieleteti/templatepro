@@ -279,9 +279,9 @@ begin
   ReportMemoryLeaksOnShutdown := True;
   try
     TDirectory.CreateDirectory('output');
-    Writeln('   |--------------------------------|');
+    Writeln('   |----------------------------------|');
     Writeln('---| TEMPLATE PRO ' + TEMPLATEPRO_VERSION + '  - UNIT TESTS |---');
-    Writeln('   |--------------------------------|');
+    Writeln('   |----------------------------------|');
     Writeln;
     if TestFileNameFilter = '*' then
     begin

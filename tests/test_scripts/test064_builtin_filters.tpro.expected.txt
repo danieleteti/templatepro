@@ -37,6 +37,9 @@ ne 0 = 1
   Customer rpad: Ford      
   Customer rpad: Ford______ 
   Customer capitalize: Ford   
+  Customer contains "a": False 
+  Customer contains_ignore_case "a": False 
+
   Customer uppercase: FERRARI
   Customer lowercase: ferrari  
   Customer lpad:    Ferrari
@@ -44,6 +47,9 @@ ne 0 = 1
   Customer rpad: Ferrari   
   Customer rpad: Ferrari___ 
   Customer capitalize: Ferrari   
+  Customer contains "a": True 
+  Customer contains_ignore_case "a": True 
+
   Customer uppercase: LOTUS
   Customer lowercase: lotus  
   Customer lpad:      Lotus
@@ -51,6 +57,9 @@ ne 0 = 1
   Customer rpad: Lotus     
   Customer rpad: Lotus_____ 
   Customer capitalize: Lotus   
+  Customer contains "a": False 
+  Customer contains_ignore_case "a": False 
+
   Customer uppercase: FCA
   Customer lowercase: fca  
   Customer lpad:        FCA
@@ -58,6 +67,9 @@ ne 0 = 1
   Customer rpad: FCA       
   Customer rpad: FCA_______ 
   Customer capitalize: Fca   
+  Customer contains "a": False 
+  Customer contains_ignore_case "a": True 
+
   Customer uppercase: HYUNDAI
   Customer lowercase: hyundai  
   Customer lpad:    Hyundai
@@ -65,6 +77,9 @@ ne 0 = 1
   Customer rpad: Hyundai   
   Customer rpad: Hyundai___ 
   Customer capitalize: Hyundai   
+  Customer contains "a": True 
+  Customer contains_ignore_case "a": True 
+
   Customer uppercase: DE TOMASO
   Customer lowercase: de tomaso  
   Customer lpad:  De Tomaso
@@ -72,6 +87,9 @@ ne 0 = 1
   Customer rpad: De Tomaso 
   Customer rpad: De Tomaso_ 
   Customer capitalize: De Tomaso   
+  Customer contains "a": True 
+  Customer contains_ignore_case "a": True 
+
   Customer uppercase: DODGE
   Customer lowercase: dodge  
   Customer lpad:      Dodge
@@ -79,6 +97,9 @@ ne 0 = 1
   Customer rpad: Dodge     
   Customer rpad: Dodge_____ 
   Customer capitalize: Dodge   
+  Customer contains "a": False 
+  Customer contains_ignore_case "a": False 
+
   Customer uppercase: TESLA
   Customer lowercase: tesla  
   Customer lpad:      Tesla
@@ -86,6 +107,9 @@ ne 0 = 1
   Customer rpad: Tesla     
   Customer rpad: Tesla_____ 
   Customer capitalize: Tesla   
+  Customer contains "a": True 
+  Customer contains_ignore_case "a": True 
+
   Customer uppercase: KIA
   Customer lowercase: kia  
   Customer lpad:        Kia
@@ -93,6 +117,9 @@ ne 0 = 1
   Customer rpad: Kia       
   Customer rpad: Kia_______ 
   Customer capitalize: Kia   
+  Customer contains "a": True 
+  Customer contains_ignore_case "a": True 
+
   Customer uppercase: TATA
   Customer lowercase: tata  
   Customer lpad:       Tata
@@ -100,6 +127,9 @@ ne 0 = 1
   Customer rpad: Tata      
   Customer rpad: Tata______ 
   Customer capitalize: Tata   
+  Customer contains "a": True 
+  Customer contains_ignore_case "a": True 
+
   Customer uppercase: VOLKSWAGEN
   Customer lowercase: volkswagen  
   Customer lpad: Volkswagen
@@ -107,6 +137,9 @@ ne 0 = 1
   Customer rpad: Volkswagen
   Customer rpad: Volkswagen 
   Customer capitalize: Volkswagen   
+  Customer contains "a": True 
+  Customer contains_ignore_case "a": True 
+
   Customer uppercase: AUDI
   Customer lowercase: audi  
   Customer lpad:       Audi
@@ -114,6 +147,9 @@ ne 0 = 1
   Customer rpad: Audi      
   Customer rpad: Audi______ 
   Customer capitalize: Audi   
+  Customer contains "a": False 
+  Customer contains_ignore_case "a": True 
+
   Customer uppercase: SKODA
   Customer lowercase: skoda  
   Customer lpad:      Skoda
@@ -121,4 +157,7 @@ ne 0 = 1
   Customer rpad: Skoda     
   Customer rpad: Skoda_____ 
   Customer capitalize: Skoda   
+  Customer contains "a": True 
+  Customer contains_ignore_case "a": True 
+
 
