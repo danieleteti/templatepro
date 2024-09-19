@@ -1090,6 +1090,15 @@ begin
           end;
         end;
       end; // for
+
+      if lIfStatementStack.Count > 0 then
+      begin
+        Error('Unbalanced "if" - expected "endif"');
+      end;
+      if lForInStack.Count > 0 then
+      begin
+        Error('Unbalanced "for" - expected "endfor"');
+      end;
     finally
       lIfStatementStack.Free;
     end;

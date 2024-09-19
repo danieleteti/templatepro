@@ -93,6 +93,7 @@ var
   lItems, lItemsWithFalsy: TObjectList<TDataItem>;
 begin
   var lFailed := False;
+  var lActualOutput: String := '';
   lTPro := TTProCompiler.Create;
   try
     var lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro',
@@ -105,10 +106,42 @@ begin
     for var lFile in lInputFileNames do
     begin
       try
+        if TFile.Exists(lFile + '.failed.txt') then
+        begin
+          TFile.Delete(lFile + '.failed.txt');
+        end;
+
+
         lInput := TFile.ReadAllText(lFile, TEncoding.UTF8);
         Write(TPath.GetFileName(lFile).PadRight(30));
         var lTestScriptsFolder := TPath.Combine(GetModuleName(HInstance), '..', '..', 'test_scripts');
-        var lCompiledTemplate := lTPro.Compile(lInput, lFile);
+        lActualOutput := '';
+        var lCompiledTemplate: ITProCompiledTemplate;
+        try
+          lCompiledTemplate := lTPro.Compile(lInput, lFile);
+        except
+          on E: Exception do
+          begin
+            lActualOutput := E.Message;
+          end;
+        end;
+
+        if not lActualOutput.IsEmpty then
+        begin
+          //compilation failed, check the expected exception message
+          var lExpectedExceptionMessage := TFile.ReadAllText(lFile + '.expected.exception.txt', TEncoding.UTF8);
+          if lActualOutput <> lExpectedExceptionMessage then
+          begin
+            WriteLn(' : FAILED');
+            TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
+          end
+          else
+          begin
+            WriteLn(' : OK');
+          end;
+          Continue;
+        end;
+
         lCompiledTemplate.SetData('value0','true');
         lCompiledTemplate.SetData('value1','true');
         lCompiledTemplate.SetData('value2','DANIELE2');
@@ -174,12 +207,20 @@ begin
                       lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
                       lCompiledTemplate.SetData('jsonobj', lJSONObj);
                       lCompiledTemplate.SetData('json2', lJSONObj2);
-                      var lActualOutput := lCompiledTemplate.Render;
+                      lActualOutput := '';
+                      try
+                        lActualOutput := lCompiledTemplate.Render;
+                      except
+                        on E: Exception do
+                        begin
+                          lActualOutput := E.Message;
+                        end;
+                      end;
                       var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
                       if lActualOutput <> lExpectedOutput then
                       begin
                         WriteLn(' : FAILED');
-                        lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
+                        //lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
                         TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
                         lFailed := True;
                       end

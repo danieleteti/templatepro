@@ -37,4 +37,88 @@ ne 0 = 1
   Customer rpad: Ford      
   Customer rpad: Ford______ 
   Customer capitalize: Ford   
-  
+  Customer uppercase: FERRARI
+  Customer lowercase: ferrari  
+  Customer lpad:    Ferrari
+  Customer lpad: ___Ferrari
+  Customer rpad: Ferrari   
+  Customer rpad: Ferrari___ 
+  Customer capitalize: Ferrari   
+  Customer uppercase: LOTUS
+  Customer lowercase: lotus  
+  Customer lpad:      Lotus
+  Customer lpad: _____Lotus
+  Customer rpad: Lotus     
+  Customer rpad: Lotus_____ 
+  Customer capitalize: Lotus   
+  Customer uppercase: FCA
+  Customer lowercase: fca  
+  Customer lpad:        FCA
+  Customer lpad: _______FCA
+  Customer rpad: FCA       
+  Customer rpad: FCA_______ 
+  Customer capitalize: Fca   
+  Customer uppercase: HYUNDAI
+  Customer lowercase: hyundai  
+  Customer lpad:    Hyundai
+  Customer lpad: ___Hyundai
+  Customer rpad: Hyundai   
+  Customer rpad: Hyundai___ 
+  Customer capitalize: Hyundai   
+  Customer uppercase: DE TOMASO
+  Customer lowercase: de tomaso  
+  Customer lpad:  De Tomaso
+  Customer lpad: _De Tomaso
+  Customer rpad: De Tomaso 
+  Customer rpad: De Tomaso_ 
+  Customer capitalize: De Tomaso   
+  Customer uppercase: DODGE
+  Customer lowercase: dodge  
+  Customer lpad:      Dodge
+  Customer lpad: _____Dodge
+  Customer rpad: Dodge     
+  Customer rpad: Dodge_____ 
+  Customer capitalize: Dodge   
+  Customer uppercase: TESLA
+  Customer lowercase: tesla  
+  Customer lpad:      Tesla
+  Customer lpad: _____Tesla
+  Customer rpad: Tesla     
+  Customer rpad: Tesla_____ 
+  Customer capitalize: Tesla   
+  Customer uppercase: KIA
+  Customer lowercase: kia  
+  Customer lpad:        Kia
+  Customer lpad: _______Kia
+  Customer rpad: Kia       
+  Customer rpad: Kia_______ 
+  Customer capitalize: Kia   
+  Customer uppercase: TATA
+  Customer lowercase: tata  
+  Customer lpad:       Tata
+  Customer lpad: ______Tata
+  Customer rpad: Tata      
+  Customer rpad: Tata______ 
+  Customer capitalize: Tata   
+  Customer uppercase: VOLKSWAGEN
+  Customer lowercase: volkswagen  
+  Customer lpad: Volkswagen
+  Customer lpad: Volkswagen
+  Customer rpad: Volkswagen
+  Customer rpad: Volkswagen 
+  Customer capitalize: Volkswagen   
+  Customer uppercase: AUDI
+  Customer lowercase: audi  
+  Customer lpad:       Audi
+  Customer lpad: ______Audi
+  Customer rpad: Audi      
+  Customer rpad: Audi______ 
+  Customer capitalize: Audi   
+  Customer uppercase: SKODA
+  Customer lowercase: skoda  
+  Customer lpad:      Skoda
+  Customer lpad: _____Skoda
+  Customer rpad: Skoda     
+  Customer rpad: Skoda_____ 
+  Customer capitalize: Skoda   
+

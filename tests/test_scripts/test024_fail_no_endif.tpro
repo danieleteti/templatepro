@@ -1,0 +1,2 @@
+{{for cust1 in customers}}
+    {{:cust1.Code}} {{:cust1.Name}}

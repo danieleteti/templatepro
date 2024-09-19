@@ -50,6 +50,5 @@ ne 0 = 1
   Customer rpad: {{:cust.Name|rpad,10}}
   Customer rpad: {{:cust.Name|rpad,10,"_"}} 
   Customer capitalize: {{:cust.Name|capitalize}}   
-  {{exit}} 
 {{endfor}}
 
