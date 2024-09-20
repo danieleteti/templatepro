@@ -80,7 +80,7 @@ type
 
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
 
-  TTProTemplateFunction = function(const aValue: TValue; const aParameters: TArray<string>): TValue;
+  TTProTemplateFunction = reference to function(const aValue: TValue; const aParameters: TArray<string>): TValue;
   TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viIterable);
   TTProVariablesInfos = set of TTProVariablesInfo;
 
@@ -2282,7 +2282,12 @@ begin
         lStrValue := lWrappedList.Count.ToString;
       end;
     end;
+  end
+  else if Value.IsType<Boolean> then
+  begin
+    lStrValue := Value.AsType<Boolean>.ToString.ToLower;
   end;
+
   Result := not (SameText(lStrValue,'false') or SameText(lStrValue,'0') or SameText(lStrValue,''));
 end;
 
