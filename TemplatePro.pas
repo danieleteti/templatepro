@@ -234,7 +234,7 @@ function HTMLSpecialCharsEncode(s: string): string;
 implementation
 
 uses
-  System.StrUtils, System.IOUtils, System.NetEncoding, System.Math,
+  System.StrUtils, System.IOUtils, System.NetEncoding, System.Math, System.Character,
   JsonDataObjects, MVCFramework.Nullables;
 
 const
@@ -635,7 +635,7 @@ begin
   lSavedCharIndex := fCharIndex;
   lSymbolIndex := 0;
   lSymbolLength := Length(aSymbol);
-  while (fInputString.Chars[fCharIndex] = aSymbol.Chars[lSymbolIndex]) and (lSymbolIndex < lSymbolLength) do
+  while (fInputString.Chars[fCharIndex].ToLower = aSymbol.Chars[lSymbolIndex].ToLower) and (lSymbolIndex < lSymbolLength) do
   begin
     Inc(fCharIndex);
     Inc(lSymbolIndex);
