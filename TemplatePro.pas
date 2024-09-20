@@ -26,6 +26,7 @@ interface
 
 uses
   System.Generics.Collections,
+  System.Generics.Defaults,
   System.Classes,
   System.SysUtils,
   System.TypInfo,
@@ -88,6 +89,12 @@ type
     VarValue: TValue;
     VarOption: TTProVariablesInfos;
     constructor Create(const VarValue: TValue; const VarOption: TTProVariablesInfos);
+  end;
+
+  TTProVariablesEqualityComparer = class(TEqualityComparer<string>)
+  public
+    function Equals(const Left, Right: String): Boolean; override;
+    function GetHashCode(const Value: String): Integer; override;
   end;
 
   TTProVariables = class(TObjectDictionary<string, TVarDataSource>)
@@ -227,7 +234,7 @@ function HTMLSpecialCharsEncode(s: string): string;
 implementation
 
 uses
-  System.StrUtils, System.IOUtils, System.NetEncoding, System.Math,
+  System.StrUtils, System.IOUtils, System.NetEncoding, System.Math, System.Character,
   JsonDataObjects, MVCFramework.Nullables;
 
 const
@@ -628,7 +635,7 @@ begin
   lSavedCharIndex := fCharIndex;
   lSymbolIndex := 0;
   lSymbolLength := Length(aSymbol);
-  while (fInputString.Chars[fCharIndex] = aSymbol.Chars[lSymbolIndex]) and (lSymbolIndex < lSymbolLength) do
+  while (fInputString.Chars[fCharIndex].ToLower = aSymbol.Chars[lSymbolIndex].ToLower) and (lSymbolIndex < lSymbolLength) do
   begin
     Inc(fCharIndex);
     Inc(lSymbolIndex);
@@ -2632,7 +2639,7 @@ end;
 
 constructor TTProVariables.Create;
 begin
-  inherited Create([doOwnsValues]);
+  inherited Create([doOwnsValues], TTProVariablesEqualityComparer.Create);
 end;
 
 
@@ -2838,6 +2845,19 @@ begin
   begin
     fOnContextConfiguration(TemplateProCompiledTemplate);
   end;
+end;
+
+{ TTProVariablesEqualityComparer }
+
+function TTProVariablesEqualityComparer.Equals(const Left, Right: String): Boolean;
+begin
+  Result := CompareText(Left, Right) = 0;
+end;
+
+function TTProVariablesEqualityComparer.GetHashCode(const Value: String): Integer;
+begin
+//  Result := BobJenkinsHash(Value[1], Length(Value) * SizeOf(Value[1]), 0);
+  Result := Length(Value);
 end;
 
 initialization
