@@ -1,0 +1,22 @@
+{{extends "baselayout01.html"}}
+
+ignored1
+
+{{block "parentblock1"}}
+this is the child block 1
+{{if value1}}value1 is "true"{{endif}}
+{{endblock}}
+
+ignored2
+
+{{block "parentblock1"}}
+this is the child block 2
+{{if value1}}value1 is "true"{{endif}}
+{{endblock}}
+
+ignored3
+
+{{block "donotexists"}}
+this is the child block 2
+{{if value1}}value1 is "true"{{endif}}
+{{endblock}}

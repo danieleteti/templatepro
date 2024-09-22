@@ -1,0 +1,74 @@
+    0 ttSystemVersion | Ref1:       -1 | Ref2:       -1 | Val1: 0.7.0                    | Val2:                          
+    1          ttInfo | Ref1:       -1 | Ref2:       -1 | Val1: begin_of_layout          | Val2:                          
+    2 ttSystemVersion | Ref1:       -1 | Ref2:       -1 | Val1: 0.7.0                    | Val2:                          
+    3       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: hello world              | Val2:                          
+    4     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+    5         ttBlock | Ref1:       53 | Ref2:       12 | Val1: parentblock1             | Val2:                          
+    6       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: this is parentblock1     | Val2:                          
+    7     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+    8        ttIfThen | Ref1:       -1 | Ref2:       11 | Val1:                          | Val2:                          
+    9 ttBoolExpression | Ref1:       -1 | Ref2:       -1 | Val1: value1                   | Val2:                          
+   10       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: value1 is "true"         | Val2:                          
+   11         ttEndIf | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   12      ttEndBlock | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   13         ttBlock | Ref1:       -1 | Ref2:       20 | Val1: parentblock2             | Val2:                          
+   14       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: this is parentblock2     | Val2:                          
+   15     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   16        ttIfThen | Ref1:       -1 | Ref2:       19 | Val1:                          | Val2:                          
+   17 ttBoolExpression | Ref1:       -1 | Ref2:       -1 | Val1: value1                   | Val2:                          
+   18       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: value1 is "true"         | Val2:                          
+   19         ttEndIf | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   20      ttEndBlock | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   21         ttBlock | Ref1:       -1 | Ref2:       28 | Val1: parentblock3             | Val2:                          
+   22       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: this is parentblock3     | Val2:                          
+   23     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   24        ttIfThen | Ref1:       -1 | Ref2:       27 | Val1:                          | Val2:                          
+   25 ttBoolExpression | Ref1:       -1 | Ref2:       -1 | Val1: value1                   | Val2:                          
+   26       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: value1 is "true"         | Val2:                          
+   27         ttEndIf | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   28      ttEndBlock | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   29       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: after all blocks         | Val2:                          
+   30     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   31        ttIfThen | Ref1:       -1 | Ref2:       34 | Val1:                          | Val2:                          
+   32 ttBoolExpression | Ref1:       -1 | Ref2:       -1 | Val1: value1                   | Val2:                          
+   33       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: value1 is "true"         | Val2:                          
+   34         ttEndIf | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   35          ttInfo | Ref1:       -1 | Ref2:       -1 | Val1: end_of_layout            | Val2:                          
+   36     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   37     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   38       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: ignored1                 | Val2:                          
+   39     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   40     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   41         ttBlock | Ref1:       -1 | Ref2:       -1 | Val1: parentblock1             | Val2:                          
+   42       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: this is the child block 1| Val2:                          
+   43     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   44        ttIfThen | Ref1:       -1 | Ref2:       47 | Val1:                          | Val2:                          
+   45 ttBoolExpression | Ref1:       -1 | Ref2:       -1 | Val1: value1                   | Val2:                          
+   46       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: value1 is "true"         | Val2:                          
+   47         ttEndIf | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   48      ttEndBlock | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   49     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   50       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: ignored2                 | Val2:                          
+   51     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   52     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   53         ttBlock | Ref1:       -1 | Ref2:       -1 | Val1: parentblock1             | Val2:                          
+   54       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: this is the child block 2| Val2:                          
+   55     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   56        ttIfThen | Ref1:       -1 | Ref2:       59 | Val1:                          | Val2:                          
+   57 ttBoolExpression | Ref1:       -1 | Ref2:       -1 | Val1: value1                   | Val2:                          
+   58       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: value1 is "true"         | Val2:                          
+   59         ttEndIf | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   60      ttEndBlock | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   61     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   62       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: ignored3                 | Val2:                          
+   63     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   64     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   65         ttBlock | Ref1:       -1 | Ref2:       -1 | Val1: donotexists              | Val2:                          
+   66       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: this is the child block 2| Val2:                          
+   67     ttLineBreak | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   68        ttIfThen | Ref1:       -1 | Ref2:       71 | Val1:                          | Val2:                          
+   69 ttBoolExpression | Ref1:       -1 | Ref2:       -1 | Val1: value1                   | Val2:                          
+   70       ttContent | Ref1:       -1 | Ref2:       -1 | Val1: value1 is "true"         | Val2:                          
+   71         ttEndIf | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   72      ttEndBlock | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          
+   73           ttEOF | Ref1:       -1 | Ref2:       -1 | Val1:                          | Val2:                          

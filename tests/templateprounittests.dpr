@@ -18,7 +18,6 @@ uses
 const
   TestFileNameFilter = '*'; // '*' means "all files'
 
-
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<string>): TValue;
 begin
   Result := 'Hello ' + aValue.AsString;
@@ -100,6 +99,7 @@ begin
       function(const Path: string; const SearchRec: TSearchRec): Boolean
       begin
         Result := (not String(SearchRec.Name).StartsWith('included'))
+                   and (not String(SearchRec.Name).StartsWith('layout'))
                    and ((TestFileNameFilter = '*') or String(SearchRec.Name).Contains(TestFileNameFilter));
         Result := Result and not (String(SearchRec.Name).StartsWith('_'));
       end);
@@ -132,6 +132,7 @@ begin
           var lExpectedExceptionMessage := TFile.ReadAllText(lFile + '.expected.exception.txt', TEncoding.UTF8);
           if lActualOutput <> lExpectedExceptionMessage then
           begin
+            lFailed := True;
             WriteLn(' : FAILED');
             TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
           end
@@ -268,9 +269,13 @@ begin
   finally
     lTPro.Free;
   end;
-  if lFailed or (DebugHook <> 0) then
-  begin
+
+  if DebugHook <> 0 then
     Readln;
+
+  if lFailed then
+  begin
+    Halt(1);
   end;
 end;
 
@@ -291,6 +296,9 @@ begin
     Main;
   except
     on E: Exception do
+    begin
       Writeln(E.ClassName, ': ', E.Message);
+      Halt(1);
+    end;
   end;
 end.
