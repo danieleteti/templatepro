@@ -94,6 +94,7 @@ type
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
 
   TTProTemplateFunction = function(const aValue: TValue; const aParameters: TArray<string>): TValue;
+  TTProTemplateAnonFunction = reference to function(const aValue: TValue; const aParameters: TArray<string>): TValue;
   TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viIterable);
   TTProVariablesInfos = set of TTProVariablesInfo;
 
@@ -118,7 +119,8 @@ type
     procedure ForEachToken(const TokenProc: TTokenWalkProc);
     procedure ClearData;
     procedure SetData(const Name: String; Value: TValue); overload;
-    procedure AddFilter(const FunctionName: string; const FunctionImpl: TTProTemplateFunction);
+    procedure AddFilter(const FunctionName: string; const FunctionImpl: TTProTemplateFunction); overload;
+    procedure AddFilter(const FunctionName: string; const AnonFunctionImpl: TTProTemplateAnonFunction); overload;
     procedure DumpToFile(const FileName: String);
     procedure SaveToFile(const FileName: String);
     function GetOnGetValue: TTProCompiledTemplateGetValueEvent;
@@ -149,8 +151,10 @@ type
     fTokens: TList<TToken>;
     fVariables: TTProVariables;
     fTemplateFunctions: TDictionary<string, TTProTemplateFunction>;
+    fTemplateAnonFunctions: TDictionary<string, TTProTemplateAnonFunction>;
     fLoopsStack: TObjectList<TLoopStackItem>;
     fOnGetValue: TTProCompiledTemplateGetValueEvent;
+    procedure InitTemplateAnonFunctions; inline;
     function PeekLoop: TLoopStackItem;
     procedure PopLoop;
     procedure PushLoop(const LoopStackItem: TLoopStackItem);
@@ -186,7 +190,8 @@ type
     procedure SaveToFile(const FileName: String);
     class function CreateFromFile(const FileName: String): ITProCompiledTemplate;
     procedure SetData(const Name: String; Value: TValue); overload;
-    procedure AddFilter(const FunctionName: string; const FunctionImpl: TTProTemplateFunction);
+    procedure AddFilter(const FunctionName: string; const FunctionImpl: TTProTemplateFunction); overload;
+    procedure AddFilter(const FunctionName: string; const AnonFunctionImpl: TTProTemplateAnonFunction); overload;
     procedure DumpToFile(const FileName: String);
     property OnGetValue: TTProCompiledTemplateGetValueEvent read GetOnGetValue write SetOnGetValue;
   end;
@@ -452,6 +457,13 @@ begin
     end;
   end;
 
+end;
+
+procedure TTProCompiledTemplate.AddFilter(const FunctionName: string;
+  const AnonFunctionImpl: TTProTemplateAnonFunction);
+begin
+  InitTemplateAnonFunctions;
+  fTemplateAnonFunctions.Add(FunctionName.ToLower, AnonFunctionImpl);
 end;
 
 procedure TTProCompiledTemplate.CheckParNumber(const aMinParNumber, aMaxParNumber: Integer;
@@ -1062,7 +1074,6 @@ begin
             aTokens,
             lCurrentFileName, [coParentTemplate, coIgnoreSysVersion]);
           aTokens.Add(TToken.Create(ttInfo, STR_END_OF_LAYOUT, ''));
-          lLayoutFound := True;
           lStartVerbatim := fCharIndex;
         end
         else if MatchSymbol('block') then { block - parent }
@@ -1176,6 +1187,7 @@ var
   lTemplateSectionType: TTProTemplateSectionType;
   lErrorMessage: String;
 begin
+  lWithinBlock := False;
   lTemplateSectionType := stUnknown;
   lCheckForUnbalancedPair := True;
   lBlockDict := TDictionary<string, TBlockAddress>.Create;
@@ -1424,6 +1436,7 @@ var
   lDateValue: TDateTime;
   lStrValue: string;
   lFunc: TTProTemplateFunction;
+  lAnonFunc: TTProTemplateAnonFunction;
   lFormatSettings: TFormatSettings;
   procedure FunctionError(const ErrMessage: string);
   begin
@@ -1587,9 +1600,18 @@ begin
     CheckParNumber(0, aParameters);
     Result := TValue.Empty;
   end
+  else if aFunctionName = 'version' then
+  begin
+    CheckParNumber(0, aParameters);
+    Result := TEMPLATEPRO_VERSION;
+  end
   else if fTemplateFunctions.TryGetValue(aFunctionName, lFunc) then
   begin
     Result := lFunc(aValue, aParameters);
+  end
+  else if (fTemplateAnonFunctions <> nil) and fTemplateAnonFunctions.TryGetValue(aFunctionName, lAnonFunc) then
+  begin
+    Result := lAnonFunc(aValue, aParameters);
   end
   else
   begin
@@ -1922,6 +1944,7 @@ begin
   fLoopsStack := TObjectList<TLoopStackItem>.Create(True);
   fTokens := Tokens;
   fTemplateFunctions := TDictionary<string, TTProTemplateFunction>.Create;
+  fTemplateAnonFunctions := nil;
   TTProConfiguration.RegisterHandlers(self);
 end;
 
@@ -1965,6 +1988,7 @@ destructor TTProCompiledTemplate.Destroy;
 begin
   fLoopsStack.Free;
   fTemplateFunctions.Free;
+  fTemplateAnonFunctions.Free;
   fTokens.Free;
   fVariables.Free;
   inherited;
@@ -2529,6 +2553,14 @@ begin
     fVariables := TTProVariables.Create;
   end;
   Result := fVariables;
+end;
+
+procedure TTProCompiledTemplate.InitTemplateAnonFunctions;
+begin
+  if fTemplateAnonFunctions = nil then
+  begin
+    fTemplateAnonFunctions := TDictionary<string, TTProTemplateAnonFunction>.Create;
+  end;
 end;
 
 class procedure TTProCompiledTemplate.InternalDumpToFile(const FileName: String; const aTokens: TList<TToken>);
