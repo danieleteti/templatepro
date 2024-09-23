@@ -80,7 +80,7 @@ type
 
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
 
-  TTProTemplateFunction = function(const aValue: TValue; const aParameters: TArray<string>): TValue;
+  TTProTemplateFunction = reference to function(const aValue: TValue; const aParameters: TArray<string>): TValue;
   TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viIterable);
   TTProVariablesInfos = set of TTProVariablesInfo;
 
@@ -2282,7 +2282,12 @@ begin
         lStrValue := lWrappedList.Count.ToString;
       end;
     end;
+  end
+  else if Value.IsType<Boolean> then
+  begin
+    lStrValue := Value.AsType<Boolean>.ToString.ToLower;
   end;
+
   Result := not (SameText(lStrValue,'false') or SameText(lStrValue,'0') or SameText(lStrValue,''));
 end;
 
@@ -2575,6 +2580,7 @@ begin
         end;
       end;
     end;
+    tkInterface: GetVariables.Add(Name, TVarDataSource.Create(Value.AsInterface as TObject, [viObject]));
     tkInteger, tkString, tkUString, tkFloat, tkEnumeration : GetVariables.Add(Name, TVarDataSource.Create(Value, [viSimpleType]));
     else
       raise ETProException.Create('Invalid type for variable "' + Name + '": ' + TRttiEnumerationType.GetName<TTypeKind>(Value.Kind));
