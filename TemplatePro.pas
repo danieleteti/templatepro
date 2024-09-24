@@ -2484,6 +2484,18 @@ begin
           begin
             Result := lJObj.Path[lJPath].Value
           end
+          else if lPJSONDataValue.Typ = jdtInt then
+          begin
+            Result := lPJSONDataValue.IntValue;
+          end
+          else if lPJSONDataValue.Typ = jdtLong then
+          begin
+            Result := lPJSONDataValue.LongValue;
+          end
+          else if lPJSONDataValue.Typ = jdtULong then
+          begin
+            Result := lPJSONDataValue.ULongValue;
+          end
           else if lPJSONDataValue.Typ = jdtArray then
           begin
             Result := lPJSONDataValue.ArrayValue;
@@ -2600,7 +2612,7 @@ begin
   begin
     for I := fLoopsStack.Count - 1 downto 0 do
     begin
-      if fLoopsStack[I].IteratorName = VarName then
+      if SameText(fLoopsStack[I].IteratorName, VarName) then
       begin
         Result := True;
         DataSourceName := fLoopsStack[I].DataSourceName;
