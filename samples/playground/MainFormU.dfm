@@ -37,9 +37,6 @@ object MainForm: TMainForm
     ParentFont = False
     TabOrder = 0
     OnDblClick = FileListBox1DblClick
-    ExplicitLeft = 0
-    ExplicitTop = 57
-    ExplicitHeight = 458
   end
   object Panel1: TPanel
     Left = 0
@@ -51,7 +48,6 @@ object MainForm: TMainForm
     Ctl3D = True
     ParentCtl3D = False
     TabOrder = 1
-    ExplicitTop = -6
     object Button1: TButton
       AlignWithMargins = True
       Left = 3
@@ -62,9 +58,6 @@ object MainForm: TMainForm
       Caption = 'Generate report'
       TabOrder = 0
       OnClick = Button1Click
-      ExplicitLeft = 4
-      ExplicitTop = 4
-      ExplicitHeight = 49
     end
     object chkOpenGeneratedFile: TCheckBox
       Left = 209

@@ -192,7 +192,7 @@ begin
     TDirectory.CreateDirectory(ExtractFilePath(Application.ExeName) + 'output');
     lOutputFileName := ExtractFilePath(Application.ExeName) + 'output\' +
       'last_output.html';
-    TFile.WriteAllText(lOutputFileName, lOutput);
+    TFile.WriteAllText(lOutputFileName, lOutput, TEncoding.UTF8);
     MemoOutput.Lines.LoadFromFile(lOutputFileName);
   finally
     lCompiler.Free;

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
 <title>HTML Tutorial</title>
@@ -17,8 +17,8 @@ This is plain text
 <p>This is a paragraph.</p>
 <h2>Here's a list!</h2>
 <ul>
-{{loop(people) as person}}  <li>{{:person.name}}</li>
-{{endloop}}
+{{for person in people}}  <li>{{:person.name}}</li>
+{{endfor}}
 </ul>
 
 </body>

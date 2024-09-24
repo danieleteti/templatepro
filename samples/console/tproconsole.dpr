@@ -55,7 +55,7 @@ begin
   ChildObj.S['country'] := 'CA';
 end;
 
-function AddSquareBrackets(const aValue: TValue; const aParameters: TArray<string>): string;
+function AddSquareBrackets(const aValue: TValue; const aParameters: TArray<string>): TValue;
 begin
   Result := '[' + aValue.AsString + ']';
 end;
@@ -70,20 +70,20 @@ begin
     '{{:variable1}}                                                             ' + sLineBreak +
     '                                                                           ' + sLineBreak +
     'Using loops:                                                               ' + sLineBreak +
-    '{{loop(people) as person}}                                                 ' + sLineBreak +
+    '{{for person in people}}                                                   ' + sLineBreak +
     '  - {{:person.id}}) {{:person.first_name}}, {{:person.last_name}}          ' + sLineBreak +
-    '{{endloop}}                                                                ' + sLineBreak +
+    '{{endfor}}                                                                 ' + sLineBreak +
     '                                                                           ' + sLineBreak +
     'Using if statement:                                                        ' + sLineBreak +
-    '{{if(people)}}People dataset contains records{{endif}}                     ' + sLineBreak +
-    '{{if(!people)}}People dataset doesn''t contain records{{endif}}            ' + sLineBreak +
+    '{{if people}}People dataset contains records{{endif}}                      ' + sLineBreak +
+    '{{if !people}}People dataset doesn''t contain records{{endif}}             ' + sLineBreak +
     '                                                                           ' + sLineBreak +
     '                                                                           ' + sLineBreak +
     'Using filters:                                                             ' + sLineBreak +
     'uppercase: {{:variable1|uppercase}}                                        ' + sLineBreak +
     'lowercase: {{:variable1|lowercase}}                                        ' + sLineBreak +
-    'lpad     : {{:variable1|lpad:20:"*"}}                                      ' + sLineBreak +
-    'rpad     : {{:variable1|rpad:20:"*"}}                                      ' + sLineBreak +
+    'lpad     : {{:variable1|lpad,20,"*"}}                                      ' + sLineBreak +
+    'rpad     : {{:variable1|rpad,20,"*"}}                                      ' + sLineBreak +
     '                                                                           ' + sLineBreak +
     'Using custom filters:                                                      ' + sLineBreak +
     'brackets : {{:variable1|brackets}}                                         ' + sLineBreak +
@@ -91,11 +91,11 @@ begin
     'Using json objects:                                                        ' + sLineBreak +
     '{{:jobj.foo}}                                                              ' + sLineBreak +
     '{{:jobj.bar}}                                                              ' + sLineBreak +
-    '{{""|lpad:40:"_"}}                                                         ' + sLineBreak +
-    '{{loop(jobj.myarray) as item}}                                             ' + sLineBreak +
+    '{{""|lpad,40,"_"}}                                                         ' + sLineBreak +
+    '{{for item in jobj.myarray}}                                               ' + sLineBreak +
     '  - {{:item.first_name}} {{:item.last_name}}                               ' + sLineBreak +
     '    {{:item.company.name}} - {{:item.company.country}}                     ' + sLineBreak +
-    '{{endloop}}                                                                ' + sLineBreak;
+    '{{endfor}}                                                                ' + sLineBreak;
 
     var lCompiledTemplate := lCompiler.Compile(lTemplate);
     var lPeopleDataset := GetPeopleDataset;

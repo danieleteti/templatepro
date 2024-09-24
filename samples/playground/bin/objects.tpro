@@ -1,4 +1,4 @@
-{{loop(items) as i}}
+{{for i in items}}
 {{:i.prop1}}|{{:i.prop2}}|{{:i.prop3}}
 --
-{{endloop}}
+{{endfor}}

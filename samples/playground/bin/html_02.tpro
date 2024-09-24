@@ -15,15 +15,15 @@
 <div class="row">
 <h1>This is a heading</h1>
 <p>This is a paragraph.</p>
-{{loop(people) as person}} 
+{{for person in people}} 
 <div class="alert alert-success">
   <strong>{{:person.name|uppercase}}</strong>
 </div>
 	<ul>
-		{{loop(contacts) as contact}}  <li>{{:contact.contact}}</li>
-		{{endloop}}
+		{{for contact in contacts}}  <li>{{:contact.contact}}</li>
+		{{endfor}}
 	</ul>
-{{endloop}}
+{{endfor}}
 </div>
 </div>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>

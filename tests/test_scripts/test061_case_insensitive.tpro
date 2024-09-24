@@ -1,0 +1,16 @@
+{{:VALUE2|sayhello}}
+{{:VALUE2}} => {{:VALUE2 | lowercase}}
+{{:VALUEDATE|formatdatetime,"yyyy-mm-dd"}}
+{{for obj in OBJECTS}}
+  {{:OBJ.Prop1 | lpad, 10 }}
+{{endfor}}
+
+{{for cUsT in cUsToMeRs}}
+Customer: {{:cUsT.Name|lpad, 10, "_"}}
+{{for obj in objects}}
+{{:obj.Prop1|lpad, 10}}
+{{endfor}}  
+{{endfor}}
+{{if VALUE2|sayhello }}
+filter in if expression
+{{endif}}

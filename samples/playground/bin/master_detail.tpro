@@ -3,10 +3,10 @@
 
 --- Personal Agenda ---
 
-{{loop(people) as p}}
+{{for p in people}}
 AGENDA FOR: {{:p.name}} (from {{:p.country}})
   Contacts
-{{loop(contacts) as c}}
+{{for c in contacts}}
     {{:c.contact_type}}: {{:c.contact}}
-{{endloop}}
-{{endloop}}
+{{endfor}}
+{{endfor}}
