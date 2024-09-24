@@ -7,7 +7,6 @@
 
 {{for cust in customers}}
 Customer: {{:cust.Name|lpad, 10, "_"}}
-{{#reset(objects)}}
 {{for obj in objects}}
 {{:obj.Prop1|lpad, 10}}
 {{endfor}}  

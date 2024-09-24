@@ -10,5 +10,5 @@
 {{endif}}
 {{endif}}
 {{endif}}
-  Customer: {{:cust.Name}}
+  {{:cust.@@index}}. {{:cust.Name}}
 {{endfor}}

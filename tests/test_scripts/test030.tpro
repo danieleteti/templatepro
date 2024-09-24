@@ -7,7 +7,6 @@ ABCD{{:cust1.@@index}}
 {{endfor}}
 
 HEADER
-{{#reset(customers)}}
 {{# this is a comment }}
 {{for cust in customers}}
 {{# this is a 

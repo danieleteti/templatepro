@@ -343,6 +343,12 @@ begin
       Result := lField.AsLargeInt;
     ftString, ftWideString, ftMemo, ftWideMemo:
       Result := lField.AsWideString;
+    ftDate:
+      Result := lField.AsDateTime;
+    ftDateTime:
+      Result := lField.AsDateTime;
+    ftTime:
+      Result := lField.AsDateTime;
   else
     Error('Invalid data type for field "%s": %s',
       [FieldName, TRttiEnumerationType.GetName<TFieldType>(lField.DataType)]);
@@ -1518,6 +1524,11 @@ begin
   else if aFunctionName = 'capitalize' then
   begin
     Result := CapitalizeString(aValue.AsString, True);
+  end
+  else if aFunctionName = 'trunc' then
+  begin
+    CheckParNumber(1, 1, aParameters);
+    Result := aValue.AsString.TrimRight.Substring(0, aParameters[0].ToInteger) + '...';
   end
   else if aFunctionName = 'rpad' then
   begin
