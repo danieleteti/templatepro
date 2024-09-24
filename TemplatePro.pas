@@ -1397,7 +1397,7 @@ begin
   finally
     lBlockDict.Free;
   end;
-  TTProCompiledTemplate.InternalDumpToFile('debug.compiled.txt', aTokens);
+  //TTProCompiledTemplate.InternalDumpToFile('debug.compiled.txt', aTokens);
 end;
 
 function TTProCompiler.GetFunctionParameters: TArray<String>;
