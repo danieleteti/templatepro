@@ -94,7 +94,7 @@ type
 
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
 
-  TTProTemplateFunction = reference to function(const aValue: TValue; const aParameters: TArray<string>): TValue;
+  TTProTemplateFunction = function(const aValue: TValue; const aParameters: TArray<string>): TValue;
   TTProTemplateAnonFunction = reference to function(const aValue: TValue; const aParameters: TArray<string>): TValue;
   TTProVariablesInfo = (viSimpleType, viObject, viDataSet, viListOfObject, viJSONObject, viIterable);
   TTProVariablesInfos = set of TTProVariablesInfo;
