@@ -1,0 +1,6 @@
+hello world
+this is the child block 2
+value1 is "true"this is parentblock2
+value1 is "true"this is parentblock3
+value1 is "true"after all blocks
+value1 is "true"
