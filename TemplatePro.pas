@@ -337,18 +337,24 @@ var
 begin
   lField := aDataSet.FieldByName(FieldName);
   case lField.DataType of
-    ftInteger:
+    ftInteger, ftSmallInt, ftWord:
       Result := lField.AsInteger;
     ftLargeint, ftAutoInc:
       Result := lField.AsLargeInt;
+    ftFloat:
+      Result := lField.AsFloat;
+    ftCurrency:
+      Result := lField.AsCurrency;
     ftString, ftWideString, ftMemo, ftWideMemo:
       Result := lField.AsWideString;
     ftDate:
-      Result := lField.AsDateTime;
+      Result := TDate(Trunc(lField.AsDateTime));
     ftDateTime:
       Result := lField.AsDateTime;
     ftTime:
       Result := lField.AsDateTime;
+    ftBoolean:
+      Result := lField.AsBoolean;
   else
     Error('Invalid data type for field "%s": %s',
       [FieldName, TRttiEnumerationType.GetName<TFieldType>(lField.DataType)]);
@@ -1451,6 +1457,7 @@ var
   lFunc: TTProTemplateFunction;
   lAnonFunc: TTProTemplateAnonFunction;
   lFormatSettings: TFormatSettings;
+  lIntegerPar1: Integer;
   procedure FunctionError(const ErrMessage: string);
   begin
     Error(Format('%s in function %s', [ErrMessage, aFunctionName]));
@@ -1528,7 +1535,16 @@ begin
   else if aFunctionName = 'trunc' then
   begin
     CheckParNumber(1, 1, aParameters);
-    Result := aValue.AsString.TrimRight.Substring(0, aParameters[0].ToInteger) + '...';
+    lStrValue := aValue.AsString.TrimRight;
+    lIntegerPar1 := aParameters[0].ToInteger;
+    if Length(lStrValue) > lIntegerPar1 then
+    begin
+      Result := lStrValue.Substring(0, aParameters[0].ToInteger) + '...';
+    end
+    else
+    begin
+      Result := lStrValue;
+    end;
   end
   else if aFunctionName = 'rpad' then
   begin
@@ -2068,6 +2084,7 @@ var
   lCurrentBlockName: string;
 
 begin
+  lBlockReturnAddress := -1;
   lTemplateSectionType := stUnknown;
   lBuff := TStringBuilder.Create;
   try
@@ -2514,6 +2531,10 @@ begin
           else if lPJSONDataValue.Typ = jdtObject then
           begin
             Result := lPJSONDataValue.ObjectValue;
+          end
+          else if lPJSONDataValue.Typ = jdtNone then
+          begin
+            Result := '';
           end
           else
             raise ETProRenderException.Create('Unknown type for path ' + lJPath);
