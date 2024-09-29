@@ -1,0 +1,11 @@
+{{if value1|tofalse}}
+WRONG
+{{else}}
+false
+{{endif}}
+---
+{{if value1|totrue}}
+true
+{{else}}
+WRONG
+{{endif}}

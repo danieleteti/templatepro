@@ -1629,10 +1629,15 @@ begin
       FunctionError('Invalid datetime ' + aValue.AsString.QuotedString);
     end;
   end
-  else if aFunctionName = 'empty' then
+  else if (aFunctionName = 'totrue') then
   begin
     CheckParNumber(0, aParameters);
-    Result := TValue.Empty;
+    Result := true;
+  end
+  else if (aFunctionName = 'tofalse') then
+  begin
+    CheckParNumber(0, aParameters);
+    Result := false;
   end
   else if aFunctionName = 'version' then
   begin

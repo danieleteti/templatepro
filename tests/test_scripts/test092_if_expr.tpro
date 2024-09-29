@@ -1,4 +1,4 @@
-{{if value1|empty}}
+{{if value1|tofalse}}
 1-THEN
 {{else}}  
 2-ELSE
@@ -12,7 +12,7 @@
 5-ELSE
 {{endif}}
 
-{{if !value1|empty}}
+{{if !value1|totrue}}
 6-THEN
 {{else}}  
 7-ELSE

@@ -5,7 +5,8 @@
 
 4-THEN
 
-6-THEN
+  
+7-ELSE
 
 ***
 

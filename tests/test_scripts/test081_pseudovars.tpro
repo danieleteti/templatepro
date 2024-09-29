@@ -1,0 +1,3 @@
+{{for cust in customers}}
+{{:cust.@@index}}. {{:cust.Name}} - This index is {{if cust.@@odd }}odd{{endif}}{{if cust.@@even }}even{{endif}}
+{{endfor}}

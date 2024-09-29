@@ -1,0 +1,13 @@
+1. Ford - This index is odd
+2. Ferrari - This index is even
+3. Lotus - This index is odd
+4. FCA - This index is even
+5. Hyundai - This index is odd
+6. De Tomaso - This index is even
+7. Dodge - This index is odd
+8. Tesla - This index is even
+9. Kia - This index is odd
+10. Tata - This index is even
+11. Volkswagen - This index is odd
+12. Audi - This index is even
+13. Skoda - This index is odd
