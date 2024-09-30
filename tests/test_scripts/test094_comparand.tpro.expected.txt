@@ -1,0 +1,25 @@
+10.intvalue0 = 0
+---
+20.intvalue0 = 0
+---
+30.intvalue0 = 0
+---
+40.intvalue0 = 0
+---
+50.intvalue0 = 0
+---
+60.valuedate = "2024-08-20"
+---
+61.valuedate = "2024-08-20"
+---
+70.valuedate = "2024-08-20"
+---
+71.valuedate = "2024-08-20"
+---
+72.valuedate = "2024-08-20"
+---
+80.valuedate = "2024-08-20"
+---
+81.valuedate = "2024-08-20"
+---
+82.valuedate = "2024-08-20"

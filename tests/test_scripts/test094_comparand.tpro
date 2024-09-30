@@ -1,0 +1,51 @@
+{{if intvalue0|eq,0}}
+10.intvalue0 = 0
+{{endif}}
+---
+{{if intvalue0|ge,0}}
+20.intvalue0 = 0
+{{endif}}
+---
+{{if intvalue0|lt,1}}
+30.intvalue0 = 0
+{{endif}}
+---
+{{if !intvalue0|lt,-1}}
+40.intvalue0 = 0
+{{endif}}
+---
+{{if intvalue0|le,0}}
+50.intvalue0 = 0
+{{endif}}
+---
+{{if valuedate|eq,"2024-08-20"}}
+60.valuedate = "2024-08-20"
+{{endif}}
+---
+{{if !valuedate|ne,"2024-08-20"}}
+61.valuedate = "2024-08-20"
+{{endif}}
+---
+{{if valuedate|ge,"2024-08-20"}}
+70.valuedate = "2024-08-20"
+{{endif}}
+---
+{{if valuedate|ge,"2024-08-19"}}
+71.valuedate = "2024-08-20"
+{{endif}}
+---
+{{if !valuedate|ge,"2025-08-20"}}
+72.valuedate = "2024-08-20"
+{{endif}}
+---
+{{if valuedate|le,"2024-08-20"}}
+80.valuedate = "2024-08-20"
+{{endif}}
+---
+{{if valuedate|le,"2024-08-21"}}
+81.valuedate = "2024-08-20"
+{{endif}}
+---
+{{if valuedate|le,"2025-08-20"}}
+82.valuedate = "2024-08-20"
+{{endif}}

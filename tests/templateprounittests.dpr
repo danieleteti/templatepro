@@ -157,6 +157,7 @@ begin
         lCompiledTemplate.SetData('valuedate', EncodeDate(2024, 8,20));
         lCompiledTemplate.SetData('valuedatetime', EncodeDateTime(2024, 8, 20, 10, 20, 30, 0));
         lCompiledTemplate.SetData('valuetime', EncodeTime(10, 20, 30, 0));
+        lCompiledTemplate.SetData('phrasewithquotes', 'This "and that" with ''this and that''');
         lCompiledTemplate.AddFilter('sayhello', SayHelloFilter);
         lCompiledTemplate.OnGetValue :=
           procedure(const DataSource, Members: string; var Value: TValue; var Handled: Boolean)
