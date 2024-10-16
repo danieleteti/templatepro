@@ -142,7 +142,12 @@ begin
           end;
           Continue;
         end;
-
+//        lCompiledTemplate.FormatSettings.DateSeparator := '-';
+//        lCompiledTemplate.FormatSettings.TimeSeparator := ':';
+//        lCompiledTemplate.FormatSettings.DecimalSeparator := '.';
+//        lCompiledTemplate.FormatSettings.ThousandSeparator := ',';
+//        lCompiledTemplate.FormatSettings.ShortDateFormat := 'yyyy-mm-dd';
+        //lCompiledTemplate.FormatSettings^ := TFormatSettings.Create('en-US');
         lCompiledTemplate.SetData('value0','true');
         lCompiledTemplate.SetData('value1','true');
         lCompiledTemplate.SetData('value2','DANIELE2');

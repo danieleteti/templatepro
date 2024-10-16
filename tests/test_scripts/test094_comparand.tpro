@@ -18,6 +18,8 @@
 50.intvalue0 = 0
 {{endif}}
 ---
+REF DATE: {{:valuedate|datetimetostr}}
+---
 {{if valuedate|eq,"2024-08-20"}}
 60.valuedate = "2024-08-20"
 {{endif}}

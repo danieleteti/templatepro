@@ -68,3 +68,4 @@ templateprosample.res
 *.res
 tests/bin/output.tpc
 tests/bin/output.tp
+samples/playground/bin/output/last_output.html

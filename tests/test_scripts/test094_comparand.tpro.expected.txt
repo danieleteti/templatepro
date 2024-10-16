@@ -8,6 +8,8 @@
 ---
 50.intvalue0 = 0
 ---
+REF DATE: 2024-08-20
+---
 60.valuedate = "2024-08-20"
 ---
 61.valuedate = "2024-08-20"
