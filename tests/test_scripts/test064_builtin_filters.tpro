@@ -1,3 +1,7 @@
+{{:|version}}
+{{:|uppercase,"pippo"}}
+{{:|lowercase,"PIPPO"}}
+
 {{:value2}} => {{:value2|lowercase}}
 {{:valuedate|formatdatetime,"yyyy-mm-dd"}}
 

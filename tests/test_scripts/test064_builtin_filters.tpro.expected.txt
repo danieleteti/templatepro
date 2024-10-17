@@ -1,3 +1,7 @@
+0.7.0
+PIPPO
+pippo
+
 DANIELE2 => daniele2
 2024-08-20
 
