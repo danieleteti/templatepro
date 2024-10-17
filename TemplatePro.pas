@@ -334,7 +334,7 @@ end;
 
 procedure FunctionError(const aFunctionName, aErrMessage: string);
 begin
-  raise ETProRenderException.Create(Format('%s in function %s', [aErrMessage, aFunctionName])) at ReturnAddress;
+  raise ETProRenderException.Create(Format('[%1:s] %0:s (error in filter call for function [%1:s])', [aErrMessage, aFunctionName])) at ReturnAddress;
 end;
 
 function _Comparand(const aComparandType: TComparandType; const aValue: TValue; const aParameters: TArray<String>; const aLocaleFormatSettings: TFormatSettings): TValue;
@@ -995,6 +995,7 @@ begin
         lFoundVar := False;
         lFoundFilter := False;
         Step;
+        lRef2 := -1;
         if MatchVariable(lVarName) then { variable }
         begin
           lFoundVar := True;
@@ -1002,15 +1003,11 @@ begin
             Error('Invalid variable name');
           lFuncName := '';
           lFuncParamsCount := -1; { -1 means "no filter applied to value" }
-          lRef2 := IfThen(MatchSymbol('$'), 1, -1);
-          // {{value$}} means no escaping
+          lRef2 := IfThen(MatchSymbol('$'), 1, -1); // {{value$}} means no escaping
           MatchSpace;
-          if MatchSymbol('|') then
-          begin
-            MatchFilter(lVarName, lFuncName, lFuncParamsCount, lFuncParams);
-          end;
-        end
-        else if MatchSymbol('|') then
+        end;
+
+        if MatchSymbol('|') then
         begin
           lFoundFilter := True;
           MatchFilter(lVarName, lFuncName, lFuncParamsCount, lFuncParams);
@@ -2164,10 +2161,6 @@ begin
   TTProConfiguration.RegisterHandlers(self);
   fLocaleFormatSettings := TFormatSettings.Invariant;
   fLocaleFormatSettings.ShortDateFormat := 'yyyy-mm-dd';
-
-//  fLocaleFormatSettings.DateSeparator := '-';
-//  fLocaleFormatSettings.TimeSeparator := ':';
-//  fLocaleFormatSettings.ShortDateFormat := 'yyyy-mm-dd';
 end;
 
 class function TTProCompiledTemplate.CreateFromFile(const FileName: String): ITProCompiledTemplate;
