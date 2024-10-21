@@ -600,7 +600,20 @@ begin
         tkInt64: Result := Value.AsInt64.ToString;
         tkString, tkUString, tkWString, tkLString: Result := Value.AsString;
         tkWChar, tkChar: Result := Value.AsType<Char>;
-        tkFloat: Result := FloatToStr(Value.AsExtended, fLocaleFormatSettings);
+        tkFloat: begin
+          if Value.TypeInfo.Name = 'TDate' then
+          begin
+            Result := DateToStr(Value.AsExtended, fLocaleFormatSettings);
+          end
+          else if Value.TypeInfo.Name = 'TDateTime' then
+          begin
+            Result := DateTimeToStr(Value.AsExtended, fLocaleFormatSettings);
+          end
+          else
+          begin
+            Result := FloatToStr(Value.AsExtended, fLocaleFormatSettings);
+          end;
+        end;
         tkEnumeration: Result := Value.ToString;
         else
           raise ETProException.Create('Unsupported type for variable "' + VarName + '"');
