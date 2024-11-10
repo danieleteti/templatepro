@@ -25,3 +25,29 @@ Prop1: {{:obj.Prop1}} {{:value2}}
 {{for obj in objects}}
 {{:obj.@@index}}
 {{endfor}}
+
+*************check for empty dataset (o rows)
+{{if emptydataset}}
+wrong
+{{endif}}
+{{if !emptydataset}}
+ok
+{{endif}}
+{{if emptydataset}}
+wrong
+{{else}}
+ok
+{{endif}}
+
+*************check for undefined variables
+{{if blabla}}
+wrong
+{{endif}}
+{{if !blabla}}
+ok
+{{endif}}
+{{if blabla}}
+wrong
+{{else}}
+ok
+{{endif}}

@@ -59,3 +59,11 @@ this line is odd
 1
 2
 3
+
+*************check for empty dataset (o rows)
+ok
+ok
+
+*************check for undefined variables
+ok
+ok

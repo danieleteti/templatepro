@@ -147,7 +147,7 @@ begin
 //        lCompiledTemplate.FormatSettings.DecimalSeparator := '.';
 //        lCompiledTemplate.FormatSettings.ThousandSeparator := ',';
 //        lCompiledTemplate.FormatSettings.ShortDateFormat := 'yyyy-mm-dd';
-        //lCompiledTemplate.FormatSettings^ := TFormatSettings.Create('en-US');
+//        lCompiledTemplate.FormatSettings^ := TFormatSettings.Create('en-US');
         lCompiledTemplate.SetData('value0','true');
         lCompiledTemplate.SetData('value1','true');
         lCompiledTemplate.SetData('value2','DANIELE2');
@@ -208,40 +208,46 @@ begin
                   try
                     var lCustomer := GetSingleCustomerDataset;
                     try
-                      lCompiledTemplate.SetData('customer', lCustomer);
-                      lCompiledTemplate.SetData('customers', lCustomers);
-                      lCompiledTemplate.SetData('objects', lItems);
-                      lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
-                      lCompiledTemplate.SetData('jsonobj', lJSONObj);
-                      lCompiledTemplate.SetData('json2', lJSONObj2);
-                      lActualOutput := '';
+                      var lEmptyDataSet := GetEmptyDataset;
                       try
-                        lActualOutput := lCompiledTemplate.Render;
-                      except
-                        on E: Exception do
-                        begin
-                          lActualOutput := E.Message;
+                        lCompiledTemplate.SetData('emptydataset', lEmptyDataSet);
+                        lCompiledTemplate.SetData('customer', lCustomer);
+                        lCompiledTemplate.SetData('customers', lCustomers);
+                        lCompiledTemplate.SetData('objects', lItems);
+                        lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
+                        lCompiledTemplate.SetData('jsonobj', lJSONObj);
+                        lCompiledTemplate.SetData('json2', lJSONObj2);
+                        lActualOutput := '';
+                        try
+                          lActualOutput := lCompiledTemplate.Render;
+                        except
+                          on E: Exception do
+                          begin
+                            lActualOutput := E.Message;
+                          end;
                         end;
-                      end;
-                      var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
-                      if lActualOutput <> lExpectedOutput then
-                      begin
-                        WriteLn(' : FAILED');
-                        //lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
-                        TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
-                        lFailed := True;
-                      end
-                      else
-                      begin
-                        if TFile.Exists(lFile + '.failed.txt') then
+                        var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
+                        if lActualOutput <> lExpectedOutput then
                         begin
-                          TFile.Delete(lFile + '.failed.txt');
-                        end;
-                        if TFile.Exists(lFile + '.failed.dump.txt') then
+                          WriteLn(' : FAILED');
+                          //lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
+                          TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
+                          lFailed := True;
+                        end
+                        else
                         begin
-                          TFile.Delete(lFile + '.failed.dump.txt');
+                          if TFile.Exists(lFile + '.failed.txt') then
+                          begin
+                            TFile.Delete(lFile + '.failed.txt');
+                          end;
+                          if TFile.Exists(lFile + '.failed.dump.txt') then
+                          begin
+                            TFile.Delete(lFile + '.failed.dump.txt');
+                          end;
+                          WriteLn(' : OK');
                         end;
-                        WriteLn(' : OK');
+                      finally
+                        lEmptyDataSet.Free;
                       end;
                     finally
                       lCustomer.Free;

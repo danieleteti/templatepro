@@ -24,6 +24,7 @@ function GetItems(const WithFalsyValues: Boolean = False): TObjectList<TDataItem
 function GetCustomersDataset: TDataSet;
 function GetPeopleDataset: TDataSet;
 function GetSingleCustomerDataset: TDataSet;
+function GetEmptyDataset: TDataSet;
 
 implementation
 
@@ -81,6 +82,24 @@ begin
     raise;
   end;
 end;
+
+function GetEmptyDataset: TDataSet;
+var
+  lMT: TFDMemTable;
+begin
+  lMT := TFDMemTable.Create(nil);
+  try
+    lMT.FieldDefs.Clear;
+    lMT.FieldDefs.Add('Code', ftInteger);
+    lMT.FieldDefs.Add('Name', ftString, 20);
+    lMT.Active := True;
+    Result := lMT;
+  except
+    lMT.Free;
+    raise;
+  end;
+end;
+
 
 function GetPeopleDataset: TDataSet;
 var
