@@ -178,13 +178,13 @@ type
     procedure Error(const aMessage: String; const Params: array of const); overload;
     function IsTruthy(const Value: TValue): Boolean;
     function GetVarAsString(const Name: string): string;
-    function GetTValueVarAsString(const Value: TValue; const VarName: string = ''): String;
+    function GetTValueVarAsString(const Value: PValue; const VarName: string = ''): String;
     function GetVarAsTValue(const aName: string): TValue;
     function GetDataSetFieldAsTValue(const aDataSet: TDataSet; const FieldName: String): TValue;
     function EvaluateIfExpressionAt(var Idx: Int64): Boolean;
     function GetVariables: TTProVariables;
     procedure SplitVariableName(const VariableWithMember: String; out VarName, VarMembers: String);
-    function ExecuteFilter(aFunctionName: string; aParameters: TArray<string>; aValue: TValue; const aVarNameWhereShoudBeApplied: String): TValue;
+    function ExecuteFilter(aFunctionName: string; var aParameters: TArray<string>; aValue: TValue; const aVarNameWhereShoudBeApplied: String): TValue;
     procedure CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<string>); overload;
     procedure CheckParNumber(const aMinParNumber, aMaxParNumber: Integer; const aParameters: TArray<string>); overload;
     function GetPseudoVariable(const VarIterator: Integer; const PseudoVarName: String): TValue; overload;
@@ -515,7 +515,7 @@ begin
   end;
 end;
 
-function TTProCompiledTemplate.GetTValueVarAsString(const Value: TValue; const VarName: string): String;
+function TTProCompiledTemplate.GetTValueVarAsString(const Value: PValue; const VarName: string): String;
 var
   lIsObject: Boolean;
   lAsObject: TObject;
@@ -1654,7 +1654,7 @@ begin
   CheckParNumber(aHowManyPars, aHowManyPars, aParameters);
 end;
 
-function TTProCompiledTemplate.ExecuteFilter(aFunctionName: string; aParameters: TArray<string>;
+function TTProCompiledTemplate.ExecuteFilter(aFunctionName: string; var aParameters: TArray<string>;
   aValue: TValue; const aVarNameWhereShoudBeApplied: String): TValue;
 var
   lDateValue: TDateTime;
@@ -2223,7 +2223,7 @@ var
   lBR: TBinaryReader;
   lTokens: TList<TToken>;
 begin
-  lBR := TBinaryReader.Create(TFileStream.Create(FileName, fmOpenRead or fmShareDenyNone), nil, True);
+  lBR := TBinaryReader.Create(TBytesStream.Create(TFile.ReadAllBytes(FileName)), nil, True);
   try
     lTokens := TList<TToken>.Create;
     try
@@ -2629,9 +2629,11 @@ end;
 function TTProCompiledTemplate.GetVarAsString(const Name: string): string;
 var
   lValue: TValue;
+  lPValue: PValue;
 begin
   lValue := GetVarAsTValue(Name);
-  Result := GetTValueVarAsString(lValue, Name);
+  lPValue := @lValue;
+  Result := GetTValueVarAsString(lPValue, Name);
 end;
 
 function TTProCompiledTemplate.GetVarAsTValue(const aName: string): TValue;
