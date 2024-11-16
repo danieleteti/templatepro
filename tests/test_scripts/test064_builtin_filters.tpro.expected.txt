@@ -42,7 +42,7 @@ ne 0 = 1
   Customer rpad: Ford______ 
   Customer capitalize: Ford   
   Customer contains "a": False 
-  Customer contains_ignore_case "a": False 
+  Customer icontains "a": False 
 
   Customer uppercase: FERRARI
   Customer lowercase: ferrari  
@@ -52,7 +52,7 @@ ne 0 = 1
   Customer rpad: Ferrari___ 
   Customer capitalize: Ferrari   
   Customer contains "a": True 
-  Customer contains_ignore_case "a": True 
+  Customer icontains "a": True 
 
   Customer uppercase: LOTUS
   Customer lowercase: lotus  
@@ -62,7 +62,7 @@ ne 0 = 1
   Customer rpad: Lotus_____ 
   Customer capitalize: Lotus   
   Customer contains "a": False 
-  Customer contains_ignore_case "a": False 
+  Customer icontains "a": False 
 
   Customer uppercase: FCA
   Customer lowercase: fca  
@@ -72,7 +72,7 @@ ne 0 = 1
   Customer rpad: FCA_______ 
   Customer capitalize: Fca   
   Customer contains "a": False 
-  Customer contains_ignore_case "a": True 
+  Customer icontains "a": True 
 
   Customer uppercase: HYUNDAI
   Customer lowercase: hyundai  
@@ -82,7 +82,7 @@ ne 0 = 1
   Customer rpad: Hyundai___ 
   Customer capitalize: Hyundai   
   Customer contains "a": True 
-  Customer contains_ignore_case "a": True 
+  Customer icontains "a": True 
 
   Customer uppercase: DE TOMASO
   Customer lowercase: de tomaso  
@@ -92,7 +92,7 @@ ne 0 = 1
   Customer rpad: De Tomaso_ 
   Customer capitalize: De Tomaso   
   Customer contains "a": True 
-  Customer contains_ignore_case "a": True 
+  Customer icontains "a": True 
 
   Customer uppercase: DODGE
   Customer lowercase: dodge  
@@ -102,7 +102,7 @@ ne 0 = 1
   Customer rpad: Dodge_____ 
   Customer capitalize: Dodge   
   Customer contains "a": False 
-  Customer contains_ignore_case "a": False 
+  Customer icontains "a": False 
 
   Customer uppercase: TESLA
   Customer lowercase: tesla  
@@ -112,7 +112,7 @@ ne 0 = 1
   Customer rpad: Tesla_____ 
   Customer capitalize: Tesla   
   Customer contains "a": True 
-  Customer contains_ignore_case "a": True 
+  Customer icontains "a": True 
 
   Customer uppercase: KIA
   Customer lowercase: kia  
@@ -122,7 +122,7 @@ ne 0 = 1
   Customer rpad: Kia_______ 
   Customer capitalize: Kia   
   Customer contains "a": True 
-  Customer contains_ignore_case "a": True 
+  Customer icontains "a": True 
 
   Customer uppercase: TATA
   Customer lowercase: tata  
@@ -132,7 +132,7 @@ ne 0 = 1
   Customer rpad: Tata______ 
   Customer capitalize: Tata   
   Customer contains "a": True 
-  Customer contains_ignore_case "a": True 
+  Customer icontains "a": True 
 
   Customer uppercase: VOLKSWAGEN
   Customer lowercase: volkswagen  
@@ -142,7 +142,7 @@ ne 0 = 1
   Customer rpad: Volkswagen 
   Customer capitalize: Volkswagen   
   Customer contains "a": True 
-  Customer contains_ignore_case "a": True 
+  Customer icontains "a": True 
 
   Customer uppercase: AUDI
   Customer lowercase: audi  
@@ -152,7 +152,7 @@ ne 0 = 1
   Customer rpad: Audi______ 
   Customer capitalize: Audi   
   Customer contains "a": False 
-  Customer contains_ignore_case "a": True 
+  Customer icontains "a": True 
 
   Customer uppercase: SKODA
   Customer lowercase: skoda  
@@ -162,6 +162,6 @@ ne 0 = 1
   Customer rpad: Skoda_____ 
   Customer capitalize: Skoda   
   Customer contains "a": True 
-  Customer contains_ignore_case "a": True 
+  Customer icontains "a": True 
 
 

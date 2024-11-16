@@ -1698,7 +1698,7 @@ begin
       FunctionError(aFunctionName, 'expected 1 parameter');
     Result := aValue.AsString.Contains(aParameters[0]);
   end
-  else if SameText(aFunctionName, 'contains_ignore_case') then
+  else if SameText(aFunctionName, 'icontains') then
   begin
     if Length(aParameters) <> 1 then
       FunctionError(aFunctionName, 'expected 1 parameter');
@@ -3216,6 +3216,7 @@ end;
 procedure TTProCompiledTemplate.SetData(const Name: String; Value: TValue);
 var
   lWrappedList: ITProWrappedList;
+  lObj: TObject;
 begin
   if Value.IsEmpty then
   begin
@@ -3226,29 +3227,30 @@ begin
   case Value.Kind of
     tkClass:
       begin
-        if Value.AsObject is TDataSet then
+        lObj := Value.AsObject;
+        if lObj is TDataSet then
         begin
-          GetVariables.Add(Name, TVarDataSource.Create(Value.AsObject, [viDataSet, viIterable]));
+          GetVariables.Add(Name, TVarDataSource.Create(lObj, [viDataSet, viIterable]));
         end
-        else if Value.AsObject is TJDOJsonObject then
+        else if lObj is TJDOJsonObject then
         begin
-          GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonObject(Value.AsObject), [viJSONObject]));
+          GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonObject(lObj), [viJSONObject]));
         end
-        else if Value.AsObject is TJDOJsonArray then
+        else if lObj is TJDOJsonArray then
         begin
           raise ETProRenderException.Create
             ('JSONArray cannot be used directly [HINT] Define a JSONObject variable with a JSONArray property');
         end
         else
         begin
-          if TTProDuckTypedList.CanBeWrappedAsList(Value.AsObject, lWrappedList) then
+          if TTProDuckTypedList.CanBeWrappedAsList(lObj, lWrappedList) then
           begin
-            GetVariables.Add(Name, TVarDataSource.Create(TTProDuckTypedList(Value.AsObject),
+            GetVariables.Add(Name, TVarDataSource.Create(TTProDuckTypedList(lObj),
               [viListOfObject, viIterable]));
           end
           else
           begin
-            GetVariables.Add(Name, TVarDataSource.Create(Value.AsObject, [viObject]));
+            GetVariables.Add(Name, TVarDataSource.Create(lObj, [viObject]));
           end;
         end;
       end;

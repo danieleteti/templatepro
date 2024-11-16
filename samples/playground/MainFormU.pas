@@ -52,7 +52,7 @@ type
     ds1name: TStringField;
     FileListBox1: TFileListBox;
     Panel1: TPanel;
-    Button1: TButton;
+    btnExecute: TButton;
     PageControl1: TPageControl;
     TabSheet1: TTabSheet;
     TabSheet2: TTabSheet;
@@ -73,7 +73,7 @@ type
     ds1country: TStringField;
     MemoTemplate: TMemo;
     MemoOutput: TMemo;
-    procedure Button1Click(Sender: TObject);
+    procedure btnExecuteClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FileListBox1DblClick(Sender: TObject);
   private
@@ -98,7 +98,7 @@ uses
   TemplatePro,
   Winapi.ActiveX;
 
-procedure TMainForm.Button1Click(Sender: TObject);
+procedure TMainForm.btnExecuteClick(Sender: TObject);
 begin
   ExecuteTemplate(MemoTemplate.Lines.Text);
 end;

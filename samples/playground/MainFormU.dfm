@@ -3,15 +3,15 @@ object MainForm: TMainForm
   Top = 0
   Caption = 'TemplatePro Sample - Copyright 2017-2024 Daniele Teti'
   ClientHeight = 515
-  ClientWidth = 838
+  ClientWidth = 967
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = 18
+  Font.Height = -19
   Font.Name = 'Tahoma'
   Font.Style = []
   OnCreate = FormCreate
-  TextHeight = 18
+  TextHeight = 23
   object Splitter2: TSplitter
     Left = 303
     Top = 57
@@ -41,50 +41,59 @@ object MainForm: TMainForm
   object Panel1: TPanel
     Left = 0
     Top = 0
-    Width = 838
+    Width = 967
     Height = 57
     Align = alTop
     BevelOuter = bvNone
     Ctl3D = True
     ParentCtl3D = False
     TabOrder = 1
-    object Button1: TButton
+    ExplicitWidth = 838
+    object btnExecute: TButton
       AlignWithMargins = True
       Left = 3
       Top = 3
       Width = 199
       Height = 51
       Align = alLeft
-      Caption = 'Generate report'
+      Caption = 'Execute Template'
       TabOrder = 0
-      OnClick = Button1Click
+      OnClick = btnExecuteClick
     end
     object chkOpenGeneratedFile: TCheckBox
-      Left = 209
-      Top = 19
-      Width = 248
-      Height = 17
+      AlignWithMargins = True
+      Left = 235
+      Top = 3
+      Width = 376
+      Height = 51
+      Margins.Left = 30
+      Align = alLeft
       Caption = 'Open output file in browser'
       TabOrder = 1
+      ExplicitLeft = 209
+      ExplicitTop = 19
+      ExplicitHeight = 27
     end
   end
   object PageControl1: TPageControl
     Left = 306
     Top = 57
-    Width = 532
+    Width = 661
     Height = 458
     ActivePage = TabSheet2
     Align = alClient
+    TabHeight = 40
     TabOrder = 2
-    TabWidth = 120
+    TabWidth = 170
+    ExplicitWidth = 532
     object TabSheet2: TTabSheet
-      Caption = 'Report'
+      Caption = 'TemplatePro Code'
       ImageIndex = 1
       object MemoTemplate: TMemo
         Left = 0
         Top = 0
-        Width = 524
-        Height = 425
+        Width = 653
+        Height = 408
         Align = alClient
         Font.Charset = ANSI_CHARSET
         Font.Color = clWindowText
@@ -93,6 +102,8 @@ object MainForm: TMainForm
         Font.Style = []
         ParentFont = False
         TabOrder = 0
+        ExplicitWidth = 524
+        ExplicitHeight = 425
       end
     end
     object TabSheet1: TTabSheet
@@ -100,8 +111,8 @@ object MainForm: TMainForm
       object MemoOutput: TMemo
         Left = 0
         Top = 0
-        Width = 524
-        Height = 425
+        Width = 653
+        Height = 408
         Align = alClient
         Font.Charset = ANSI_CHARSET
         Font.Color = clWindowText
@@ -113,6 +124,8 @@ object MainForm: TMainForm
         ScrollBars = ssBoth
         TabOrder = 0
         WordWrap = False
+        ExplicitWidth = 524
+        ExplicitHeight = 425
       end
     end
     object TabSheet3: TTabSheet
@@ -121,7 +134,7 @@ object MainForm: TMainForm
       object Splitter1: TSplitter
         Left = 0
         Top = 153
-        Width = 524
+        Width = 653
         Height = 3
         Cursor = crVSplit
         Align = alTop
@@ -131,28 +144,28 @@ object MainForm: TMainForm
       object DBGrid1: TDBGrid
         Left = 0
         Top = 0
-        Width = 524
+        Width = 653
         Height = 153
         Align = alTop
         DataSource = DataSource1
         TabOrder = 0
         TitleFont.Charset = DEFAULT_CHARSET
         TitleFont.Color = clWindowText
-        TitleFont.Height = 18
+        TitleFont.Height = -19
         TitleFont.Name = 'Tahoma'
         TitleFont.Style = []
       end
       object DBGrid2: TDBGrid
         Left = 0
         Top = 156
-        Width = 524
-        Height = 269
+        Width = 653
+        Height = 252
         Align = alClient
         DataSource = DataSource2
         TabOrder = 1
         TitleFont.Charset = DEFAULT_CHARSET
         TitleFont.Color = clWindowText
-        TitleFont.Height = 18
+        TitleFont.Height = -19
         TitleFont.Name = 'Tahoma'
         TitleFont.Style = []
       end

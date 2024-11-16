@@ -1,0 +1,8 @@
+{{if people}}
+{{for person in people}}
+  Country: {{:person.country}} - Name: {{:person.name|uppercase}}
+{{if person.country|eq,"UK"}}
+    This person is from UK
+{{endif}}
+{{endfor}}
+{{endif}}
