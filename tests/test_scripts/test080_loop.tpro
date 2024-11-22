@@ -17,9 +17,9 @@ Prop1: {{:obj.Prop1}} {{:value2}}
 {{endfor}}
 
 ************* reset DataSet
-{{for cust in customers}}
-{{:cust.@@index}}
-{{endfor}}
+{{ for cust in customers }}
+{{: cust.@@index }}
+{{ endfor }}
 
 ************* reset List of objects
 {{for obj in objects}}

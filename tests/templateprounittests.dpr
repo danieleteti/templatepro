@@ -18,7 +18,7 @@ uses
 const
   TestFileNameFilter = '*'; // '*' means "all files'
 
-function SayHelloFilter(const aValue: TValue; const aParameters: TArray<string>): TValue;
+function SayHelloFilter(const aValue: TValue; const aParameters: TArray<String>): TValue;
 begin
   Result := 'Hello ' + aValue.AsString;
 end;
@@ -158,6 +158,7 @@ begin
         lCompiledTemplate.SetData('intvalue0',0);
         lCompiledTemplate.SetData('intvalue1',1);
         lCompiledTemplate.SetData('intvalue2',2);
+        lCompiledTemplate.SetData('intvalue10',10);
         lCompiledTemplate.SetData('myhtml','<div>this <strong>HTML</strong></div>');
         lCompiledTemplate.SetData('valuedate', EncodeDate(2024, 8,20));
         lCompiledTemplate.SetData('valuedatetime', EncodeDateTime(2024, 8, 20, 10, 20, 30, 0));
