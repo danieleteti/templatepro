@@ -179,6 +179,7 @@ type
     function IsTruthy(const Value: TValue): Boolean;
     function GetVarAsString(const Name: string): string;
     function GetTValueVarAsString(const Value: PValue; const VarName: string = ''): String;
+    function GetNullableTValueAsTValue(const Value: PValue; const VarName: string = ''): TValue;
     function GetVarAsTValue(const aName: string): TValue;
     function GetDataSetFieldAsTValue(const aDataSet: TDataSet; const FieldName: String): TValue;
     function EvaluateIfExpressionAt(var Idx: Int64): Boolean;
@@ -246,6 +247,7 @@ type
   public
     function Compile(const aTemplate: string; const aFileNameRefPath: String = ''): ITProCompiledTemplate; overload;
     constructor Create(aEncoding: TEncoding = nil); overload;
+    class function CompileAndRender(const aTemplate: string; const VarNames: TArray<String>; const VarValues: TArray<TValue>): String;
   end;
 
   ITProWrappedList = interface
@@ -490,6 +492,118 @@ end;
 function TTProCompiledTemplate.GetFormatSettings: PTProFormatSettings;
 begin
   Result := @fLocaleFormatSettings;
+end;
+
+function TTProCompiledTemplate.GetNullableTValueAsTValue(const Value: PValue; const VarName: string): TValue;
+var
+  lIsObject: Boolean;
+  lAsObject: TObject;
+  lNullableInt32: NullableInt32;
+  lNullableUInt32: NullableUInt32;
+  lNullableInt16: NullableInt16;
+  lNullableUInt16: NullableUInt16;
+  lNullableInt64: NullableInt64;
+  lNullableUInt64: NullableUInt64;
+  lNullableCurrency: NullableCurrency;
+  lNullableBoolean: NullableBoolean;
+  lNullableTDate: NullableTDate;
+  lNullableTTime: NullableTTime;
+  lNullableTDateTime: NullableTDateTime;
+  lNullableString: NullableString;
+begin
+  Result := TValue.Empty;
+
+  if Value.IsEmpty then
+  begin
+    Exit;
+  end;
+
+  lIsObject := False;
+  lAsObject := nil;
+
+  if Value.TypeInfo.Kind = tkRecord then
+  begin
+    if Value.TypeInfo = TypeInfo(NullableInt32) then
+    begin
+      lNullableInt32 := Value.AsType<NullableInt32>;
+      if lNullableInt32.HasValue then
+        Exit(lNullableInt32.Value);
+    end
+    else if Value.TypeInfo = TypeInfo(NullableUInt32) then
+    begin
+      lNullableUInt32 := Value.AsType<NullableUInt32>;
+      if lNullableUInt32.HasValue then
+        Exit(lNullableUInt32.Value);
+    end
+    else if Value.TypeInfo = TypeInfo(NullableInt16) then
+    begin
+      lNullableInt16 := Value.AsType<NullableInt16>;
+      if lNullableInt16.HasValue then
+        Exit(lNullableInt16.Value);
+    end
+    else if Value.TypeInfo = TypeInfo(NullableUInt16) then
+    begin
+      lNullableUInt16 := Value.AsType<NullableUInt16>;
+      if lNullableUInt16.HasValue then
+        Exit(lNullableUInt16.Value);
+    end
+    else if Value.TypeInfo = TypeInfo(NullableInt64) then
+    begin
+      lNullableInt64 := Value.AsType<NullableInt64>;
+      if lNullableInt64.HasValue then
+        Exit(lNullableInt64.Value);
+    end
+    else if Value.TypeInfo = TypeInfo(NullableUInt64) then
+    begin
+      lNullableUInt64 := Value.AsType<NullableUInt64>;
+      if lNullableUInt64.HasValue then
+        Exit(lNullableUInt64.Value);
+    end
+    else if Value.TypeInfo = TypeInfo(NullableString) then
+    begin
+      lNullableString := Value.AsType<NullableString>;
+      if lNullableString.HasValue then
+        Exit(lNullableString.Value);
+    end
+    else if Value.TypeInfo = TypeInfo(NullableCurrency) then
+    begin
+      lNullableCurrency := Value.AsType<NullableCurrency>;
+      if lNullableCurrency.HasValue then
+        Exit(lNullableCurrency.Value);
+    end
+    else if Value.TypeInfo = TypeInfo(NullableBoolean) then
+    begin
+      lNullableBoolean := Value.AsType<NullableBoolean>;
+      if lNullableBoolean.HasValue then
+        Exit(lNullableBoolean.Value);
+    end
+    else if Value.TypeInfo = TypeInfo(NullableTDate) then
+    begin
+      lNullableTDate := Value.AsType<NullableTDate>;
+      if lNullableTDate.HasValue then
+        Exit(lNullableTDate.Value);
+    end
+    else if Value.TypeInfo = TypeInfo(NullableTTime) then
+    begin
+      lNullableTTime := Value.AsType<NullableTTime>;
+      if lNullableTTime.HasValue then
+        Exit(lNullableTTime.Value);
+    end
+    else if Value.TypeInfo = TypeInfo(NullableTDateTime) then
+    begin
+      lNullableTDateTime := Value.AsType<NullableTDateTime>;
+      if lNullableTDateTime.HasValue then
+        Exit(lNullableTDateTime.Value);
+    end
+    else
+    begin
+      raise ETProException.Create('Unsupported type for variable "' + VarName + '"');
+    end;
+  end
+  else
+  begin
+    Result := Value^;
+  end;
 end;
 
 function TTProCompiledTemplate.GetOnGetValue: TTProCompiledTemplateGetValueEvent;
@@ -932,6 +1046,26 @@ begin
   except
     lTokens.Free;
     raise;
+  end;
+end;
+
+class function TTProCompiler.CompileAndRender(const aTemplate: String; const VarNames: TArray<String>;
+  const VarValues: TArray<TValue>): String;
+var
+  lComp: TTProCompiler;
+  lCompiledTemplate: ITProCompiledTemplate;
+  I: Integer;
+begin
+  lComp := TTProCompiler.Create();
+  try
+    lCompiledTemplate := lComp.Compile(aTemplate);
+    for I := 0 to Length(VarNames) - 1 do
+    begin
+      lCompiledTemplate.SetData(VarNames[I], VarValues[I]);
+    end;
+    Result := lCompiledTemplate.Render;
+  finally
+    lComp.Free;
   end;
 end;
 
@@ -1673,6 +1807,7 @@ var
   lDecimalMask: string;
   lExecuteAsFilterOnAValue: Boolean;
   lNullableDate: NullableTDate;
+  lValue: TValue;
 begin
   lExecuteAsFilterOnAValue := not aVarNameWhereShoudBeApplied.IsEmpty;
   aFunctionName := lowercase(aFunctionName);
@@ -1711,6 +1846,19 @@ begin
     if Length(aParameters) <> 1 then
       FunctionError(aFunctionName, 'expected 1 parameter');
     Result := aValue.AsString.ToLowerInvariant.Contains(aParameters[0].ToLowerInvariant);
+  end
+  else if SameText(aFunctionName, 'mod') then
+  begin
+    if Length(aParameters) <> 1 then
+      FunctionError(aFunctionName, 'expected 1 parameter');
+    lValue := GetNullableTValueAsTValue(@aValue);
+    if lValue.IsEmpty then
+      Result := False
+    else
+    begin
+      var l := lValue.AsInt64;
+      Result := l mod aParameters[0].ToInteger;
+    end;
   end
   else if SameText(aFunctionName, 'uppercase') then
   begin
