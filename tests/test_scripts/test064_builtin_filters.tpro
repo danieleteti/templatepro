@@ -45,6 +45,14 @@ eq 0 = 0
 ne 0 = 1
 {{endif}}
 
+{{if intvalue0|eq,intvalue0}}
+intvalue0 = intvalue0
+{{endif}}
+
+{{if intvalue0|ne,intvalue1}}
+intvalue0 ne intvalue1
+{{endif}}
+
 
 {{for cust in customers}}
   Customer uppercase: {{:cust.Name|uppercase}}
@@ -56,6 +64,12 @@ ne 0 = 1
   Customer capitalize: {{:cust.Name|capitalize}}   
   Customer contains "a": {{:cust.Name|contains,"a"}} 
   Customer icontains "a": {{:cust.Name|icontains,"a"}} 
+  Customer round {{:floatvalue|round,-4}}
+  Customer round {{:floatvalue|round,-3}}
+  Customer round {{:floatvalue|round,-2}}
+  Customer round {{:floatvalue|round,-1}}
+  Customer round {{:floatvalue|round,0}}
+  Customer round {{:floatvalue|round,intvalue2}}  
 
 {{endfor}}
 

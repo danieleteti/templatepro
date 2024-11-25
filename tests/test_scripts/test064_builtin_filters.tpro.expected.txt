@@ -1,4 +1,4 @@
-0.7.1
+0.7.2
 PIPPO
 pippo
 
@@ -33,6 +33,10 @@ eq 0 = 0
 
 ne 0 = 1
 
+intvalue0 = intvalue0
+
+intvalue0 ne intvalue1
+
 
   Customer uppercase: FORD
   Customer lowercase: ford  
@@ -43,6 +47,12 @@ ne 0 = 1
   Customer capitalize: Ford   
   Customer contains "a": False 
   Customer icontains "a": False 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: FERRARI
   Customer lowercase: ferrari  
@@ -53,6 +63,12 @@ ne 0 = 1
   Customer capitalize: Ferrari   
   Customer contains "a": True 
   Customer icontains "a": True 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: LOTUS
   Customer lowercase: lotus  
@@ -63,6 +79,12 @@ ne 0 = 1
   Customer capitalize: Lotus   
   Customer contains "a": False 
   Customer icontains "a": False 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: FCA
   Customer lowercase: fca  
@@ -73,6 +95,12 @@ ne 0 = 1
   Customer capitalize: Fca   
   Customer contains "a": False 
   Customer icontains "a": True 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: HYUNDAI
   Customer lowercase: hyundai  
@@ -83,6 +111,12 @@ ne 0 = 1
   Customer capitalize: Hyundai   
   Customer contains "a": True 
   Customer icontains "a": True 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: DE TOMASO
   Customer lowercase: de tomaso  
@@ -93,6 +127,12 @@ ne 0 = 1
   Customer capitalize: De Tomaso   
   Customer contains "a": True 
   Customer icontains "a": True 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: DODGE
   Customer lowercase: dodge  
@@ -103,6 +143,12 @@ ne 0 = 1
   Customer capitalize: Dodge   
   Customer contains "a": False 
   Customer icontains "a": False 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: TESLA
   Customer lowercase: tesla  
@@ -113,6 +159,12 @@ ne 0 = 1
   Customer capitalize: Tesla   
   Customer contains "a": True 
   Customer icontains "a": True 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: KIA
   Customer lowercase: kia  
@@ -123,6 +175,12 @@ ne 0 = 1
   Customer capitalize: Kia   
   Customer contains "a": True 
   Customer icontains "a": True 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: TATA
   Customer lowercase: tata  
@@ -133,6 +191,12 @@ ne 0 = 1
   Customer capitalize: Tata   
   Customer contains "a": True 
   Customer icontains "a": True 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: VOLKSWAGEN
   Customer lowercase: volkswagen  
@@ -143,6 +207,12 @@ ne 0 = 1
   Customer capitalize: Volkswagen   
   Customer contains "a": True 
   Customer icontains "a": True 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: AUDI
   Customer lowercase: audi  
@@ -153,6 +223,12 @@ ne 0 = 1
   Customer capitalize: Audi   
   Customer contains "a": False 
   Customer icontains "a": True 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
   Customer uppercase: SKODA
   Customer lowercase: skoda  
@@ -163,5 +239,11 @@ ne 0 = 1
   Customer capitalize: Skoda   
   Customer contains "a": True 
   Customer icontains "a": True 
+  Customer round 1234,5678
+  Customer round 1234,568
+  Customer round 1234,57
+  Customer round 1234,6
+  Customer round 1235
+  Customer round 1200  
 
 

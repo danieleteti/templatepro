@@ -74,12 +74,18 @@ const
   STR_END_OF_LAYOUT = 'end_of_layout';
 
 type
-  TFilterParameterType = (fptNumber, fptString, fptVariable);
+  TFilterParameterType = (fptInteger, fptFloat, fptString, fptVariable);
+  TFilterParameterTypes = set of TFilterParameterType;
   TFilterParameter = record
+    {can be number, string or variable}
     ParType: TFilterParameterType;
-    ParStrValue: String;
+    {contains the literal string if partype = string,
+     contains the variable name if partype = variable}
+    ParStrText: String;
+    {contains the literal integer if partype = integer}
     ParIntValue: Integer;
-    ParVarName: String;
+    {contains the literal float if partype = float}
+    ParFloatValue: Extended;
   end;
   PFilterParameter = ^TFilterParameter;
 
@@ -87,7 +93,8 @@ type
     TokenType: TTokenType;
     Value1: String;
     Value2: String;
-    Ref1, Ref2: Int64;
+    Ref1: Int64;
+    Ref2: Int64; {in case of tokentype = filter, contains the integer value, if any}
     class function Create(TokType: TTokenType; Value1: String; Value2: String; Ref1: Int64 = -1; Ref2: Int64 = -1)
       : TToken; static;
     function TokenTypeAsString: String;
@@ -209,7 +216,7 @@ type
     function GetFormatSettings: PTProFormatSettings;
     procedure SetFormatSettings(const Value: PTProFormatSettings);
     class procedure InternalDumpToFile(const FileName: String; const aTokens: TList<TToken>);
-    function _Comparand(const aComparandType: TComparandType; const aValue: TValue;
+    function ComparandOperator(const aComparandType: TComparandType; const aValue: TValue;
       const aParameters: TArray<TFilterParameter>; const aLocaleFormatSettings: TFormatSettings): TValue;
   public
     destructor Destroy; override;
@@ -355,11 +362,12 @@ begin
   raise ETProRenderException.Create(Format('[%1:s] %0:s (error in filter call for function [%1:s])', [aErrMessage, aFunctionName])) at ReturnAddress;
 end;
 
-function TTProCompiledTemplate._Comparand(const aComparandType: TComparandType; const aValue: TValue; const aParameters: TArray<TFilterParameter>; const aLocaleFormatSettings: TFormatSettings): TValue;
+function TTProCompiledTemplate.ComparandOperator(const aComparandType: TComparandType; const aValue: TValue; const aParameters: TArray<TFilterParameter>; const aLocaleFormatSettings: TFormatSettings): TValue;
 var
   lInt64Value: Int64;
   lStrValue: string;
   lExtendedValue: Extended;
+  lValue: TValue;
   function GetComparandResultStr(const aComparandType: TComparandType; const aLeftValue, aRightValue: String): TValue;
   begin
     case aComparandType of
@@ -386,11 +394,11 @@ begin
         begin
           raise ETProRenderException.Create('Invalid type for comparand');
         end;
-        if aParameters[0].ParType = fptNumber then
+        if aParameters[0].ParType = fptInteger then
           lInt64Value := aParameters[0].ParIntValue
         else
         begin
-          lInt64Value := GetVarAsTValue(aParameters[0].ParVarName).AsInt64;
+          lInt64Value := GetVarAsTValue(aParameters[0].ParStrText).AsInt64;
         end;
 
         case aComparandType of
@@ -408,46 +416,79 @@ begin
         if aValue.TypeInfo.Name = 'TDateTime' then
         begin
           lStrValue := DateTimeToStr(aValue.AsExtended, aLocaleFormatSettings);
-          raise Exception.Create('Error Message');
-//          Result := GetComparandResultStr(aComparandType, lStrValue, aParameters[0]);
+          case aParameters[0].ParType of
+            fptString:
+            begin
+              Result := GetComparandResultStr(aComparandType, lStrValue, aParameters[0].ParStrText);
+            end;
+            fptVariable:
+            begin
+              lValue := GetVarAsTValue(aParameters[0].ParStrText);
+              Result := GetComparandResultStr(aComparandType, lStrValue, lValue.AsString);
+            end;
+            else
+              Error('Invalid parameter type for ' + TRttiEnumerationType.GetName<TComparandType>(aComparandType));
+          end;
         end
         else if aValue.TypeInfo.Name = 'TDate' then
         begin
           lStrValue := DateToStr(aValue.AsExtended, aLocaleFormatSettings);
-          raise Exception.Create('Error Message');
-//          Result := GetComparandResultStr(aComparandType, lStrValue, aParameters[0]);
+          case aParameters[0].ParType of
+            fptString:
+            begin
+              Result := GetComparandResultStr(aComparandType, lStrValue, aParameters[0].ParStrText)
+            end;
+            fptVariable:
+            begin
+              lValue := GetVarAsTValue(aParameters[0].ParStrText);
+              Result := GetComparandResultStr(aComparandType, lStrValue, lValue.AsString);
+            end;
+            else
+              Error('Invalid parameter type for ' + TRttiEnumerationType.GetName<TComparandType>(aComparandType));
+          end;
         end
         else
         begin
-          raise Exception.Create('Error Message');
-//
-//          if TryStrToFloat(aParameters[0], lExtendedValue) then
-//          begin
-//            case aComparandType of
-//              ctEQ: Result := aValue.AsExtended = lExtendedValue;
-//              ctNE: Result := aValue.AsExtended <> lExtendedValue;
-//              ctGT: Result := aValue.AsExtended > lExtendedValue;
-//              ctGE: Result := aValue.AsExtended >= lExtendedValue;
-//              ctLT: Result := aValue.AsExtended < lExtendedValue;
-//              ctLE: Result := aValue.AsExtended <= lExtendedValue;
-//              else
-//                raise ETProRenderException.Create('Invalid Comparand Type: ' + TRttiEnumerationType.GetName<TComparandType>(aComparandType));
-//            end
-//          end
-//          else
-//          begin
-//            raise ETProRenderException.CreateFmt('Cannot convert comparand value for "%s" function to Float',
-//              [TRttiEnumerationType.GetName<TComparandType>(aComparandType)]);
-//          end;
+          lExtendedValue := 0;
+          case aParameters[0].ParType of
+            fptFloat:
+            begin
+              lExtendedValue := aParameters[0].ParFloatValue;
+            end;
+            fptVariable:
+            begin
+              lValue := GetVarAsTValue(aParameters[0].ParStrText);
+              lExtendedValue := lValue.AsExtended;
+            end;
+            else
+              Error('Invalid parameter type for ' + TRttiEnumerationType.GetName<TComparandType>(aComparandType));
+          end;
+          case aComparandType of
+            ctEQ: Result := aValue.AsExtended = lExtendedValue;
+            ctNE: Result := aValue.AsExtended <> lExtendedValue;
+            ctGT: Result := aValue.AsExtended > lExtendedValue;
+            ctGE: Result := aValue.AsExtended >= lExtendedValue;
+            ctLT: Result := aValue.AsExtended < lExtendedValue;
+            ctLE: Result := aValue.AsExtended <= lExtendedValue;
+            else
+              raise ETProRenderException.Create('Invalid Comparand Type: ' + TRttiEnumerationType.GetName<TComparandType>(aComparandType));
+          end
         end;
       end;
       else
       begin
-        if aParameters[0].ParType = fptString then
-          Result := GetComparandResultStr(aComparandType, aValue.AsString, aParameters[0].ParStrValue)
-        else
-        begin
-          Result := GetComparandResultStr(aComparandType, aValue.AsString, aParameters[0].ParStrValue)
+        case aParameters[0].ParType of
+          fptString:
+          begin
+            Result := GetComparandResultStr(aComparandType, aValue.AsString, aParameters[0].ParStrText)
+          end;
+          fptVariable:
+          begin
+            lValue := GetVarAsTValue(aParameters[0].ParStrText);
+            Result := GetComparandResultStr(aComparandType, aValue.AsString, lValue.AsString);
+          end;
+          else
+            Error('Invalid parameter type for ' + TRttiEnumerationType.GetName<TComparandType>(aComparandType));
         end;
       end;
     end;
@@ -523,8 +564,6 @@ end;
 
 function TTProCompiledTemplate.GetNullableTValueAsTValue(const Value: PValue; const VarName: string): TValue;
 var
-  lIsObject: Boolean;
-  lAsObject: TObject;
   lNullableInt32: NullableInt32;
   lNullableUInt32: NullableUInt32;
   lNullableInt16: NullableInt16;
@@ -544,9 +583,6 @@ begin
   begin
     Exit;
   end;
-
-  lIsObject := False;
-  lAsObject := nil;
 
   if Value.TypeInfo.Kind = tkRecord then
   begin
@@ -904,11 +940,11 @@ begin
   case FilterParameter.ParType of
     fptString: begin
       Result.TokenType := ttFilterParameter;
-      Result.Value1 := FilterParameter.ParStrValue;
+      Result.Value1 := FilterParameter.ParStrText;
       Result.Ref2 := Ord(FilterParameter.ParType);
     end;
 
-    fptNumber: begin
+    fptInteger: begin
       Result.TokenType := ttFilterParameter;
       Result.Value1 := FilterParameter.ParIntValue.ToString;
       Result.Ref2 := Ord(FilterParameter.ParType);
@@ -916,7 +952,7 @@ begin
 
     fptVariable: begin
       Result.TokenType := ttFilterParameter;
-      Result.Value1 := FilterParameter.ParVarName;
+      Result.Value1 := FilterParameter.ParStrText;
       Result.Ref2 := Ord(FilterParameter.ParType);
     end;
 
@@ -992,13 +1028,16 @@ end;
 function TTProCompiler.MatchFilterParamValue(var aParamValue: TFilterParameter): Boolean;
 var
   lTmp: String;
+  lIntegerPart, lDecimalPart: Integer;
+  lDigits: Integer;
+  lTmpFloat: Extended;
 begin
   lTmp := '';
   Result := False;
   if MatchString(lTmp) then
   begin
     aParamValue.ParType := fptString;
-    aParamValue.ParStrValue := lTmp;
+    aParamValue.ParStrText := lTmp;
     Result := True;
   end
   else if CharInSet(fInputString.Chars[fCharIndex], SignAndNumbers) then
@@ -1010,9 +1049,32 @@ begin
       lTmp := lTmp + fInputString.Chars[fCharIndex];
       Inc(fCharIndex);
     end;
-    Result := True;
-    aParamValue.ParType := fptNumber;
-    aParamValue.ParIntValue := lTmp.Trim.ToInteger
+    lIntegerPart := StrToInt(lTmp);
+    if MatchSymbol('.') then
+    begin
+      lTmp := '';
+      while CharInSet(fInputString.Chars[fCharIndex], Numbers) do
+      begin
+        lTmp := lTmp + fInputString.Chars[fCharIndex];
+        Inc(fCharIndex);
+      end;
+      lDigits := lTmp.Trim.Length;
+      if lDigits = 0 then
+      begin
+        Error('Expected digit/s after "."');
+      end;
+      lDecimalPart := lTmp.Trim.ToInteger;
+      lTmpFloat := Power(10, lDigits);
+      Result := True;
+      aParamValue.ParType := fptFloat;
+      aParamValue.ParFloatValue := lIntegerPart + lDecimalPart / lTmpFloat;
+    end
+    else
+    begin
+      Result := True;
+      aParamValue.ParType := fptInteger;
+      aParamValue.ParIntValue := lTmp.Trim.ToInteger
+    end;
   end
   else if CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) then
   begin
@@ -1023,7 +1085,7 @@ begin
     end;
     Result := True;
     aParamValue.ParType := fptVariable;
-    aParamValue.ParVarName := lTmp.Trim;
+    aParamValue.ParStrText := lTmp.Trim;
   end;
 end;
 
@@ -1254,6 +1316,7 @@ begin
           lRef2 := IfThen(MatchSymbol('$'), 1, -1); // {{value$}} means no escaping
           MatchSpace;
         end;
+
 
         if MatchSymbol('|') then
         begin
@@ -1866,46 +1929,72 @@ var
   lExecuteAsFilterOnAValue: Boolean;
   lNullableDate: NullableTDate;
   lValue, lVarValue: TValue;
+  lExtendedValue: Extended;
+  procedure CheckParamType(const FunctionName: String; const FilterParameter: PFilterParameter; const Types: TFilterParameterTypes);
+  begin
+    if not (FilterParameter.ParType in Types) then
+    begin
+      FunctionError(FunctionName, 'Invalid parameter type');
+    end;
+  end;
 begin
   lExecuteAsFilterOnAValue := not aVarNameWhereShoudBeApplied.IsEmpty;
   aFunctionName := lowercase(aFunctionName);
   if SameText(aFunctionName, 'gt') then
   begin
-    Result := _Comparand(ctGT, aValue, aParameters, fLocaleFormatSettings);
+    Result := ComparandOperator(ctGT, aValue, aParameters, fLocaleFormatSettings);
   end
   else if SameText(aFunctionName, 'ge') then
   begin
-    Result := _Comparand(ctGE, aValue, aParameters, fLocaleFormatSettings);
+    Result := ComparandOperator(ctGE, aValue, aParameters, fLocaleFormatSettings);
   end
   else if SameText(aFunctionName, 'lt') then
   begin
-    Result := _Comparand(ctLT, aValue, aParameters, fLocaleFormatSettings);
+    Result := ComparandOperator(ctLT, aValue, aParameters, fLocaleFormatSettings);
   end
   else if SameText(aFunctionName, 'le') then
   begin
-    Result := _Comparand(ctLE, aValue, aParameters, fLocaleFormatSettings);
+    Result := ComparandOperator(ctLE, aValue, aParameters, fLocaleFormatSettings);
   end
   else if SameText(aFunctionName, 'eq') then
   begin
-    Result := _Comparand(ctEQ, aValue, aParameters, fLocaleFormatSettings);
+    Result := ComparandOperator(ctEQ, aValue, aParameters, fLocaleFormatSettings);
   end
   else if SameText(aFunctionName, 'ne') then
   begin
-    Result := _Comparand(ctNE, aValue, aParameters, fLocaleFormatSettings);
+    Result := ComparandOperator(ctNE, aValue, aParameters, fLocaleFormatSettings);
   end
   else if SameText(aFunctionName, 'contains') then
   begin
-    raise Exception.Create('Error Message');
-//    if Length(aParameters) <> 1 then
-//      FunctionError(aFunctionName, 'expected 1 parameter');
-//    Result := aValue.AsString.Contains(aParameters[0]);
+    if Length(aParameters) <> 1 then
+      FunctionError(aFunctionName, 'expected 1 parameter');
+    CheckParamType(aFunctionName, @aParameters[0], [fptString, fptVariable]);
+    if aParameters[0].ParType = fptVariable then
+    begin
+      lValue := GetVarAsTValue(aParameters[0].ParStrText);
+      lStrValue := GetNullableTValueAsTValue(@lValue, aParameters[0].ParStrText).AsString;
+    end
+    else
+    begin
+      lStrValue := aParameters[0].ParStrText;
+    end;
+    Result := aValue.AsString.Contains(lStrValue);
   end
   else if SameText(aFunctionName, 'icontains') then
   begin
-    raise Exception.Create('Error Message');
-//    if Length(aParameters) <> 1 then
-//      FunctionError(aFunctionName, 'expected 1 parameter');
-//    Result := aValue.AsString.ToLowerInvariant.Contains(aParameters[0].ToLowerInvariant);
+    if Length(aParameters) <> 1 then
+      FunctionError(aFunctionName, 'expected 1 parameter');
+    CheckParamType(aFunctionName, @aParameters[0], [fptString, fptVariable]);
+    if aParameters[0].ParType = fptVariable then
+    begin
+      lValue := GetVarAsTValue(aParameters[0].ParStrText);
+      lStrValue := GetNullableTValueAsTValue(@lValue, aParameters[0].ParStrText).AsString;
+    end
+    else
+    begin
+      lStrValue := aParameters[0].ParStrText;
+    end;
+    Result := aValue.AsString.ToLowerInvariant.Contains(lStrValue);
   end
   else if SameText(aFunctionName, 'mod') then
   begin
@@ -1930,7 +2019,7 @@ begin
     else
     begin
       CheckParNumber(1, aParameters);
-      Result := UpperCase(aParameters[0].ParStrValue);
+      Result := UpperCase(aParameters[0].ParStrText);
     end;
   end
   else if SameText(aFunctionName, 'lowercase') then
@@ -1943,7 +2032,7 @@ begin
     else
     begin
       CheckParNumber(1, aParameters);
-      Result := lowercase(aParameters[0].ParStrValue);
+      Result := lowercase(aParameters[0].ParStrText);
     end;
   end
   else if SameText(aFunctionName, 'capitalize') then
@@ -1956,7 +2045,7 @@ begin
     else
     begin
       CheckParNumber(1, aParameters);
-      Result := CapitalizeString(aParameters[0].ParStrValue, True);
+      Result := CapitalizeString(aParameters[0].ParStrText, True);
     end;
   end
   else if SameText(aFunctionName, 'trunc') then
@@ -1989,12 +2078,12 @@ begin
     end
     else
     begin
-      Result := lStrValue.PadRight(aParameters[0].ParIntValue, aParameters[1].ParStrValue.Chars[0]);
+      Result := lStrValue.PadRight(aParameters[0].ParIntValue, aParameters[1].ParStrText.Chars[0]);
     end;
   end
   else if SameText(aFunctionName, 'lpad') then
   begin
-    if not (aParameters[0].ParType in [fptNumber, fptVariable]) then
+    if not (aParameters[0].ParType in [fptInteger, fptVariable]) then
     begin
       FunctionError('lpad', 'Invalid parameter type');
     end;
@@ -2011,7 +2100,7 @@ begin
     begin
       if aParameters[0].ParType = fptVariable then
       begin
-        lVarValue := GetVarAsTValue(aParameters[0].ParVarName);
+        lVarValue := GetVarAsTValue(aParameters[0].ParStrText);
         Result := lStrValue.PadLeft(lVarValue.AsInteger);
       end
       else
@@ -2021,18 +2110,31 @@ begin
     end
     else
     begin
-      Result := lStrValue.PadLeft(aParameters[0].ParIntValue, aParameters[1].ParStrValue.Chars[0]);
+      Result := lStrValue.PadLeft(aParameters[0].ParIntValue, aParameters[1].ParStrText.Chars[0]);
     end;
   end
   else if SameText(aFunctionName, 'round') then
   begin
     CheckParNumber(1, aParameters);
+    CheckParamType('round', @aParameters[0], [fptInteger, fptVariable]);
     lDecimalMask := '';
-    if aParameters[0].ParIntValue < 0 then
+
+    if aParameters[0].ParType = fptVariable then
     begin
-      lDecimalMask := '.' + StringOfChar('0', Abs(aParameters[0].ParIntValue));
+      lVarValue := GetVarAsTValue(aParameters[0].ParStrText);
+      lIntegerPar1 := lVarValue.AsInteger;
+    end
+    else
+    begin
+      lIntegerPar1 := aParameters[0].ParIntValue;
     end;
-    Result := FormatFloat('0' + lDecimalMask, RoundTo(aValue.AsExtended, aParameters[0].ParIntValue));
+
+    if lIntegerPar1 < 0 then
+    begin
+      lDecimalMask := '.' + StringOfChar('0', Abs(lIntegerPar1));
+    end;
+    lExtendedValue := RoundTo(aValue.AsExtended, lIntegerPar1);
+    Result := FormatFloat('0' + lDecimalMask, lExtendedValue);
   end
   else if SameText(aFunctionName, 'datetostr') then
   begin
@@ -2049,7 +2151,7 @@ begin
       else
       begin
         CheckParNumber(1, aParameters);
-        lDateFilterFormatSetting.ShortDateFormat := aParameters[0].ParStrValue;
+        lDateFilterFormatSetting.ShortDateFormat := aParameters[0].ParStrText;
         Result := DateToStr(lDateValue, lDateFilterFormatSetting)
       end;
     end
@@ -2070,7 +2172,7 @@ begin
         else
         begin
           CheckParNumber(1, aParameters);
-          Result :=  FormatDateTime(aParameters[0].ParStrValue, lDateValue);
+          Result :=  FormatDateTime(aParameters[0].ParStrText, lDateValue);
         end;
       end;
     end
@@ -2093,7 +2195,7 @@ begin
       else
       begin
         CheckParNumber(1, aParameters);
-        Result := FormatDateTime(aParameters[0].ParStrValue, lDateValue);
+        Result := FormatDateTime(aParameters[0].ParStrText, lDateValue);
       end;
     end
     else
@@ -3420,9 +3522,8 @@ begin
       lFilterParameters[I].ParType := TFilterParameterType(fTokens[Idx].Ref2);
 
       case lFilterParameters[I].ParType of
-        fptNumber: lFilterParameters[I].ParIntValue := fTokens[Idx].Value1.ToInteger;
-        fptString: lFilterParameters[I].ParStrValue := fTokens[Idx].Value1;
-        fptVariable: lFilterParameters[I].ParVarName := fTokens[Idx].Value1;
+        fptInteger: lFilterParameters[I].ParIntValue := fTokens[Idx].Value1.ToInteger;
+        fptString, fptVariable: lFilterParameters[I].ParStrText := fTokens[Idx].Value1;
       end;
     end;
     case lCurrTokenType of
