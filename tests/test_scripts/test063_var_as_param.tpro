@@ -1,0 +1,4 @@
+{{if intvalue10|eq,intvalue10}}
+intvalue10 = intvalue10
+{{endif}}
+x{{:value2|lpad,intvalue10}}x

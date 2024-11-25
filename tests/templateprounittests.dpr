@@ -18,7 +18,7 @@ uses
 const
   TestFileNameFilter = '*'; // '*' means "all files'
 
-function SayHelloFilter(const aValue: TValue; const aParameters: TArray<String>): TValue;
+function SayHelloFilter(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue;
 begin
   Result := 'Hello ' + aValue.AsString;
 end;
