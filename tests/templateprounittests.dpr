@@ -1,7 +1,6 @@
 program templateprounittests;
 
 {$APPTYPE CONSOLE}
-
 {$R *.res}
 
 uses
@@ -32,7 +31,7 @@ var
 begin
   lBW := TBinaryWriter.Create(TFileStream.Create('output.tp', fmCreate or fmShareDenyNone), nil, True);
   try
-    lToken := TToken.Create(ttFor, 'value1','value2', -1, 2);
+    lToken := TToken.Create(ttFor, 'value1', 'value2', -1, 2);
     lToken.SaveToBytes(lBW);
   finally
     lBW.Free;
@@ -55,7 +54,7 @@ end;
 
 procedure TestWriteReadFromFile;
 var
-  lCompiler : TTProCompiler;
+  lCompiler: TTProCompiler;
   lCompiledTmpl: ITProCompiledTemplate;
   lOutput1: string;
   lOutput2: string;
@@ -67,7 +66,6 @@ begin
   finally
     lCompiler.Free;
   end;
-
 
   lCompiledTmpl := TTProCompiledTemplate.CreateFromFile('output.tpc');
   lCompiledTmpl.SetData('value1', 'Daniele');
@@ -91,17 +89,20 @@ var
   lInput: string;
   lItems, lItemsWithFalsy: TObjectList<TDataItem>;
 begin
-  var lFailed := False;
-  var lActualOutput: String := '';
+  var
+  lFailed := False;
+  var
+    lActualOutput: String := '';
   lTPro := TTProCompiler.Create;
   try
-    var lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro',
+    var
+    lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro',
       function(const Path: string; const SearchRec: TSearchRec): Boolean
       begin
-        Result := (not String(SearchRec.Name).StartsWith('included'))
-                   and (not String(SearchRec.Name).StartsWith('layout'))
-                   and ((TestFileNameFilter = '*') or String(SearchRec.Name).Contains(TestFileNameFilter));
-        Result := Result and not (String(SearchRec.Name).StartsWith('_'));
+        Result := (not String(SearchRec.Name).StartsWith('included')) and
+          (not String(SearchRec.Name).StartsWith('layout')) and ((TestFileNameFilter = '*') or String(SearchRec.Name)
+          .Contains(TestFileNameFilter));
+        Result := Result and not(String(SearchRec.Name).StartsWith('_'));
       end);
     for var lFile in lInputFileNames do
     begin
@@ -111,12 +112,13 @@ begin
           TFile.Delete(lFile + '.failed.txt');
         end;
 
-
         lInput := TFile.ReadAllText(lFile, TEncoding.UTF8);
         Write(TPath.GetFileName(lFile).PadRight(30));
-        var lTestScriptsFolder := TPath.Combine(GetModuleName(HInstance), '..', '..', 'test_scripts');
+        var
+        lTestScriptsFolder := TPath.Combine(GetModuleName(HInstance), '..', '..', 'test_scripts');
         lActualOutput := '';
-        var lCompiledTemplate: ITProCompiledTemplate;
+        var
+          lCompiledTemplate: ITProCompiledTemplate;
         try
           lCompiledTemplate := lTPro.Compile(lInput, lFile);
         except
@@ -128,8 +130,9 @@ begin
 
         if not lActualOutput.IsEmpty then
         begin
-          //compilation failed, check the expected exception message
-          var lExpectedExceptionMessage := TFile.ReadAllText(lFile + '.expected.exception.txt', TEncoding.UTF8);
+          // compilation failed, check the expected exception message
+          var
+          lExpectedExceptionMessage := TFile.ReadAllText(lFile + '.expected.exception.txt', TEncoding.UTF8);
           if lActualOutput <> lExpectedExceptionMessage then
           begin
             lFailed := True;
@@ -142,32 +145,32 @@ begin
           end;
           Continue;
         end;
-//        lCompiledTemplate.FormatSettings.DateSeparator := '-';
-//        lCompiledTemplate.FormatSettings.TimeSeparator := ':';
-//        lCompiledTemplate.FormatSettings.DecimalSeparator := '.';
-//        lCompiledTemplate.FormatSettings.ThousandSeparator := ',';
-//        lCompiledTemplate.FormatSettings.ShortDateFormat := 'yyyy-mm-dd';
-//        lCompiledTemplate.FormatSettings^ := TFormatSettings.Create('en-US');
-        lCompiledTemplate.SetData('value0','true');
-        lCompiledTemplate.SetData('value1','true');
-        lCompiledTemplate.SetData('value2','DANIELE2');
-        lCompiledTemplate.SetData('value3','DANIELE3');
-        lCompiledTemplate.SetData('value4','DANIELE4');
-        lCompiledTemplate.SetData('value5','DANIELE5');
-        lCompiledTemplate.SetData('value6','DANIELE6');
-        lCompiledTemplate.SetData('intvalue0',0);
-        lCompiledTemplate.SetData('intvalue1',1);
-        lCompiledTemplate.SetData('intvalue2',2);
-        lCompiledTemplate.SetData('intvalue10',10);
-        lCompiledTemplate.SetData('floatvalue',1234.5678);
-        lCompiledTemplate.SetData('myhtml','<div>this <strong>HTML</strong></div>');
-        lCompiledTemplate.SetData('valuedate', EncodeDate(2024, 8,20));
+        // lCompiledTemplate.FormatSettings.DateSeparator := '-';
+        // lCompiledTemplate.FormatSettings.TimeSeparator := ':';
+        // lCompiledTemplate.FormatSettings.DecimalSeparator := '.';
+        // lCompiledTemplate.FormatSettings.ThousandSeparator := ',';
+        // lCompiledTemplate.FormatSettings.ShortDateFormat := 'yyyy-mm-dd';
+        // lCompiledTemplate.FormatSettings^ := TFormatSettings.Create('en-US');
+        lCompiledTemplate.SetData('value0', 'true');
+        lCompiledTemplate.SetData('value1', 'true');
+        lCompiledTemplate.SetData('value2', 'DANIELE2');
+        lCompiledTemplate.SetData('value3', 'DANIELE3');
+        lCompiledTemplate.SetData('value4', 'DANIELE4');
+        lCompiledTemplate.SetData('value5', 'DANIELE5');
+        lCompiledTemplate.SetData('value6', 'DANIELE6');
+        lCompiledTemplate.SetData('intvalue0', 0);
+        lCompiledTemplate.SetData('intvalue1', 1);
+        lCompiledTemplate.SetData('intvalue2', 2);
+        lCompiledTemplate.SetData('intvalue10', 10);
+        lCompiledTemplate.SetData('floatvalue', 1234.5678);
+        lCompiledTemplate.SetData('myhtml', '<div>this <strong>HTML</strong></div>');
+        lCompiledTemplate.SetData('valuedate', EncodeDate(2024, 8, 20));
         lCompiledTemplate.SetData('valuedatetime', EncodeDateTime(2024, 8, 20, 10, 20, 30, 0));
         lCompiledTemplate.SetData('valuetime', EncodeTime(10, 20, 30, 0));
         lCompiledTemplate.SetData('phrasewithquotes', 'This "and that" with ''this and that''');
         lCompiledTemplate.AddFilter('sayhello', SayHelloFilter);
         lCompiledTemplate.OnGetValue :=
-          procedure(const DataSource, Members: string; var Value: TValue; var Handled: Boolean)
+            procedure(const DataSource, Members: string; var Value: TValue; var Handled: Boolean)
           begin
             if SameText(DataSource, 'external') then
             begin
@@ -194,23 +197,29 @@ begin
             end;
           end;
 
-        var lJSONArr := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'people.json')) as TJsonArray;
+        var
+        lJSONArr := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'people.json')) as TJsonArray;
         try
-          var lJSONObj := TJsonObject.Create;
+          var
+          lJSONObj := TJsonObject.Create;
           try
             lJSONObj.A['people'] := lJSONArr.Clone;
-            var lJSONObj2 := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'test.json')) as TJsonObject;
+            var
+            lJSONObj2 := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'test.json')) as TJsonObject;
             try
               lItems := GetItems;
               try
                 lItemsWithFalsy := GetItems(True);
                 try
                   lCompiledTemplate.SetData('obj', lItems[0]);
-                  var lCustomers := GetCustomersDataset;
+                  var
+                  lCustomers := GetCustomersDataset;
                   try
-                    var lCustomer := GetSingleCustomerDataset;
+                    var
+                    lCustomer := GetSingleCustomerDataset;
                     try
-                      var lEmptyDataSet := GetEmptyDataset;
+                      var
+                      lEmptyDataSet := GetEmptyDataset;
                       try
                         lCompiledTemplate.SetData('emptydataset', lEmptyDataSet);
                         lCompiledTemplate.SetData('customer', lCustomer);
@@ -228,11 +237,12 @@ begin
                             lActualOutput := E.Message;
                           end;
                         end;
-                        var lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
+                        var
+                        lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
                         if lActualOutput <> lExpectedOutput then
                         begin
                           WriteLn(' : FAILED');
-                          //lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
+                          // lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
                           TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
                           lFailed := True;
                         end
@@ -275,7 +285,7 @@ begin
       except
         on E: Exception do
         begin
-          Writeln(' : FAIL - ' + E.Message);
+          WriteLn(' : FAIL - ' + E.Message);
           lFailed := True;
         end;
       end;
@@ -293,15 +303,14 @@ begin
   end;
 end;
 
-
 begin
   ReportMemoryLeaksOnShutdown := True;
   try
     TDirectory.CreateDirectory('output');
-    Writeln('   |----------------------------------|');
-    Writeln('---| TEMPLATE PRO ' + TEMPLATEPRO_VERSION + '  - UNIT TESTS |---');
-    Writeln('   |----------------------------------|');
-    Writeln;
+    WriteLn('   |----------------------------------|');
+    WriteLn('---| TEMPLATE PRO ' + TEMPLATEPRO_VERSION + '  - UNIT TESTS |---');
+    WriteLn('   |----------------------------------|');
+    WriteLn;
     if TestFileNameFilter = '*' then
     begin
       TestTokenWriteReadFromFile;
@@ -311,8 +320,9 @@ begin
   except
     on E: Exception do
     begin
-      Writeln(E.ClassName, ': ', E.Message);
+      WriteLn(E.ClassName, ': ', E.Message);
       Halt(1);
     end;
   end;
+
 end.

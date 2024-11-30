@@ -5,9 +5,20 @@ program tproconsole;
 {$R *.res}
 
 uses
-  System.SysUtils, TemplatePro, Data.DB, FireDAC.Stan.Intf, FireDAC.Stan.Option,
-  FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf,
-  FireDAC.DApt.Intf, FireDAC.Comp.DataSet, FireDAC.Comp.Client, System.Rtti, JsonDataObjects;
+  System.SysUtils,
+  Data.DB,
+  FireDAC.Stan.Intf,
+  FireDAC.Stan.Option,
+  FireDAC.Stan.Param,
+  FireDAC.Stan.Error,
+  FireDAC.DatS,
+  FireDAC.Phys.Intf,
+  FireDAC.DApt.Intf,
+  FireDAC.Comp.DataSet,
+  FireDAC.Comp.Client,
+  System.Rtti,
+  JsonDataObjects,
+  TemplatePro in '..\..\TemplatePro.pas';
 
 function GetPeopleDataset: TDataSet;
 var
@@ -55,7 +66,7 @@ begin
   ChildObj.S['country'] := 'CA';
 end;
 
-function AddSquareBrackets(const aValue: TValue; const aParameters: TArray<string>): TValue;
+function AddSquareBrackets(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue;
 begin
   Result := '[' + aValue.AsString + ']';
 end;
@@ -64,38 +75,40 @@ procedure Main;
 begin
   var lCompiler := TTProCompiler.Create();
   try
-    var lTemplate :=
+    var lTemplate := '''
+                     Simple variable:
+                     {{:variable1}}
 
-    'Simple variable:                                                           ' + sLineBreak +
-    '{{:variable1}}                                                             ' + sLineBreak +
-    '                                                                           ' + sLineBreak +
-    'Using loops:                                                               ' + sLineBreak +
-    '{{for person in people}}                                                   ' + sLineBreak +
-    '  - {{:person.id}}) {{:person.first_name}}, {{:person.last_name}}          ' + sLineBreak +
-    '{{endfor}}                                                                 ' + sLineBreak +
-    '                                                                           ' + sLineBreak +
-    'Using if statement:                                                        ' + sLineBreak +
-    '{{if people}}People dataset contains records{{endif}}                      ' + sLineBreak +
-    '{{if !people}}People dataset doesn''t contain records{{endif}}             ' + sLineBreak +
-    '                                                                           ' + sLineBreak +
-    '                                                                           ' + sLineBreak +
-    'Using filters:                                                             ' + sLineBreak +
-    'uppercase: {{:variable1|uppercase}}                                        ' + sLineBreak +
-    'lowercase: {{:variable1|lowercase}}                                        ' + sLineBreak +
-    'lpad     : {{:variable1|lpad,20,"*"}}                                      ' + sLineBreak +
-    'rpad     : {{:variable1|rpad,20,"*"}}                                      ' + sLineBreak +
-    '                                                                           ' + sLineBreak +
-    'Using custom filters:                                                      ' + sLineBreak +
-    'brackets : {{:variable1|brackets}}                                         ' + sLineBreak +
-    '                                                                           ' + sLineBreak +
-    'Using json objects:                                                        ' + sLineBreak +
-    '{{:jobj.foo}}                                                              ' + sLineBreak +
-    '{{:jobj.bar}}                                                              ' + sLineBreak +
-    '{{""|lpad,40,"_"}}                                                         ' + sLineBreak +
-    '{{for item in jobj.myarray}}                                               ' + sLineBreak +
-    '  - {{:item.first_name}} {{:item.last_name}}                               ' + sLineBreak +
-    '    {{:item.company.name}} - {{:item.company.country}}                     ' + sLineBreak +
-    '{{endfor}}                                                                ' + sLineBreak;
+                     Using loops:
+                     {{for person in people}}
+                       - {{:person.id}}) {{:person.first_name}}, {{:person.last_name}}
+                     {{endfor}}
+
+                     Using if statement:
+                     {{if people}}People dataset contains records{{endif}}
+                     {{if !people}}People dataset doesn''t contain records{{endif}}
+
+
+                     Using filters:
+                     uppercase      : {{:variable1|uppercase}}
+                     lowercase      : {{:variable1|lowercase}}
+                     lpad           : {{:variable1|lpad,20,"*"}}
+                     rpad           : {{:variable1|rpad,20,"*"}}
+                     capitalize     : {{:variable1|capitalize}}
+                     trunc          : {{:variable1|trunc,5}}
+
+                     Using custom filters:
+                     brackets : {{:variable1|brackets}}
+
+                     Using json objects:
+                     {{:jobj.foo}}
+                     {{:jobj.bar}}
+                     {{""|lpad,40,"_"}}
+                     {{for item in jobj.myarray}}
+                       - {{:item.first_name}} {{:item.last_name}}
+                         {{:item.company.name}} - {{:item.company.country}}{{if item.company.country|eq,"ITALY"}} <--- {{endif}}
+                     {{endfor}}
+                     ''';
 
     var lCompiledTemplate := lCompiler.Compile(lTemplate);
     var lPeopleDataset := GetPeopleDataset;
