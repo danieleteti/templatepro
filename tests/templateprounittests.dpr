@@ -49,7 +49,7 @@ begin
   Assert(lToken.Value2 = lToken2.Value2);
   Assert(lToken.Ref1 = lToken2.Ref1);
   Assert(lToken.Ref2 = lToken2.Ref2);
-  WriteLn('TestTokenWriteReadFromFile     : OK');
+  WriteLn('TestTokenWriteReadFromFile       : OK');
 end;
 
 procedure TestWriteReadFromFile;
@@ -80,7 +80,7 @@ begin
   Assert('Daniele hello world Teti' = lOutput1);
   Assert('Bruce hello world Banner' = lOutput2);
 
-  WriteLn('TestWriteReadFromFile          : OK');
+  WriteLn('TestWriteReadFromFile            : OK');
 end;
 
 procedure Main;
@@ -113,7 +113,7 @@ begin
         end;
 
         lInput := TFile.ReadAllText(lFile, TEncoding.UTF8);
-        Write(TPath.GetFileName(lFile).PadRight(30));
+        Write(TPath.GetFileName(lFile).PadRight(32));
         var
         lTestScriptsFolder := TPath.Combine(GetModuleName(HInstance), '..', '..', 'test_scripts');
         lActualOutput := '';
@@ -131,12 +131,11 @@ begin
         if not lActualOutput.IsEmpty then
         begin
           // compilation failed, check the expected exception message
-          var
-          lExpectedExceptionMessage := TFile.ReadAllText(lFile + '.expected.exception.txt', TEncoding.UTF8);
+          var lExpectedExceptionMessage := TFile.ReadAllText(lFile + '.expected.exception.txt', TEncoding.UTF8);
           if lActualOutput <> lExpectedExceptionMessage then
           begin
             lFailed := True;
-            WriteLn(' : FAILED');
+            WriteLn(' : WRONG EXCEPTION');
             TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
           end
           else

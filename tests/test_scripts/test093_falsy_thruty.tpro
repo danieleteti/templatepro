@@ -9,3 +9,15 @@ true
 {{else}}
 WRONG
 {{endif}}
+---
+{{if notexists}}
+true
+{{else}}
+WRONG
+{{endif}}
+---
+{{if !notexists}}
+true
+{{else}}
+WRONG
+{{endif}}

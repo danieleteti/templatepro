@@ -71,6 +71,29 @@ begin
   Result := '[' + aValue.AsString + ']';
 end;
 
+function Sum(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue;
+var
+  lParCount: Integer;
+  lSumResult: Integer;
+  I: Integer;
+begin
+  if not aValue.IsEmpty then
+  begin
+    raise ETProRenderException.Create('"Sum" cannot be used as filter because is a function');
+  end;
+  lParCount := Length(aParameters);
+  lSumResult := 0;
+  for I := 0 to lParCount - 1 do
+  begin
+    if aParameters[I].ParType <> fptInteger then
+    begin
+      raise ETProRenderException.Create('"Sum" allows only integer parameters');
+    end;
+    lSumResult := lSumResult + aParameters[I].ParIntValue;
+  end;
+  Result := lSumResult;
+end;
+
 procedure Main;
 begin
   var lCompiler := TTProCompiler.Create();
@@ -100,6 +123,9 @@ begin
                      Using custom filters:
                      brackets : {{:variable1|brackets}}
 
+                     Using custom functions:
+                     sum : {{:|sum,1,2,3}}
+
                      Using json objects:
                      {{:jobj.foo}}
                      {{:jobj.bar}}
@@ -116,6 +142,7 @@ begin
       var lJObj := GetJSON;
       try
         lCompiledTemplate.AddFilter('brackets', AddSquareBrackets);
+        lCompiledTemplate.AddFilter('sum', Sum);
         lCompiledTemplate.SetData('variable1', 'Daniele Teti');
         lCompiledTemplate.SetData('people', lPeopleDataset);
         lCompiledTemplate.SetData('jobj', lJObj);

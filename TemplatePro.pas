@@ -903,7 +903,7 @@ begin
 
   if not MatchEndTag then
   begin
-    Error('Expected end tag "' + END_TAG + '" near ' + GetSubsequentText);
+    Error('Expected end tag "' + END_TAG + '"');
   end;
   lStartVerbatim := fCharIndex;
   aTokens.Add(TToken.Create(CurrToken, lIdentifier, '', lFilterParamsCount, lRef2));
@@ -1018,7 +1018,7 @@ begin
       lTmp := '';
       if not MatchVariable(lTmp) then
       begin
-        Error('Expected identifier after "' + aIdentifier + '" - got ' + GetSubsequentText);
+        Error('Expected identifier after "' + aIdentifier + '"');
       end;
       aIdentifier := aIdentifier + '.' + lTmp;
     end;
@@ -1325,7 +1325,7 @@ begin
         begin
           if not MatchEndTag then
           begin
-            Error('Expected end tag "' + END_TAG + '" near ' + GetSubsequentText);
+            Error('Expected end tag "' + END_TAG + '"');
           end;
           lStartVerbatim := fCharIndex;
           lLastToken := ttValue;
@@ -1347,7 +1347,7 @@ begin
         end
         else
         begin
-          Error('Expected variable or filter near ' + GetSubsequentText);
+          Error('Expected variable or filter');
         end;
       end
       else
@@ -1436,13 +1436,13 @@ begin
           begin
             MatchSpace;
             if not MatchVariable(lFuncName) then
-              Error('Invalid function name applied to variable ' + lVarName);
+              Error('Invalid function applied to variable ' + lIdentifier);
             lFuncParams := GetFunctionParameters;
             lFuncParamsCount := Length(lFuncParams);
           end;
           MatchSpace;
           if not MatchEndTag then
-            Error('Expected closing tag for "if"');
+            Error('Expected closing tag for "if" after "' + lIdentifier + '"');
           if lNegation then
           begin
             lIdentifier := '!' + lIdentifier;
@@ -1645,7 +1645,8 @@ end;
 
 procedure TTProCompiler.Error(const aMessage: string);
 begin
-  raise ETProCompilerException.CreateFmt('%s - at line %d in file %s', [aMessage, fCurrentLine, fCurrentFileName]);
+  raise ETProCompilerException.CreateFmt('%s - (got: "%s") at line %d in file %s',
+    [aMessage, GetSubsequentText, fCurrentLine, fCurrentFileName]);
 end;
 
 procedure TTProCompiler.ProcessJumps(const aTokens: TList<TToken>);
@@ -1893,15 +1894,21 @@ var
   I: Integer;
 begin
   Result := CurrentChar;
-  Step;
-  I := 0;
-  while (CurrentChar <> #0) and (CurrentChar <> END_TAG[1]) and (I < 20) do
+  if Result = #0 then
   begin
-    Result := Result + CurrentChar;
+    Result := '<eof>';
+  end
+  else
+  begin
     Step;
-    Inc(I);
+    I := 0;
+    while (CurrentChar <> #0) and (CurrentChar <> END_TAG[1]) and (I < 20) do
+    begin
+      Result := Result + CurrentChar;
+      Step;
+      Inc(I);
+    end;
   end;
-  Result := Result.QuotedString('"');
 end;
 
 procedure TTProCompiledTemplate.CheckParNumber(const aHowManyPars: Integer; const aParameters: TArray<TFilterParameter>);
