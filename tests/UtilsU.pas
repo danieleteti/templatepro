@@ -22,7 +22,7 @@ type
 
 function GetItems(const WithFalsyValues: Boolean = False): TObjectList<TDataItem>;
 function GetCustomersDataset: TDataSet;
-function GetPeopleDataset: TDataSet;
+function GetTestDataset: TDataSet;
 function GetSingleCustomerDataset: TDataSet;
 function GetEmptyDataset: TDataSet;
 
@@ -31,7 +31,8 @@ implementation
 uses
   FireDAC.Stan.Intf, FireDAC.Stan.Option,
   FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS, FireDAC.Phys.Intf,
-  FireDAC.DApt.Intf, FireDAC.Comp.DataSet, FireDAC.Comp.Client;
+  FireDAC.DApt.Intf, FireDAC.Comp.DataSet, FireDAC.Comp.Client,
+  System.SysUtils, Data.SqlTimSt, System.DateUtils;
 
 function GetCustomersDataset: TDataSet;
 var
@@ -101,21 +102,41 @@ begin
 end;
 
 
-function GetPeopleDataset: TDataSet;
+function GetTestDataset: TDataSet;
 var
   lMT: TFDMemTable;
 begin
   lMT := TFDMemTable.Create(nil);
   try
     lMT.FieldDefs.Clear;
-    lMT.FieldDefs.Add('first_name', ftString, 20);
-    lMT.FieldDefs.Add('last_name', ftString, 20);
+    lMT.FieldDefs.Add('field_ftString', ftString, 20);
+    lMT.FieldDefs.Add('field_ftInteger', ftInteger);
+    lMT.FieldDefs.Add('field_ftFloat', ftFloat);
+    lMT.FieldDefs.Add('field_ftSingle', ftSingle);
+    lMT.FieldDefs.Add('field_ftFMTBcd', ftFMTBcd);
+    lMT.FieldDefs.Add('field_ftTimeStamp', ftTimeStamp);
     lMT.Active := True;
-    lMT.AppendRecord(['Daniele', 'Teti']);
-    lMT.AppendRecord(['Peter', 'Parker']);
-    lMT.AppendRecord(['Bruce', 'Banner']);
-    lMT.AppendRecord(['Scott', 'Summers']);
-    lMT.AppendRecord(['Sue', 'Storm']);
+    var lBaseDate: TDate := EncodeDate(1979, 11, 4);
+    var lTimeStamp := DateTimeToTimeStamp(lBaseDate + 1.1);
+
+    lMT.Append;
+    lMT.FieldByName('field_ftString').AsString := 'Daniele Teti';
+    lMT.FieldByName('field_ftInteger').AsInteger := 1;
+    lMT.FieldByName('field_ftFloat').AsFloat := 123.456;
+    lMT.FieldByName('field_ftSingle').AsSingle := 123.456;
+    lMT.FieldByName('field_ftFMTBcd').AsBCD := 1234.5678;
+    lMT.FieldByName('field_ftTimeStamp').AsSQLTimeStamp := DateTimeToSQLTimeStamp(lBaseDate + OneMinute * 10);
+    lMT.Post;
+
+    lMT.Append;
+    lMT.FieldByName('field_ftString').AsString := 'Bruce Banner';
+    lMT.FieldByName('field_ftInteger').AsInteger := 2;
+    lMT.FieldByName('field_ftFloat').AsFloat := 234.567;
+    lMT.FieldByName('field_ftSingle').AsSingle := 234.567;
+    lMT.FieldByName('field_ftFMTBcd').AsBCD := 2345.5678;
+    lMT.FieldByName('field_ftTimeStamp').AsSQLTimeStamp := DateTimeToSQLTimeStamp(lBaseDate + OneMinute * 10);
+    lMT.Post;
+
     lMT.First;
     Result := lMT;
   except

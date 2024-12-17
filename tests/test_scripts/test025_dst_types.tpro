@@ -1,0 +1,10 @@
+DataSets Field Types
+{{for t in testdst}}
+field_ftString: {{:t.field_ftString}}
+field_ftInteger: {{:t.field_ftInteger}}
+field_ftFloat: {{:t.field_ftFloat}}
+field_ftSingle: {{:t.field_ftSingle}}
+field_ftFMTBcd: {{:t.field_ftFMTBcd}}
+field_ftTimeStamp: {{:t.field_ftTimeStamp}}
+
+{{endfor}}

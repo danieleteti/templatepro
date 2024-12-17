@@ -1,0 +1,15 @@
+DataSets Field Types
+field_ftString: Daniele Teti
+field_ftInteger: 1
+field_ftFloat: 123.456
+field_ftSingle: 123.456001281738
+field_ftFMTBcd: 1234.5678
+field_ftTimeStamp: 1979-11-04 00:10:00
+
+field_ftString: Bruce Banner
+field_ftInteger: 2
+field_ftFloat: 234.567
+field_ftSingle: 234.567001342773
+field_ftFMTBcd: 2345.5678
+field_ftTimeStamp: 1979-11-04 00:10:00
+
