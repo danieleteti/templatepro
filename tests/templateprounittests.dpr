@@ -1,6 +1,7 @@
-program templateprounittests;
+﻿program templateprounittests;
 
 {$APPTYPE CONSOLE}
+{$WARN SYMBOL_PLATFORM OFF}
 {$R *.res}
 
 uses
@@ -8,14 +9,16 @@ uses
   System.IOUtils,
   System.Rtti,
   System.Classes,
+  System.SysUtils,
+  System.StrUtils,
   System.DateUtils,
   UtilsU in 'UtilsU.pas',
   TemplatePro in '..\TemplatePro.pas',
   JsonDataObjects in '..\JsonDataObjects.pas',
-  MVCFramework.Nullables in '..\MVCFramework.Nullables.pas', System.SysUtils;
+  MVCFramework.Nullables in '..\MVCFramework.Nullables.pas';
 
 const
-  TestFileNameFilter = '*'; // '*' means "all files'
+  TestFileNameFilter = '*'; // '*' means "all files', '' means no file-based tests
 
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue;
 begin
@@ -52,6 +55,22 @@ begin
   WriteLn('TestTokenWriteReadFromFile       : OK');
 end;
 
+procedure TestHTMLEntities;
+begin
+  Assert(HTMLEncode('daniele') = 'daniele', '1000');
+  Assert(HTMLEncode('<div>hello</div>') = '&lt;div&gt;hello&lt;/div&gt;', '1010');
+  Assert(HTMLEncode('řšč') = '&#345;&#353;&#269;', '1020'); // https://r12a.github.io/app-conversion/
+  Assert(HTMLEncode('¢') = '&cent;', '1030');
+  Assert(HTMLEncode('£') = '&pound;', '1040');
+  Assert(HTMLEncode('€') = '&euro;', '1050');
+  Assert(HTMLEncode('©') = '&copy;', '1060');
+  Assert(HTMLEncode('®') = '&reg;', '1070'); // https://home.unicode.org/
+  Assert(HTMLEncode('ab😀cd') = 'ab&#128512;cd', '1080'); // https://home.unicode.org/
+  Assert(HTMLEncode('✌') = '&#9996;', HTMLEncode('✌')); // https://home.unicode.org/
+  Assert(HTMLEncode('👍') = '&#128077;', HTMLEncode('👍')); // https://home.unicode.org/
+  WriteLn('TestHTMLEntities                 : OK');
+end;
+
 procedure TestWriteReadFromFile;
 var
   lCompiler: TTProCompiler;
@@ -77,8 +96,8 @@ begin
   lCompiledTmpl.SetData('value2', 'Banner');
   lOutput2 := lCompiledTmpl.Render;
 
-  Assert('Daniele hello world Teti' = lOutput1);
-  Assert('Bruce hello world Banner' = lOutput2);
+  Assert('Daniele hello world Teti' = lOutput1, lOutput1);
+  Assert('Bruce hello world Banner' = lOutput2, lOutput2);
 
   WriteLn('TestWriteReadFromFile            : OK');
 end;
@@ -162,7 +181,7 @@ begin
         lCompiledTemplate.SetData('intvalue2', 2);
         lCompiledTemplate.SetData('intvalue10', 10);
         lCompiledTemplate.SetData('floatvalue', 1234.5678);
-        lCompiledTemplate.SetData('myhtml', '<div>this <strong>HTML</strong></div>');
+        lCompiledTemplate.SetData('myhtml', '<div>this <strong>HTML</strong>řšč</div>');
         lCompiledTemplate.SetData('valuedate', EncodeDate(2024, 8, 20));
         lCompiledTemplate.SetData('valuedatetime', EncodeDateTime(2024, 8, 20, 10, 20, 30, 0));
         lCompiledTemplate.SetData('valuetime', EncodeTime(10, 20, 30, 0));
@@ -296,8 +315,10 @@ begin
     lTPro.Free;
   end;
 
+{$IF Defined(MSWINDOWS)}
   if DebugHook <> 0 then
     Readln;
+{$ENDIF}
 
   if lFailed then
   begin
@@ -313,16 +334,22 @@ begin
     WriteLn('---| TEMPLATE PRO ' + TEMPLATEPRO_VERSION + '  - UNIT TESTS |---');
     WriteLn('   |----------------------------------|');
     WriteLn;
-    if TestFileNameFilter = '*' then
+    if (TestFileNameFilter = '') or (TestFileNameFilter = '*') then
     begin
       TestTokenWriteReadFromFile;
       TestWriteReadFromFile;
+      TestHTMLEntities;
     end;
     Main;
   except
     on E: Exception do
     begin
       WriteLn(E.ClassName, ': ', E.Message);
+      if DebugHook <> 0 then
+      begin
+        Write(E.Message);
+        ReadLn;
+      end;
       Halt(1);
     end;
   end;

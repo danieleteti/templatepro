@@ -294,7 +294,7 @@ implementation
 
 uses
   System.StrUtils, System.IOUtils, System.NetEncoding, System.Math, System.Character,
-  JsonDataObjects, MVCFramework.Nullables, Data.FmtBCD;
+  JsonDataObjects, MVCFramework.Nullables, Data.FmtBCD, Data.SqlTimSt;
 
 const
   Sign = ['-', '+'];
@@ -546,6 +546,8 @@ begin
       Result := TDate(Trunc(lField.AsDateTime));
     ftDateTime, ftTimeStamp:
       Result := lField.AsDateTime;
+    ftTimeStampOffset:
+      Result := TValue.From<TSQLTimeStampOffset>(lField.AsSQLTimeStampOffset);
     ftTime:
       Result := lField.AsDateTime;
     ftBoolean:
@@ -734,7 +736,7 @@ begin
   end
   else
   begin
-    if (Value.TypeInfo.Kind = tkRecord) and (Value.TypeInfo <> TypeInfo(TBcd)) then
+    if (Value.TypeInfo.Kind = tkRecord) and String(Value.TypeInfo.Name).StartsWith('nullable', True) then
     begin
       Result := '';
       if Value.TypeInfo = TypeInfo(NullableInt32) then
@@ -845,6 +847,16 @@ begin
             if Value.TypeInfo = TypeInfo(TBcd) then
             begin
               Result := BcdToStr(PBCD(Value.GetReferenceToRawData)^, fLocaleFormatSettings);
+            end
+            else if Value.TypeInfo = TypeInfo(TSQLTimeStampOffset) then
+            begin
+              Result := SQLTimeStampOffsetToStr(fLocaleFormatSettings.ShortDateFormat + fLocaleFormatSettings.ListSeparator + fLocaleFormatSettings.LongTimeFormat,
+                PSQLTimeStampOffset(Value.GetReferenceToRawData)^, fLocaleFormatSettings);
+            end
+            else if Value.TypeInfo = TypeInfo(TSQLTimeStamp) then
+            begin
+              Result := SQLTimeStampToStr(fLocaleFormatSettings.ShortDateFormat + fLocaleFormatSettings.ListSeparator + fLocaleFormatSettings.LongTimeFormat,
+                PSQLTimeStamp(Value.GetReferenceToRawData)^, fLocaleFormatSettings);
             end
             else
             begin
@@ -2257,217 +2269,242 @@ function HTMLEncode(s: string): string;
 var
   I: Integer;
   r: string;
-  b: byte;
+  b: UInt32;
+  C4: UCS4Char;
 begin
   I := 1;
   while I <= Length(s) do
   begin
     r := '';
-    b := Ord(s[I]);
-    case b of
-      Ord('>'):
-        r := 'gt';
-      Ord('<'):
-        r := 'lt';
-      34:
-        r := '#' + IntToStr(b);
-      39:
-        r := '#' + IntToStr(b);
-      43:
-        r := 'quot';
-      160:
-        r := 'nbsp';
-      161:
-        r := 'excl';
-      162:
-        r := 'cent';
-      163:
-        r := 'ound';
-      164:
-        r := 'curren';
-      165:
-        r := 'yen';
-      166:
-        r := 'brvbar';
-      167:
-        r := 'sect';
-      168:
-        r := 'uml';
-      169:
-        r := 'copy';
-      170:
-        r := 'ordf';
-      171:
-        r := 'laquo';
-      172:
-        r := 'not';
-      173:
-        r := 'shy';
-      174:
-        r := 'reg';
-      175:
-        r := 'macr';
-      176:
-        r := 'deg';
-      177:
-        r := 'plusmn';
-      178:
-        r := 'sup2';
-      179:
-        r := 'sup3';
-      180:
-        r := 'acute';
-      181:
-        r := 'micro';
-      182:
-        r := 'para';
-      183:
-        r := 'middot';
-      184:
-        r := 'cedil';
-      185:
-        r := 'sup1';
-      186:
-        r := 'ordm';
-      187:
-        r := 'raquo';
-      188:
-        r := 'frac14';
-      189:
-        r := 'frac12';
-      190:
-        r := 'frac34';
-      191:
-        r := 'iquest';
-      192:
-        r := 'Agrave';
-      193:
-        r := 'Aacute';
-      194:
-        r := 'Acirc';
-      195:
-        r := 'Atilde';
-      196:
-        r := 'Auml';
-      197:
-        r := 'Aring';
-      198:
-        r := 'AElig';
-      199:
-        r := 'Ccedil';
-      200:
-        r := 'Egrave';
-      201:
-        r := 'Eacute';
-      202:
-        r := 'Ecirc';
-      203:
-        r := 'Euml';
-      204:
-        r := 'Igrave';
-      205:
-        r := 'Iacute';
-      206:
-        r := 'Icirc';
-      207:
-        r := 'Iuml';
-      208:
-        r := 'ETH';
-      209:
-        r := 'Ntilde';
-      210:
-        r := 'Ograve';
-      211:
-        r := 'Oacute';
-      212:
-        r := 'Ocirc';
-      213:
-        r := 'Otilde';
-      214:
-        r := 'Ouml';
-      215:
-        r := 'times';
-      216:
-        r := 'Oslash';
-      217:
-        r := 'Ugrave';
-      218:
-        r := 'Uacute';
-      219:
-        r := 'Ucirc';
-      220:
-        r := 'Uuml';
-      221:
-        r := 'Yacute';
-      222:
-        r := 'THORN';
-      223:
-        r := 'szlig';
-      224:
-        r := 'agrave';
-      225:
-        r := 'aacute';
-      226:
-        r := 'acirc';
-      227:
-        r := 'atilde';
-      228:
-        r := 'auml';
-      229:
-        r := 'aring';
-      230:
-        r := 'aelig';
-      231:
-        r := 'ccedil';
-      232:
-        r := 'egrave';
-      233:
-        r := 'eacute';
-      234:
-        r := 'ecirc';
-      235:
-        r := 'euml';
-      236:
-        r := 'igrave';
-      237:
-        r := 'iacute';
-      238:
-        r := 'icirc';
-      239:
-        r := 'iuml';
-      240:
-        r := 'eth';
-      241:
-        r := 'ntilde';
-      242:
-        r := 'ograve';
-      243:
-        r := 'oacute';
-      244:
-        r := 'ocirc';
-      245:
-        r := 'otilde';
-      246:
-        r := 'ouml';
-      247:
-        r := 'divide';
-      248:
-        r := 'oslash';
-      249:
-        r := 'ugrave';
-      250:
-        r := 'uacute';
-      251:
-        r := 'ucirc';
-      252:
-        r := 'uuml';
-      253:
-        r := 'yacute';
-      254:
-        r := 'thorn';
-      255:
-        r := 'yuml';
+    if (Char.IsHighSurrogate(S, I-1)) and (Char.IsLowSurrogate(S, I)) then
+    begin
+      C4 := Char.ConvertToUtf32(S, I-1);
+      r := IntToStr(C4);
+      s := s.Substring(0, I-1) + '&#' + r + ';' + s.Substring(I+1);
+      Inc(I,r.Length + 3);
+      Continue;
+    end
+    else
+    begin
+      b := Ord(S[I]);
+      if b > 255 then
+      begin
+        if b = 8364 then
+          r := 'euro'
+        else
+          r := '#' + IntToStr(b);
+      end
+      else
+      begin
+{$REGION 'entities'}
+      case b of
+        Ord('>'):
+          r := 'gt';
+        Ord('<'):
+          r := 'lt';
+        34:
+          r := '#' + IntToStr(b);
+        39:
+          r := '#' + IntToStr(b);
+        43:
+          r := 'quot';
+        160:
+          r := 'nbsp';
+        161:
+          r := 'excl';
+        162:
+          r := 'cent';
+        163:
+          r := 'pound';
+        164:
+          r := 'curren';
+        165:
+          r := 'yen';
+        166:
+          r := 'brvbar';
+        167:
+          r := 'sect';
+        168:
+          r := 'uml';
+        169:
+          r := 'copy';
+        170:
+          r := 'ordf';
+        171:
+          r := 'laquo';
+        172:
+          r := 'not';
+        173:
+          r := 'shy';
+        174:
+          r := 'reg';
+        175:
+          r := 'macr';
+        176:
+          r := 'deg';
+        177:
+          r := 'plusmn';
+        178:
+          r := 'sup2';
+        179:
+          r := 'sup3';
+        180:
+          r := 'acute';
+        181:
+          r := 'micro';
+        182:
+          r := 'para';
+        183:
+          r := 'middot';
+        184:
+          r := 'cedil';
+        185:
+          r := 'sup1';
+        186:
+          r := 'ordm';
+        187:
+          r := 'raquo';
+        188:
+          r := 'frac14';
+        189:
+          r := 'frac12';
+        190:
+          r := 'frac34';
+        191:
+          r := 'iquest';
+        192:
+          r := 'Agrave';
+        193:
+          r := 'Aacute';
+        194:
+          r := 'Acirc';
+        195:
+          r := 'Atilde';
+        196:
+          r := 'Auml';
+        197:
+          r := 'Aring';
+        198:
+          r := 'AElig';
+        199:
+          r := 'Ccedil';
+        200:
+          r := 'Egrave';
+        201:
+          r := 'Eacute';
+        202:
+          r := 'Ecirc';
+        203:
+          r := 'Euml';
+        204:
+          r := 'Igrave';
+        205:
+          r := 'Iacute';
+        206:
+          r := 'Icirc';
+        207:
+          r := 'Iuml';
+        208:
+          r := 'ETH';
+        209:
+          r := 'Ntilde';
+        210:
+          r := 'Ograve';
+        211:
+          r := 'Oacute';
+        212:
+          r := 'Ocirc';
+        213:
+          r := 'Otilde';
+        214:
+          r := 'Ouml';
+        215:
+          r := 'times';
+        216:
+          r := 'Oslash';
+        217:
+          r := 'Ugrave';
+        218:
+          r := 'Uacute';
+        219:
+          r := 'Ucirc';
+        220:
+          r := 'Uuml';
+        221:
+          r := 'Yacute';
+        222:
+          r := 'THORN';
+        223:
+          r := 'szlig';
+        224:
+          r := 'agrave';
+        225:
+          r := 'aacute';
+        226:
+          r := 'acirc';
+        227:
+          r := 'atilde';
+        228:
+          r := 'auml';
+        229:
+          r := 'aring';
+        230:
+          r := 'aelig';
+        231:
+          r := 'ccedil';
+        232:
+          r := 'egrave';
+        233:
+          r := 'eacute';
+        234:
+          r := 'ecirc';
+        235:
+          r := 'euml';
+        236:
+          r := 'igrave';
+        237:
+          r := 'iacute';
+        238:
+          r := 'icirc';
+        239:
+          r := 'iuml';
+        240:
+          r := 'eth';
+        241:
+          r := 'ntilde';
+        242:
+          r := 'ograve';
+        243:
+          r := 'oacute';
+        244:
+          r := 'ocirc';
+        245:
+          r := 'otilde';
+        246:
+          r := 'ouml';
+        247:
+          r := 'divide';
+        248:
+          r := 'oslash';
+        249:
+          r := 'ugrave';
+        250:
+          r := 'uacute';
+        251:
+          r := 'ucirc';
+        252:
+          r := 'uuml';
+        253:
+          r := 'yacute';
+        254:
+          r := 'thorn';
+        255:
+          r := 'yuml';
+      end;
+{$ENDREGION}
+      end;
     end;
+
     if r <> '' then
     begin
       s := s.Replace(s[I], '&' + r + ';', []);

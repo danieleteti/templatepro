@@ -1,5 +1,5 @@
 HTML Encoded
-&lt;div&gt;this &lt;strong&gt;HTML&lt;/strong&gt;&lt;/div&gt;
+&lt;div&gt;this &lt;strong&gt;HTML&lt;/strong&gt;&#345;&#353;&#269;&lt;/div&gt;
 
 HTML Raw
-<div>this <strong>HTML</strong></div>
+<div>this <strong>HTML</strong>řšč</div>
