@@ -53,6 +53,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: FERRARI
   Customer lowercase: ferrari  
@@ -69,6 +72,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: LOTUS
   Customer lowercase: lotus  
@@ -85,6 +91,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: FCA
   Customer lowercase: fca  
@@ -101,6 +110,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: HYUNDAI
   Customer lowercase: hyundai  
@@ -117,6 +129,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: DE TOMASO
   Customer lowercase: de tomaso  
@@ -133,6 +148,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: DODGE
   Customer lowercase: dodge  
@@ -149,6 +167,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: TESLA
   Customer lowercase: tesla  
@@ -165,6 +186,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: KIA
   Customer lowercase: kia  
@@ -181,6 +205,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: TATA
   Customer lowercase: tata  
@@ -197,6 +224,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: VOLKSWAGEN
   Customer lowercase: volkswagen  
@@ -213,6 +243,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: AUDI
   Customer lowercase: audi  
@@ -229,6 +262,9 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
   Customer uppercase: SKODA
   Customer lowercase: skoda  
@@ -245,5 +281,8 @@ intvalue0 ne intvalue1
   Customer round 1234,6
   Customer round 1235
   Customer round 1200  
+  Customer formatfloat 1235  
+  Customer formatfloat 1234.56780    
+  Customer formatfloat 1234.6      
 
 

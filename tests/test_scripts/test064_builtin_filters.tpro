@@ -70,6 +70,9 @@ intvalue0 ne intvalue1
   Customer round {{:floatvalue|round,-1}}
   Customer round {{:floatvalue|round,0}}
   Customer round {{:floatvalue|round,intvalue2}}  
+  Customer formatfloat {{:floatvalue|formatfloat,"0"}}  
+  Customer formatfloat {{:floatvalue|formatfloat,"0.00000"}}    
+  Customer formatfloat {{:floatvalue|formatfloat,"###.0"}}      
 
 {{endfor}}
 
