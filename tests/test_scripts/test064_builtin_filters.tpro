@@ -73,6 +73,9 @@ intvalue0 ne intvalue1
   Customer formatfloat {{:floatvalue|formatfloat,"0"}}  
   Customer formatfloat {{:floatvalue|formatfloat,"0.00000"}}    
   Customer formatfloat {{:floatvalue|formatfloat,"###.0"}}      
+  Customer formatfloat {{:intvalue0|formatfloat,"##0.000"}}
+  Customer formatfloat {{:intvalue1|formatfloat,"##0.000"}}  
+  Customer formatfloat {{:intvalue1|formatfloat,"##0"}}    
 
 {{endfor}}
 
