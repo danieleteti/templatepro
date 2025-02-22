@@ -1,0 +1,16 @@
+************* Nested List of objects
+1° Level |Str0|0|
+            2° Level |SimpleDataItem0|
+            2° Level |SimpleDataItem1|
+            2° Level |SimpleDataItem2|
+    ---
+1° Level |Str1|1|
+            2° Level |SimpleDataItem0|
+            2° Level |SimpleDataItem1|
+            2° Level |SimpleDataItem2|
+    ---
+1° Level |Str2|2|
+            2° Level |SimpleDataItem0|
+            2° Level |SimpleDataItem1|
+            2° Level |SimpleDataItem2|
+    ---

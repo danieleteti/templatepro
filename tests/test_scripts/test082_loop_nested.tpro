@@ -1,0 +1,15 @@
+************* Nested List of objects
+{{for dataitem in dataitems}}
+1° Level |{{:dataitem.PropStr}}|{{:dataitem.PropInt}}|
+    {{for dataitem2 in dataitem.dataitemlist}}
+        2° Level |{{:dataitem2.Value1}}|
+    {{endfor}}
+---
+{{endfor}}
+
+
+** SIMPLE NESTED **
+{{:nested | json}}
+{{exit}}
+{{:nested.ValueNested1}}
+{{:nested.SimpleNested2.ValueNested2}}

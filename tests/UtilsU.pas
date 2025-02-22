@@ -20,6 +20,61 @@ type
     property PropInt: Integer read fPropInt write fPropInt;
   end;
 
+  TSimpleNested3 = class
+  private
+    fValueNested3: String;
+  public
+    constructor Create(ValueNested3: String);
+    property ValueNested3: String read fValueNested3;
+  end;
+
+  TSimpleNested2 = class
+  private
+    fValueNested2: String;
+    fSimpleNested3: TSimpleNested3;
+  public
+    constructor Create(ValueNested2: String);
+    property SimpleNested3: TSimpleNested3 read fSimpleNested3;
+    property ValueNested2: String read fValueNested2;
+  end;
+
+  TSimpleNested1 = class
+  private
+    fValueNested1: String;
+    fSimpleNested2: TSimpleNested2;
+  public
+    constructor Create(ValueNested1: String);
+    property SimpleNested2: TSimpleNested2 read fSimpleNested2;
+    property ValueNested1: String read fValueNested1 write fValueNested1;
+  end;
+
+  TSimpleDataItem = class
+  private
+    FValue1: String;
+  public
+    constructor Create(Value1: String);
+    property Value1: String read FValue1;
+  end;
+
+  {A class with its simple properties and then a list with is a list of another class instances}
+  TDataItemWithChild = class
+  private
+    fPropStr: string;
+    fPropInt: Integer;
+    fDataItemList: TObjectList<TSimpleDataItem>;
+  public
+    constructor Create(const Str: String; const Int: Integer);
+    destructor Destroy; override;
+    property PropStr: String read fPropStr;
+    property PropInt: Integer read fPropInt;
+    property DataItemList: TObjectList<TSimpleDataItem> read FDataItemList;
+  end;
+
+  TDataItemWithChildList = class(TObjectList<TDataItemWithChild>)
+  public
+    constructor Create(const Value1, Value2, Value3: string; const IntValue: Integer);
+  end;
+
 function GetItems(const WithFalsyValues: Boolean = False): TObjectList<TDataItem>;
 function GetCustomersDataset: TDataSet;
 function GetTestDataset: TDataSet;
@@ -172,6 +227,71 @@ begin
   fProp2 := Value2;
   fProp3 := Value3;
   fPropInt := IntValue;
+end;
+
+{ TDataItemWithChild }
+
+constructor TDataItemWithChild.Create(const Str: String; const Int: Integer);
+begin
+  inherited Create;
+  fPropStr := Str;
+  fPropInt := Int;
+  FDataItemList := TObjectList<TSimpleDataItem>.Create(True);
+  for var I := 0 to 2 do
+  begin
+    FDataItemList.Add(TSimpleDataItem.Create('SimpleDataItem' + I.ToString));
+  end;
+end;
+
+destructor TDataItemWithChild.Destroy;
+begin
+  FDataItemList.Free;
+  inherited;
+end;
+
+{ TDataItemsWithChild }
+
+constructor TDataItemWithChildList.Create(const Value1, Value2, Value3: string; const IntValue: Integer);
+begin
+  inherited Create(True);
+  for var I := 0 to 2 do
+  begin
+    Add(TDataItemWithChild.Create('Str' + I.ToString, I));
+  end;
+end;
+
+{ TSimpleDataItem }
+
+constructor TSimpleDataItem.Create(Value1: String);
+begin
+  inherited Create;
+  FValue1 := Value1;
+end;
+
+{ TSimpleNested2 }
+
+constructor TSimpleNested2.Create(ValueNested2: String);
+begin
+  inherited Create;
+  fValueNested2 := ValueNested2;
+  fSimpleNested3 := TSimpleNested3.Create(ValueNested2 + '.3');
+end;
+
+{ TSimpleNested1 }
+
+constructor TSimpleNested1.Create(ValueNested1: String);
+begin
+  inherited Create;
+  fValueNested1 := ValueNested1;
+  fSimpleNested2 := TSimpleNested2.Create(ValueNested1 + '.2');
+end;
+
+{ TSimpleNested3 }
+
+constructor TSimpleNested3.Create(ValueNested3: String);
+begin
+  inherited Create;
+  fValueNested3 := ValueNested3;
 end;
 
 end.
