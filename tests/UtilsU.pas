@@ -3,7 +3,7 @@ unit UtilsU;
 interface
 
 uses
-  System.Generics.Collections, Data.DB;
+  System.Generics.Collections, Data.DB, System.Rtti, TemplatePro;
 
 type
   TDataItem = class
@@ -282,8 +282,8 @@ end;
 constructor TSimpleNested1.Create(ValueNested1: String);
 begin
   inherited Create;
-  fValueNested1 := ValueNested1;
-  fSimpleNested2 := TSimpleNested2.Create(ValueNested1 + '.2');
+  fValueNested1 := ValueNested1 + '.1';
+  fSimpleNested2 := TSimpleNested2.Create(fValueNested1 + '.2');
 end;
 
 { TSimpleNested3 }

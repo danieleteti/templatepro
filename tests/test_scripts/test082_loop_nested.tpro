@@ -9,7 +9,6 @@
 
 
 ** SIMPLE NESTED **
-{{:nested | json}}
-{{exit}}
 {{:nested.ValueNested1}}
-{{:nested.SimpleNested2.ValueNested2}}
+{{:nested.simplenested2.valuenested2}}
+{{:nested.simplenested2.simplenested3.valuenested3}}

@@ -18,7 +18,7 @@ uses
   MVCFramework.Nullables in '..\MVCFramework.Nullables.pas';
 
 const
-  TestFileNameFilter = '082'; // '*' means "all files', '' means no file-based tests
+  TestFileNameFilter = '*'; // '*' means "all files', '' means no file-based tests
 
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue;
 begin

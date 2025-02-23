@@ -734,9 +734,12 @@ begin
     end;
     Result := GetTValueFromPath(lObjAsList.GetItem(lIdx), FullPropertyPath);
   end
-  else if FullPropertyPath.StartsWith('.') then
+  else
   begin
-    FullPropertyPath := FullPropertyPath.Remove(0,1);
+    if FullPropertyPath.StartsWith('.') then
+    begin
+      FullPropertyPath := FullPropertyPath.Remove(0,1);
+    end;
     lPropName := FetchUpTo('.');
     lTmpValue := TTProRTTIUtils.GetProperty(aObject, lPropName);
     if (not FullPropertyPath.IsEmpty) then
@@ -749,10 +752,6 @@ begin
     begin
       Result := lTmpValue;
     end;
-  end
-  else
-  begin
-    raise ETProException.Create('Invalid Path');
   end;
 end;
 
@@ -3361,9 +3360,13 @@ begin
     else if viObject in lVariable.VarOption then
     begin
       if lHasMember then
-        Result := TTProRTTIUtils.GetProperty(lVariable.VarValue.AsObject, lVarMembers)
+      begin
+        Result := GetTValueFromPath(lVariable.VarValue.AsObject, lVarMembers);
+      end
       else
+      begin
         Result := lVariable.VarValue;
+      end;
     end
     else if viSimpleType in lVariable.VarOption then
     begin

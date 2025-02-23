@@ -14,3 +14,9 @@
             2° Level |SimpleDataItem1|
             2° Level |SimpleDataItem2|
     ---
+
+
+** SIMPLE NESTED **
+ValueNested.1
+ValueNested.1.2
+ValueNested.1.2.3
