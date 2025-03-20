@@ -164,14 +164,19 @@ type
   TTProCompiledTemplateEvent = reference to procedure(const TemplateProCompiledTemplate: ITProCompiledTemplate);
 
   TLoopStackItem = class
+  strict private
+    fIteratorPosition: Integer;
+    procedure SetFullPath(const Value: String);
+    procedure SetIteratorPosition(const Value: Integer);
   protected
     DataSourceName: String;
     LoopExpression: String;
-    FullPath: String;
+    fFullPath: String;
     IteratorName: String;
-    IteratorPosition: Integer;
+    property IteratorPosition: Integer read fIteratorPosition write SetIteratorPosition;
     function IncrementIteratorPosition: Integer;
     constructor Create(DataSourceName: String; LoopExpression: String; FullPath: String; IteratorName: String);
+    property FullPath: String read fFullPath write SetFullPath;
   end;
 
   TTProTemplateSectionType = (stUnknown, stLayout, stPage);
@@ -199,7 +204,6 @@ type
     function IsTruthy(const Value: TValue): Boolean;
     function GetVarAsString(const Name: string): string;
     function GetTValueVarAsString(const Value: PValue; const VarName: string = ''): String;
-    function GetTValueFromPath(const aObject: TObject; FullPropertyPath: String): TValue;
     function GetNullableTValueAsTValue(const Value: PValue; const VarName: string = ''): TValue;
     function GetVarAsTValue(const aName: string): TValue;
     function GetDataSetFieldAsTValue(const aDataSet: TDataSet; const FieldName: String): TValue;
@@ -294,6 +298,7 @@ type
 function HTMLEncode(s: string): string;
 function HandleTemplateSectionStateMachine(const aTokenValue1: String; var aTemplateSectionType: TTProTemplateSectionType;
   out aErrorMessage: String): Boolean;
+function GetTValueFromPath(const aObject: TObject; FullPropertyPath: String): TValue;
 
 implementation
 
@@ -358,6 +363,21 @@ procedure FunctionError(const aFunctionName, aErrMessage: string);
 begin
   raise ETProRenderException.Create(Format('[%1:s] %0:s (error in filter call for function [%1:s])', [aErrMessage, aFunctionName]))
     at ReturnAddress;
+end;
+
+function GetParentObjectPathToIterate(const FullPath: String): String;
+var
+  lLastOpenBracket: Integer;
+begin
+  if FullPath.EndsWith(']') then
+  begin
+    lLastOpenBracket := FullPath.LastIndexOf('[');
+    Result := FullPath.Remove(lLastOpenBracket);
+  end
+  else
+  begin
+    Result := FullPath;
+  end;
 end;
 
 function TTProCompiledTemplate.ComparandOperator(const aComparandType: TComparandType; const aValue: TValue;
@@ -698,79 +718,6 @@ begin
   else
   begin
     Result := TValue.Empty;
-  end;
-end;
-
-function TTProCompiledTemplate.GetTValueFromPath(const aObject: TObject; FullPropertyPath: String): TValue;
-var
-  lObjAsList: ITProWrappedList;
-  lIdx: Integer;
-  lPropName: string;
-  lTmpValue: TValue;
-  function FetchUpTo(const aChar: Char): String;
-  var
-    lFirst: Integer;
-  begin
-    lFirst := FullPropertyPath.IndexOf(aChar);
-    if lFirst = -1 then
-    begin
-      Result := FullPropertyPath;
-    end
-    else
-    begin
-      Result := FullPropertyPath.Substring(0, lFirst);
-    end;
-    FullPropertyPath := FullPropertyPath.Substring(Length(Result) + 1);
-  end;
-begin
-  if FullPropertyPath = '.' then
-  begin
-    Exit(aObject);
-  end;
-
-  if FullPropertyPath.StartsWith('[') then //the main object must be a list!
-  begin
-    lObjAsList := WrapAsList(aObject);
-    FullPropertyPath := FullPropertyPath.Remove(0,1);
-    lIdx := FetchUpTo(']').ToInteger;
-//    if FullPropertyPath.IsEmpty then
-//    begin
-//      raise ETProException.Create('Invalid Path - No property name after index');
-//    end;
-    Result := GetTValueFromPath(lObjAsList.GetItem(lIdx), FullPropertyPath);
-  end
-  else
-  begin
-    if FullPropertyPath.StartsWith('.') then
-    begin
-      FullPropertyPath := FullPropertyPath.Remove(0,1);
-    end;
-    if FullPropertyPath.StartsWith('[') then
-    begin
-      Result := GetTValueFromPath(aObject, FullPropertyPath);
-    end
-    else
-    begin
-      lPropName := FetchUpTo('.');
-      if lPropName.IsEmpty then
-      begin
-        Result := aObject;
-      end
-      else
-      begin
-        lTmpValue := TTProRTTIUtils.GetProperty(aObject, lPropName);
-        if (not FullPropertyPath.IsEmpty) then
-        begin
-          if not lTmpValue.IsObject then
-            raise ETProException.Create('Invalid Path - cannot read property of a non object');
-          Result := GetTValueFromPath(lTmpValue.AsObject, FullPropertyPath);
-        end
-        else
-        begin
-          Result := lTmpValue;
-        end;
-      end;
-    end;
   end;
 end;
 
@@ -2843,6 +2790,9 @@ var
   lErrorMessage: String;
   lBlockReturnAddress: Int64;
   lCurrentBlockName: string;
+  lObj: TValue;
+  lRadixPath: string;
+  lLastOpenBracket: Integer;
 
 begin
   lBlockReturnAddress := -1;
@@ -2864,13 +2814,6 @@ begin
             if LoopStackIsEmpty or (lForLoopItem.LoopExpression <> fTokens[lIdx].Value1) then
             begin // push a new loop stack item
               SplitVariableName(fTokens[lIdx].Value1, lVarName, lVarMember);
-              { lVarName maybe an iterator, so I've to walk the stack to know
-                the real information about the iterator }
-//              if not lVarMember.IsEmpty then
-//              begin
-//                lVarName := lVarName + '.' + lVarMember;
-//              end;
-
               if WalkThroughLoopStack(lVarName, lBaseVarName, lFullPath) then
               begin
                 if not lVarMember.IsEmpty then
@@ -2911,15 +2854,18 @@ begin
               else if viListOfObject in lVariable.VarOption then
               begin
                 {TODO -oDanieleT -cGeneral : We need only .Count here. Could we use something lighter than WrapAsList?}
-                lWrapped := WrapAsList(lVariable.VarValue.AsObject);
+                lRadixPath := GetParentObjectPathToIterate(lForLoopItem.FullPath);
+                //lObj := GetTValueFromPath(lVariable.VarValue.AsObject, lForLoopItem.FullPath);
+                lObj := GetTValueFromPath(lVariable.VarValue.AsObject, lRadixPath);
+                lWrapped := WrapAsList(lObj.AsObject);
                 if lForLoopItem.IteratorPosition = lWrapped.Count - 1 then
                 begin
-                  lIdx := fTokens[lIdx].Ref1; // skip to endif
+                  lIdx := fTokens[lIdx].Ref1; // skip to endfor
                   Continue;
                 end
                 else
                 begin
-                  PeekLoop.IncrementIteratorPosition;
+                  lForLoopItem.IncrementIteratorPosition;
                 end;
               end
               else if viJSONObject in lVariable.VarOption then
@@ -2964,6 +2910,7 @@ begin
               Error(Format('Unknown variable in for..in statement [%s]', [fTokens[lIdx].Value1]));
             end;
           end;
+
         ttEndFor:
           begin
             if LoopStackIsEmpty then
@@ -3006,7 +2953,9 @@ begin
               else if viListOfObject in lVariable.VarOption then
               begin
                 {TODO -oDanieleT -cGeneral : We need only .Count here. Could we use something lighter than WrapAsList?}
-                lWrapped := TTProDuckTypedList.Wrap(lVariable.VarValue.AsObject);
+                lRadixPath := GetParentObjectPathToIterate(lForLoopItem.FullPath);
+                lObj := GetTValueFromPath(lVariable.VarValue.AsObject, lRadixPath);
+                lWrapped := WrapAsList(lObj.AsObject);
                 if lForLoopItem.IteratorPosition < lWrapped.Count - 1 then
                 begin
                   lIdx := fTokens[lIdx].Ref1; // skip to loop
@@ -3951,8 +3900,18 @@ end;
 
 function TLoopStackItem.IncrementIteratorPosition: Integer;
 begin
-  Inc(IteratorPosition);
+  Inc(fIteratorPosition);
   Result := IteratorPosition;
+end;
+
+procedure TLoopStackItem.SetFullPath(const Value: String);
+begin
+  fFullPath := Value;
+end;
+
+procedure TLoopStackItem.SetIteratorPosition(const Value: Integer);
+begin
+  fIteratorPosition := Value;
 end;
 
 { TTProConfiguration }
@@ -4016,6 +3975,78 @@ begin
   // Result := BobJenkinsHash(Value[1], Length(Value) * SizeOf(Value[1]), 0);
   Result := Length(Value);
 end;
+
+
+
+function GetTValueFromPath(const aObject: TObject; FullPropertyPath: String): TValue;
+var
+  lObjAsList: ITProWrappedList;
+  lIdx: Integer;
+  lPropName: string;
+  lTmpValue: TValue;
+  function FetchUpTo(const aChar: Char): String;
+  var
+    lFirst: Integer;
+  begin
+    lFirst := FullPropertyPath.IndexOf(aChar);
+    if lFirst = -1 then
+    begin
+      Result := FullPropertyPath;
+    end
+    else
+    begin
+      Result := FullPropertyPath.Substring(0, lFirst);
+    end;
+    FullPropertyPath := FullPropertyPath.Substring(Length(Result) + 1);
+  end;
+begin
+  if FullPropertyPath = '.' then
+  begin
+    Exit(aObject);
+  end;
+
+  if FullPropertyPath.StartsWith('[') then //the main object must be a list!
+  begin
+    lObjAsList := WrapAsList(aObject);
+    FullPropertyPath := FullPropertyPath.Remove(0,1);
+    lIdx := FetchUpTo(']').ToInteger;
+    Result := GetTValueFromPath(lObjAsList.GetItem(lIdx), FullPropertyPath);
+  end
+  else
+  begin
+    if FullPropertyPath.StartsWith('.') then
+    begin
+      FullPropertyPath := FullPropertyPath.Remove(0,1);
+    end;
+    if FullPropertyPath.StartsWith('[') then
+    begin
+      Result := GetTValueFromPath(aObject, FullPropertyPath);
+    end
+    else
+    begin
+      lPropName := FetchUpTo('.');
+      if lPropName.IsEmpty then
+      begin
+        Result := aObject;
+      end
+      else
+      begin
+        lTmpValue := TTProRTTIUtils.GetProperty(aObject, lPropName);
+        if (not FullPropertyPath.IsEmpty) then
+        begin
+          if not lTmpValue.IsObject then
+            raise ETProException.Create('Invalid Path - cannot read property of a non object');
+          Result := GetTValueFromPath(lTmpValue.AsObject, FullPropertyPath);
+        end
+        else
+        begin
+          Result := lTmpValue;
+        end;
+      end;
+    end;
+  end;
+end;
+
 
 initialization
 

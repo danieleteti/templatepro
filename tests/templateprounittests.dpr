@@ -18,7 +18,7 @@ uses
   MVCFramework.Nullables in '..\MVCFramework.Nullables.pas';
 
 const
-  TestFileNameFilter = '*'; // '*' means "all files', '' means no file-based tests
+  TestFileNameFilter = '084'; // '*' means "all files', '' means no file-based tests
 
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue;
 begin
@@ -71,6 +71,69 @@ begin
   WriteLn('TestHTMLEntities                 : OK');
 end;
 
+procedure TestGetTValueFromPath;
+  procedure SimpleObject;
+  begin
+    var lObj := TDataItem.Create('Value1', 'Value2', 'Value3', 4);
+    try
+      var lValue := GetTValueFromPath(lObj, 'Prop1');
+      lValue := GetTValueFromPath(lObj, 'Prop2');
+      lValue := GetTValueFromPath(lObj, 'Prop3');
+      lValue := GetTValueFromPath(lObj, 'PropInt');
+    finally
+      lObj.Free;
+    end;
+  end;
+  procedure ListOfObjects;
+  begin
+    var lList := TObjectList<TDataItem>.Create(True);
+    try
+      lList.Add(TDataItem.Create('Value1.1', 'Value2.1', 'Value3.1', 4));
+      lList.Add(TDataItem.Create('Value1.2', 'Value2.2', 'Value3.2', 5));
+      lList.Add(TDataItem.Create('Value1.3', 'Value2.2', 'Value3.2', 6));
+
+      var lValue := GetTValueFromPath(lList, '[0].Prop1');
+      lValue := GetTValueFromPath(lList, '[0].Prop1');
+      lValue := GetTValueFromPath(lList, '[1].Prop1');
+      lValue := GetTValueFromPath(lList, '[2].Prop1');
+    finally
+      lList.Free;
+    end;
+  end;
+  procedure ListOfListOfObjects;
+  begin
+    var lList := TObjectList<TObjectList<TDataItem>>.Create(True);
+    try
+      lList.Add(TObjectList<TDataItem>.Create(True));
+      lList.Last.Add(TDataItem.Create('Value1.1', 'Value2.1', 'Value3.1', 1));
+
+      lList.Add(TObjectList<TDataItem>.Create(True));
+      lList.Last.Add(TDataItem.Create('Value2.1', 'Value2.2', 'Value2.3', 2));
+      lList.Last.Add(TDataItem.Create('Value2.2', 'Value2.2', 'Value2.3', 3));
+
+      lList.Add(TObjectList<TDataItem>.Create(True));
+      lList.Last.Add(TDataItem.Create('Value3.1', 'Value3.2', 'Value3.3', 4));
+      lList.Last.Add(TDataItem.Create('Value3.2', 'Value3.2', 'Value3.3', 5));
+      lList.Last.Add(TDataItem.Create('Value3.2', 'Value3.2', 'Value3.3', 6));
+
+      var lValue := GetTValueFromPath(lList, '[0][0].Prop1');
+      lValue := GetTValueFromPath(lList, '[1][0].Prop1');
+      lValue := GetTValueFromPath(lList, '[1][1].Prop1');
+      lValue := GetTValueFromPath(lList, '[2][0].Prop1');
+      lValue := GetTValueFromPath(lList, '[2][1].Prop1');
+      lValue := GetTValueFromPath(lList, '[2][2].Prop1');
+    finally
+      lList.Free;
+    end;
+  end;
+
+begin
+  SimpleObject;
+  ListOfObjects;
+  ListOfListOfObjects;
+  WriteLn('TestGetTValueFromPath            : OK');
+end;
+
 procedure TestWriteReadFromFile;
 var
   lCompiler: TTProCompiler;
@@ -108,10 +171,8 @@ var
   lInput: string;
   lItems, lItemsWithFalsy: TObjectList<TDataItem>;
 begin
-  var
-  lFailed := False;
-  var
-    lActualOutput: String := '';
+  var lFailed := False;
+  var lActualOutput: String := '';
   lTPro := TTProCompiler.Create;
   try
     var lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro',
@@ -247,15 +308,18 @@ begin
                             try
                               lUltraNestedList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
                               lUltraNestedList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
-                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value1'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value1.1'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value1.2'));
 
                               lUltraNestedList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
                               lUltraNestedList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
-                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value2'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value2.1'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value2.2'));
 
                               lUltraNestedList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
                               lUltraNestedList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
-                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value3'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value3.1'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value3.2'));
 
                               var lTestDataSet := GetTestDataset;
                               try
@@ -391,6 +455,7 @@ begin
       TestTokenWriteReadFromFile;
       TestWriteReadFromFile;
       TestHTMLEntities;
+      TestGetTValueFromPath;
     end;
     Main;
   except
