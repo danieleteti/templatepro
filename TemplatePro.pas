@@ -164,19 +164,14 @@ type
   TTProCompiledTemplateEvent = reference to procedure(const TemplateProCompiledTemplate: ITProCompiledTemplate);
 
   TLoopStackItem = class
-  strict private
-    fIteratorPosition: Integer;
-    procedure SetFullPath(const Value: String);
-    procedure SetIteratorPosition(const Value: Integer);
   protected
     DataSourceName: String;
     LoopExpression: String;
-    fFullPath: String;
+    FullPath: String;
+    IteratorPosition: Integer;
     IteratorName: String;
-    property IteratorPosition: Integer read fIteratorPosition write SetIteratorPosition;
     function IncrementIteratorPosition: Integer;
     constructor Create(DataSourceName: String; LoopExpression: String; FullPath: String; IteratorName: String);
-    property FullPath: String read fFullPath write SetFullPath;
   end;
 
   TTProTemplateSectionType = (stUnknown, stLayout, stPage);
@@ -3895,18 +3890,8 @@ end;
 
 function TLoopStackItem.IncrementIteratorPosition: Integer;
 begin
-  Inc(fIteratorPosition);
+  Inc(IteratorPosition);
   Result := IteratorPosition;
-end;
-
-procedure TLoopStackItem.SetFullPath(const Value: String);
-begin
-  fFullPath := Value;
-end;
-
-procedure TLoopStackItem.SetIteratorPosition(const Value: Integer);
-begin
-  fIteratorPosition := Value;
 end;
 
 { TTProConfiguration }
