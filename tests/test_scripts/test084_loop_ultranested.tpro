@@ -1,20 +1,10 @@
 ************* Ultra Nested List of objects
 {{for lev1 in ultranestedlist}}
 LEV1>
-    {{for lev2 in lev1}}
-    LEV2>
-        {{for lev3 in lev2}}
-        LEV3>
-            {{for lev4 in lev3}}
-            LEV4>
-              Value1 = {{:lev4.Value1}}
-            LEV4<
-            {{endfor}}     
-        LEV3<
-        {{endfor}}     
-    LEV2<
-    {{endfor}} 
+{{for lev2 in lev1}}
+LEV2>
+Value1 = {{:lev2.Value1}}
+LEV2<
+{{endfor}} 
 LEV1<
 {{endfor}}
-
-

@@ -378,6 +378,10 @@ begin
   begin
     Result := FullPath;
   end;
+  if Result.IsEmpty then
+  begin
+    Result := FullPath;
+  end;
 end;
 
 function TTProCompiledTemplate.ComparandOperator(const aComparandType: TComparandType; const aValue: TValue;
@@ -2855,7 +2859,6 @@ begin
               begin
                 {TODO -oDanieleT -cGeneral : We need only .Count here. Could we use something lighter than WrapAsList?}
                 lRadixPath := GetParentObjectPathToIterate(lForLoopItem.FullPath);
-                //lObj := GetTValueFromPath(lVariable.VarValue.AsObject, lForLoopItem.FullPath);
                 lObj := GetTValueFromPath(lVariable.VarValue.AsObject, lRadixPath);
                 lWrapped := WrapAsList(lObj.AsObject);
                 if lForLoopItem.IteratorPosition = lWrapped.Count - 1 then
@@ -3307,14 +3310,26 @@ begin
               lValue := GetTValueFromPath(lVariable.VarValue.AsObject, lFullPath);
               lTmpList := WrapAsList(lValue.AsObject);
               if Assigned(lTmpList)then
-                Result := TTProRTTIUtils.GetProperty(WrapAsList(lValue.AsObject).GetItem(lCurrentIterator.IteratorPosition), lVarMembers)
+                Result := TTProRTTIUtils.GetProperty(lTmpList.GetItem(lCurrentIterator.IteratorPosition), lVarMembers)
               else
                 Result := TTProRTTIUtils.GetProperty(lValue.AsObject, lVarMembers)
             end;
           end
           else
           begin
-            Result := WrapAsList(lVariable.VarValue.AsObject).GetItem(lCurrentIterator.IteratorPosition);
+            if lCurrentIterator.FullPath.IsEmpty then
+            begin
+              Result := WrapAsList(lVariable.VarValue.AsObject).GetItem(lCurrentIterator.IteratorPosition);
+            end
+            else
+            begin
+              lValue := GetTValueFromPath(lVariable.VarValue.AsObject, lCurrentIterator.FullPath);
+              lTmpList := WrapAsList(lValue.AsObject);
+              if Assigned(lTmpList)then
+                Result := TTProRTTIUtils.GetProperty(lTmpList.GetItem(lCurrentIterator.IteratorPosition), lVarMembers)
+              else
+                Result := TTProRTTIUtils.GetProperty(lValue.AsObject, lVarMembers)
+            end;
           end;
         end
         else
