@@ -1,6 +1,6 @@
 // ***************************************************************************
 //
-// Copyright (c) 2016-2024 Daniele Teti
+// Copyright (c) 2016-2025 Daniele Teti
 //
 // https://github.com/danieleteti/templatepro
 //
@@ -363,25 +363,6 @@ procedure FunctionError(const aFunctionName, aErrMessage: string);
 begin
   raise ETProRenderException.Create(Format('[%1:s] %0:s (error in filter call for function [%1:s])', [aErrMessage, aFunctionName]))
     at ReturnAddress;
-end;
-
-function GetParentObjectPathToIterate(const FullPath: String): String;
-var
-  lLastOpenBracket: Integer;
-begin
-  if FullPath.EndsWith(']') then
-  begin
-    lLastOpenBracket := FullPath.LastIndexOf('[');
-    Result := FullPath.Remove(lLastOpenBracket);
-  end
-  else
-  begin
-    Result := FullPath;
-  end;
-  if Result.IsEmpty then
-  begin
-    Result := FullPath;
-  end;
 end;
 
 function TTProCompiledTemplate.ComparandOperator(const aComparandType: TComparandType; const aValue: TValue;
@@ -2795,8 +2776,8 @@ var
   lBlockReturnAddress: Int64;
   lCurrentBlockName: string;
   lObj: TValue;
-  lRadixPath: string;
   lLastOpenBracket: Integer;
+  lCount: Integer;
 
 begin
   lBlockReturnAddress := -1;
@@ -2858,10 +2839,10 @@ begin
               else if viListOfObject in lVariable.VarOption then
               begin
                 {TODO -oDanieleT -cGeneral : We need only .Count here. Could we use something lighter than WrapAsList?}
-                lRadixPath := GetParentObjectPathToIterate(lForLoopItem.FullPath);
-                lObj := GetTValueFromPath(lVariable.VarValue.AsObject, lRadixPath);
+                lObj := GetTValueFromPath(lVariable.VarValue.AsObject, lForLoopItem.FullPath);
                 lWrapped := WrapAsList(lObj.AsObject);
-                if lForLoopItem.IteratorPosition = lWrapped.Count - 1 then
+                lCount := lWrapped.Count;
+                if (lCount = 0) or (lForLoopItem.IteratorPosition = lCount - 1) then
                 begin
                   lIdx := fTokens[lIdx].Ref1; // skip to endfor
                   Continue;
@@ -2956,8 +2937,7 @@ begin
               else if viListOfObject in lVariable.VarOption then
               begin
                 {TODO -oDanieleT -cGeneral : We need only .Count here. Could we use something lighter than WrapAsList?}
-                lRadixPath := GetParentObjectPathToIterate(lForLoopItem.FullPath);
-                lObj := GetTValueFromPath(lVariable.VarValue.AsObject, lRadixPath);
+                lObj := GetTValueFromPath(lVariable.VarValue.AsObject, lForLoopItem.FullPath);
                 lWrapped := WrapAsList(lObj.AsObject);
                 if lForLoopItem.IteratorPosition < lWrapped.Count - 1 then
                 begin

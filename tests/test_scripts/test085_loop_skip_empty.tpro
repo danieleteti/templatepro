@@ -1,0 +1,8 @@
+************* Skip Empty List
+{{for lev1 in emptylist}}
+{{for lev2 in lev1}}
+{{for lev3 in lev2}}
+Value1 = {{:lev3.Value1}}
+{{endfor}}
+{{endfor}}
+{{endfor}}
