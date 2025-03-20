@@ -723,15 +723,20 @@ var
     FullPropertyPath := FullPropertyPath.Substring(Length(Result) + 1);
   end;
 begin
+  if FullPropertyPath = '.' then
+  begin
+    Exit(aObject);
+  end;
+
   if FullPropertyPath.StartsWith('[') then //the main object must be a list!
   begin
     lObjAsList := WrapAsList(aObject);
     FullPropertyPath := FullPropertyPath.Remove(0,1);
     lIdx := FetchUpTo(']').ToInteger;
-    if FullPropertyPath.IsEmpty then
-    begin
-      raise ETProException.Create('Invalid Path - No property name after index');
-    end;
+//    if FullPropertyPath.IsEmpty then
+//    begin
+//      raise ETProException.Create('Invalid Path - No property name after index');
+//    end;
     Result := GetTValueFromPath(lObjAsList.GetItem(lIdx), FullPropertyPath);
   end
   else
@@ -740,17 +745,31 @@ begin
     begin
       FullPropertyPath := FullPropertyPath.Remove(0,1);
     end;
-    lPropName := FetchUpTo('.');
-    lTmpValue := TTProRTTIUtils.GetProperty(aObject, lPropName);
-    if (not FullPropertyPath.IsEmpty) then
+    if FullPropertyPath.StartsWith('[') then
     begin
-      if not lTmpValue.IsObject then
-        raise ETProException.Create('Invalid Path - cannot read property of a non object');
-      Result := GetTValueFromPath(lTmpValue.AsObject, FullPropertyPath);
+      Result := GetTValueFromPath(aObject, FullPropertyPath);
     end
     else
     begin
-      Result := lTmpValue;
+      lPropName := FetchUpTo('.');
+      if lPropName.IsEmpty then
+      begin
+        Result := aObject;
+      end
+      else
+      begin
+        lTmpValue := TTProRTTIUtils.GetProperty(aObject, lPropName);
+        if (not FullPropertyPath.IsEmpty) then
+        begin
+          if not lTmpValue.IsObject then
+            raise ETProException.Create('Invalid Path - cannot read property of a non object');
+          Result := GetTValueFromPath(lTmpValue.AsObject, FullPropertyPath);
+        end
+        else
+        begin
+          Result := lTmpValue;
+        end;
+      end;
     end;
   end;
 end;
@@ -1704,8 +1723,6 @@ begin
 end;
 
 function CapitalizeString(const s: string; const CapitalizeFirst: Boolean): string;
-const
-  ALLOWEDCHARS = ['a' .. 'z', '_'];
 var
   index: Integer;
   bCapitalizeNext: Boolean;
@@ -1721,7 +1738,7 @@ begin
         Result[index] := UpCase(Result[index]);
         bCapitalizeNext := False;
       end
-      else if not CharInSet(Result[index], ALLOWEDCHARS) then
+      else if Result[index] = ' ' then
       begin
         bCapitalizeNext := True;
       end;
@@ -2856,7 +2873,8 @@ begin
 
               if WalkThroughLoopStack(lVarName, lBaseVarName, lFullPath) then
               begin
-                lFullPath := lFullPath + '.' + lVarMember;
+                if not lVarMember.IsEmpty then
+                  lFullPath := lFullPath + '.' + lVarMember;
                 PushLoop(TLoopStackItem.Create(lBaseVarName, fTokens[lIdx].Value1, lFullPath, fTokens[lIdx].Value2));
               end
               else
@@ -3167,6 +3185,7 @@ var
   lHandled: Boolean;
   lFullPath: string;
   lValue: TValue;
+  lTmpList: ITProWrappedList;
 begin
   lCurrentIterator := nil;
   SplitVariableName(aName, lVarName, lVarMembers);
@@ -3337,8 +3356,11 @@ begin
             begin
               lFullPath := lCurrentIterator.FullPath;
               lValue := GetTValueFromPath(lVariable.VarValue.AsObject, lFullPath);
-              Result := TTProRTTIUtils.GetProperty(WrapAsList(lValue.AsObject)
-                .GetItem(lCurrentIterator.IteratorPosition), lVarMembers)
+              lTmpList := WrapAsList(lValue.AsObject);
+              if Assigned(lTmpList)then
+                Result := TTProRTTIUtils.GetProperty(WrapAsList(lValue.AsObject).GetItem(lCurrentIterator.IteratorPosition), lVarMembers)
+              else
+                Result := TTProRTTIUtils.GetProperty(lValue.AsObject, lVarMembers)
             end;
           end
           else
@@ -3527,138 +3549,6 @@ procedure TTProCompiledTemplate.Error(const aMessage: String; const Params: arra
 begin
   Error(Format(aMessage, Params));
 end;
-
-// function TTProCompiledTemplate.EvaluateIfExpression(aIdentifier: string): Boolean;
-// var
-// lVarValue: TValue;
-// lNegation: Boolean;
-// lVariable: TVarDataSource;
-// lTmp: Boolean;
-// lDataSourceName: String;
-// lHasMember: Boolean;
-// lList: ITProWrappedList;
-// lVarName, lVarMembers: String;
-// lCurrentIterator: TLoopStackItem;
-// lIsAnIterator: Boolean;
-// lHandled: Boolean;
-// begin
-// lNegation := aIdentifier.StartsWith('!');
-// if lNegation then
-// aIdentifier := aIdentifier.Remove(0,1);
-//
-// SplitVariableName(aIdentifier, lVarName, lVarMembers);
-//
-// lHasMember := Length(lVarMembers) > 0;
-//
-// lIsAnIterator := IsAnIterator(lVarName, lDataSourceName, lCurrentIterator);
-//
-// if not lIsAnIterator then
-// begin
-// lDataSourceName := lVarName;
-// end;
-//
-// if GetVariables.TryGetValue(lDataSourceName, lVariable) then
-// begin
-// if lVariable = nil then
-// begin
-// Exit(lNegation xor False);
-// end;
-// if viDataSet in lVariable.VarOption then
-// begin
-// if lHasMember then
-// begin
-// if lVarMembers.StartsWith('@@') then
-// begin
-// if not lIsAnIterator then
-// begin
-// Error('Pseudovariables (@@) can be used only on iterators');
-// end;
-// lVarValue := GetPseudoVariable(lCurrentIterator.IteratorPosition, lVarMembers);
-// end
-// else
-// begin
-// lVarValue := TValue.From<Variant>(TDataSet(lVariable.VarValue.AsObject).FieldByName(lVarMembers).Value);
-// end;
-// lTmp := IsTruthy(lVarValue);
-// end
-// else
-// begin
-// lTmp := not TDataSet(lVariable.VarValue.AsObject).Eof;
-// end;
-// Exit(lNegation xor lTmp);
-// end
-// else if viListOfObject in lVariable.VarOption then
-// begin
-// lList := WrapAsList(lVariable.VarValue.AsObject);
-// if lHasMember then
-// begin
-// if lVarMembers.StartsWith('@@') then
-// begin
-// lVarValue := GetPseudoVariable(lCurrentIterator.IteratorPosition, lVarMembers);
-// end
-// else
-// begin
-// lVarValue := TTProRTTIUtils.GetProperty(lList.GetItem(lCurrentIterator.IteratorPosition), lVarMembers);
-// end;
-// lTmp := IsTruthy(lVarValue);
-// end
-// else
-// begin
-// lTmp := lList.Count > 0;
-// end;
-//
-// if lNegation then
-// begin
-// Exit(not lTmp);
-// end;
-// Exit(lTmp);
-// end
-// else if [viObject, viJSONObject] * lVariable.VarOption <> [] then
-// begin
-// if lHasMember then
-// begin
-// if lVarMembers.StartsWith('@@') then
-// begin
-// lVarValue := GetPseudoVariable(lCurrentIterator.IteratorPosition, lVarMembers);
-// end
-// else
-// begin
-// lVarValue := GetVarAsTValue(lDataSourceName);
-// end;
-// lTmp := IsTruthy(lVarValue);
-// end
-// else
-// begin
-// lTmp := not lVarValue.IsEmpty;
-// end;
-// if lNegation then
-// begin
-// Exit(not lTmp);
-// end;
-// Exit(lTmp);
-// end
-// else if viSimpleType in lVariable.VarOption then
-// begin
-// lTmp := IsTruthy(lVariable.VarValue);
-// Exit(lNegation xor lTmp)
-// end;
-// end
-// else
-// begin
-// lHandled := False;
-// DoOnGetValue(lVarName, lVarMembers, lVarValue, lHandled);
-// if lHandled then
-// begin
-// lTmp := IsTruthy(lVarValue);
-// if lNegation then
-// begin
-// Exit(not lTmp);
-// end;
-// Exit(lTmp);
-// end;
-// end;
-// Exit(lNegation xor False);
-// end;
 
 function TTProCompiledTemplate.EvaluateIfExpressionAt(var Idx: Int64): Boolean;
 var

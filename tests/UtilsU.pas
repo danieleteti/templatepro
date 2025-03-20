@@ -56,6 +56,9 @@ type
     property Value1: String read FValue1;
   end;
 
+
+
+
   {A class with its simple properties and then a list with is a list of another class instances}
   TDataItemWithChild = class
   private

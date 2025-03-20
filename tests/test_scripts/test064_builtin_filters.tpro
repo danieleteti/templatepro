@@ -62,6 +62,8 @@ intvalue0 ne intvalue1
   Customer rpad: {{:cust.Name|rpad,10}}
   Customer rpad: {{:cust.Name|rpad,10,"_"}} 
   Customer capitalize: {{:cust.Name|capitalize}}   
+  Customer capitalize: {{"Křížek přemysl"$|capitalize}}     
+  Customer capitalize: {{"Křížek přemysl"|capitalize}}       
   Customer contains "a": {{:cust.Name|contains,"a"}} 
   Customer icontains "a": {{:cust.Name|icontains,"a"}} 
   Customer round {{:floatvalue|round,-4}}

@@ -114,8 +114,7 @@ begin
     lActualOutput: String := '';
   lTPro := TTProCompiler.Create;
   try
-    var
-    lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro',
+    var lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro',
       function(const Path: string; const SearchRec: TSearchRec): Boolean
       begin
         Result := (not String(SearchRec.Name).StartsWith('included')) and
@@ -238,55 +237,83 @@ begin
                       try
                         var lDataItemWithChildList := TDataItemWithChildList.Create('value1','value2','value3',3);
                         try
-                          var lTestDataSet := GetTestDataset;
+                          var lDataItemAsObjectsList := TObjectList<TDataItemWithChild>.Create(True);
                           try
-                            var lSimpleNested := TSimpleNested1.Create('ValueNested');
+                            lDataItemAsObjectsList.Add(TDataItemWithChild.Create('Str0', 0));
+                            lDataItemAsObjectsList.Add(TDataItemWithChild.Create('Str1', 1));
+                            lDataItemAsObjectsList.Add(TDataItemWithChild.Create('Str2', 2));
+
+                            var lUltraNestedList := TObjectList<TObjectList<TObjectList<TSimpleDataItem>>>.Create(True);
                             try
-                              lCompiledTemplate.SetData('emptydataset', lEmptyDataSet);
-                              lCompiledTemplate.SetData('customer', lCustomer);
-                              lCompiledTemplate.SetData('customers', lCustomers);
-                              lCompiledTemplate.SetData('testdst', lTestDataSet);
-                              lCompiledTemplate.SetData('objects', lItems);
-                              lCompiledTemplate.SetData('dataitems', lDataItemWithChildList);
-                              lCompiledTemplate.SetData('nested', lSimpleNested);
-                              lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
-                              lCompiledTemplate.SetData('jsonobj', lJSONObj);
-                              lCompiledTemplate.SetData('json2', lJSONObj2);
-                              lActualOutput := '';
+                              lUltraNestedList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
+                              lUltraNestedList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value1'));
+
+                              lUltraNestedList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
+                              lUltraNestedList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value2'));
+
+                              lUltraNestedList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
+                              lUltraNestedList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value3'));
+
+                              var lTestDataSet := GetTestDataset;
                               try
-                                lActualOutput := lCompiledTemplate.Render;
-                              except
-                                on E: Exception do
-                                begin
-                                  lActualOutput := E.Message;
+                                var lSimpleNested := TSimpleNested1.Create('ValueNested');
+                                try
+                                  lCompiledTemplate.SetData('emptydataset', lEmptyDataSet);
+                                  lCompiledTemplate.SetData('customer', lCustomer);
+                                  lCompiledTemplate.SetData('customers', lCustomers);
+                                  lCompiledTemplate.SetData('testdst', lTestDataSet);
+                                  lCompiledTemplate.SetData('objects', lItems);
+                                  lCompiledTemplate.SetData('dataitems', lDataItemWithChildList);
+                                  lCompiledTemplate.SetData('dataitemsasobjectlist', lDataItemAsObjectsList);
+                                  lCompiledTemplate.SetData('ultranestedlist', lUltraNestedList);
+                                  lCompiledTemplate.SetData('nested', lSimpleNested);
+                                  lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
+                                  lCompiledTemplate.SetData('jsonobj', lJSONObj);
+                                  lCompiledTemplate.SetData('json2', lJSONObj2);
+                                  lActualOutput := '';
+                                  try
+                                    lActualOutput := lCompiledTemplate.Render;
+                                  except
+                                    on E: Exception do
+                                    begin
+                                      lActualOutput := E.Message;
+                                    end;
+                                  end;
+                                  var
+                                  lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
+                                  if lActualOutput <> lExpectedOutput then
+                                  begin
+                                    WriteLn(' : FAILED');
+                                    // lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
+                                    TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
+                                    lFailed := True;
+                                  end
+                                  else
+                                  begin
+                                    if TFile.Exists(lFile + '.failed.txt') then
+                                    begin
+                                      TFile.Delete(lFile + '.failed.txt');
+                                    end;
+                                    if TFile.Exists(lFile + '.failed.dump.txt') then
+                                    begin
+                                      TFile.Delete(lFile + '.failed.dump.txt');
+                                    end;
+                                    WriteLn(' : OK');
+                                  end;
+                                finally
+                                  lSimpleNested.Free;
                                 end;
-                              end;
-                              var
-                              lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
-                              if lActualOutput <> lExpectedOutput then
-                              begin
-                                WriteLn(' : FAILED');
-                                // lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
-                                TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
-                                lFailed := True;
-                              end
-                              else
-                              begin
-                                if TFile.Exists(lFile + '.failed.txt') then
-                                begin
-                                  TFile.Delete(lFile + '.failed.txt');
-                                end;
-                                if TFile.Exists(lFile + '.failed.dump.txt') then
-                                begin
-                                  TFile.Delete(lFile + '.failed.dump.txt');
-                                end;
-                                WriteLn(' : OK');
+                              finally
+                                lTestDataSet.Free;
                               end;
                             finally
-                              lSimpleNested.Free;
+                              lUltraNestedList.Free;
                             end;
                           finally
-                            lTestDataSet.Free;
+                            lDataItemAsObjectsList.Free;
                           end;
                         finally
                           lDataItemWithChildList.Free;
@@ -329,7 +356,12 @@ begin
 
 {$IF Defined(MSWINDOWS)}
   if DebugHook <> 0 then
+  begin
+    WriteLn('Press return to exit');
     Readln;
+    Halt(1);
+    Exit;
+  end;
 {$ENDIF}
 
   if lFailed then
@@ -339,7 +371,10 @@ begin
   end
   else
   begin
-    Sleep(2000);
+    if DebugHook = 0 then
+    begin
+      Sleep(2000);
+    end;
   end;
 end;
 

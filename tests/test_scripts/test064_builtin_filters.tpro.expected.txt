@@ -45,6 +45,8 @@ intvalue0 ne intvalue1
   Customer rpad: Ford      
   Customer rpad: Ford______ 
   Customer capitalize: Ford   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": False 
   Customer icontains "a": False 
   Customer round 1234,5678
@@ -67,6 +69,8 @@ intvalue0 ne intvalue1
   Customer rpad: Ferrari   
   Customer rpad: Ferrari___ 
   Customer capitalize: Ferrari   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
   Customer round 1234,5678
@@ -89,6 +93,8 @@ intvalue0 ne intvalue1
   Customer rpad: Lotus     
   Customer rpad: Lotus_____ 
   Customer capitalize: Lotus   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": False 
   Customer icontains "a": False 
   Customer round 1234,5678
@@ -111,6 +117,8 @@ intvalue0 ne intvalue1
   Customer rpad: FCA       
   Customer rpad: FCA_______ 
   Customer capitalize: Fca   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": False 
   Customer icontains "a": True 
   Customer round 1234,5678
@@ -133,6 +141,8 @@ intvalue0 ne intvalue1
   Customer rpad: Hyundai   
   Customer rpad: Hyundai___ 
   Customer capitalize: Hyundai   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
   Customer round 1234,5678
@@ -155,6 +165,8 @@ intvalue0 ne intvalue1
   Customer rpad: De Tomaso 
   Customer rpad: De Tomaso_ 
   Customer capitalize: De Tomaso   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
   Customer round 1234,5678
@@ -177,6 +189,8 @@ intvalue0 ne intvalue1
   Customer rpad: Dodge     
   Customer rpad: Dodge_____ 
   Customer capitalize: Dodge   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": False 
   Customer icontains "a": False 
   Customer round 1234,5678
@@ -199,6 +213,8 @@ intvalue0 ne intvalue1
   Customer rpad: Tesla     
   Customer rpad: Tesla_____ 
   Customer capitalize: Tesla   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
   Customer round 1234,5678
@@ -221,6 +237,8 @@ intvalue0 ne intvalue1
   Customer rpad: Kia       
   Customer rpad: Kia_______ 
   Customer capitalize: Kia   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
   Customer round 1234,5678
@@ -243,6 +261,8 @@ intvalue0 ne intvalue1
   Customer rpad: Tata      
   Customer rpad: Tata______ 
   Customer capitalize: Tata   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
   Customer round 1234,5678
@@ -265,6 +285,8 @@ intvalue0 ne intvalue1
   Customer rpad: Volkswagen
   Customer rpad: Volkswagen 
   Customer capitalize: Volkswagen   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
   Customer round 1234,5678
@@ -287,6 +309,8 @@ intvalue0 ne intvalue1
   Customer rpad: Audi      
   Customer rpad: Audi______ 
   Customer capitalize: Audi   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": False 
   Customer icontains "a": True 
   Customer round 1234,5678
@@ -309,6 +333,8 @@ intvalue0 ne intvalue1
   Customer rpad: Skoda     
   Customer rpad: Skoda_____ 
   Customer capitalize: Skoda   
+  Customer capitalize: Křížek Přemysl     
+  Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
   Customer round 1234,5678
