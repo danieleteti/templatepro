@@ -1,4 +1,5 @@
-﻿program templateprounittests;
+﻿
+program templateprounittests;
 
 {$APPTYPE CONSOLE}
 {$WARN SYMBOL_PLATFORM OFF}

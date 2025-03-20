@@ -2771,7 +2771,6 @@ var
   lBlockReturnAddress: Int64;
   lCurrentBlockName: string;
   lObj: TValue;
-  lLastOpenBracket: Integer;
   lCount: Integer;
 
 begin
