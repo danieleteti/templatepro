@@ -1,9 +1,13 @@
 ************* Ultra Nested List of objects
 {{for lev1 in ultranestedlist}}
-LEV1>
+{{:lev1.@@index}})LEV1>
 {{for lev2 in lev1}}
 LEV2>
-Value1 = {{:lev2.Value1}}
+{{for lev3 in lev2}}
+LEV3>
+Value1 = {{:lev3.Value1}}
+LEV3<
+{{endfor}} 
 LEV2<
 {{endfor}} 
 LEV1<

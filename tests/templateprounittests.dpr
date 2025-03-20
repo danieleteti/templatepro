@@ -304,19 +304,28 @@ begin
                             lDataItemAsObjectsList.Add(TDataItemWithChild.Create('Str1', 1));
                             lDataItemAsObjectsList.Add(TDataItemWithChild.Create('Str2', 2));
 
-                            var lUltraNestedList := TObjectList<TObjectList<TSimpleDataItem>>.Create(True);
+                            var lUltraNestedList := TObjectList<TObjectList<TObjectList<TSimpleDataItem>>>.Create(True);
                             try
-                              lUltraNestedList.Add(TObjectList<TSimpleDataItem>.Create(True));
-                              lUltraNestedList.Last.Add(TSimpleDataItem.Create('Value1.1'));
-                              lUltraNestedList.Last.Add(TSimpleDataItem.Create('Value1.2'));
+                              lUltraNestedList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
+                              lUltraNestedList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
 
-                              lUltraNestedList.Add(TObjectList<TSimpleDataItem>.Create(True));
-                              lUltraNestedList.Last.Add(TSimpleDataItem.Create('Value2.1'));
-                              lUltraNestedList.Last.Add(TSimpleDataItem.Create('Value2.2'));
+                              lUltraNestedList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
+                              lUltraNestedList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value1'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value1.1'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value1.2'));
 
-                              lUltraNestedList.Add(TObjectList<TSimpleDataItem>.Create(True));
-                              lUltraNestedList.Last.Add(TSimpleDataItem.Create('Value3.1'));
-                              lUltraNestedList.Last.Add(TSimpleDataItem.Create('Value3.2'));
+                              lUltraNestedList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
+                              lUltraNestedList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value2'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value2.1'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value2.2'));
+
+                              lUltraNestedList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
+                              lUltraNestedList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value3'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value3.1'));
+                              lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value3.2'));
 
                               var lTestDataSet := GetTestDataset;
                               try
