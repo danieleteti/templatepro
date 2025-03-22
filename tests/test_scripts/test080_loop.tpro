@@ -27,6 +27,10 @@ Prop1: {{:obj.Prop1}} {{:value2}}
 {{endfor}}
 
 *************check for empty dataset (o rows)
+{{for ds in emptydataset}}
+NEVER SHOWN
+{{endfor}}
+
 {{if emptydataset}}
 wrong
 {{endif}}

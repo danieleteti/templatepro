@@ -170,6 +170,7 @@ type
     FullPath: String;
     IteratorPosition: Integer;
     IteratorName: String;
+    EOF: Boolean;
     function IncrementIteratorPosition: Integer;
     constructor Create(DataSourceName: String; LoopExpression: String; FullPath: String; IteratorName: String);
   end;
@@ -2751,13 +2752,11 @@ function TTProCompiledTemplate.Render: String;
 var
   lIdx: Int64;
   lBuff: TStringBuilder;
-  lDataSourceName: string;
   lVariable: TVarDataSource;
   lWrapped: ITProWrappedList;
   lJumpTo: Integer;
   lVarName: string;
   lVarValue: TValue;
-  lJArr: TJDOJsonArray;
   lJObj: TJDOJsonObject;
   lVarMember: string;
   lBaseVarName: string;
@@ -2822,13 +2821,18 @@ begin
                 if lForLoopItem.IteratorPosition = -1 then
                 begin
                   TDataSet(lVariable.VarValue.AsObject).First;
+                end
+                else
+                begin
+                  TDataSet(lVariable.VarValue.AsObject).Next;
                 end;
-
+                lForLoopItem.IncrementIteratorPosition;
                 if TDataSet(lVariable.VarValue.AsObject).Eof then
                 begin
+                  lForLoopItem.EOF := True;
                   lIdx := fTokens[lIdx].Ref1; // skip to endfor
                   Continue;
-                end
+                end;
               end
               else if viListOfObject in lVariable.VarOption then
               begin
@@ -2838,6 +2842,7 @@ begin
                 lCount := lWrapped.Count;
                 if (lCount = 0) or (lForLoopItem.IteratorPosition = lCount - 1) then
                 begin
+                  lForLoopItem.EOF := True;
                   lIdx := fTokens[lIdx].Ref1; // skip to endfor
                   Continue;
                 end
@@ -2855,6 +2860,7 @@ begin
                 case lJValue.Typ of
                   jdtNone:
                     begin
+                      lForLoopItem.EOF := True;
                       lIdx := fTokens[lIdx].Ref1; // skip to endfor
                       Continue;
                     end;
@@ -2863,6 +2869,7 @@ begin
                     begin
                       if lForLoopItem.IteratorPosition = lJObj.Path[lForLoopItem.FullPath].ArrayValue.Count - 1 then
                       begin
+                        lForLoopItem.EOF := True;
                         lIdx := fTokens[lIdx].Ref1; // skip to endfor
                         Continue;
                       end
@@ -2871,7 +2878,6 @@ begin
                         lForLoopItem.IncrementIteratorPosition;
                       end;
                     end;
-
                 else
                   begin
                     Error('Only JSON array can be iterated');
@@ -2891,58 +2897,19 @@ begin
 
         ttEndFor:
           begin
-            if LoopStackIsEmpty then
+            lForLoopItem := PeekLoop;
+            if lForLoopItem = nil then
             begin
               raise ETProRenderException.Create('Inconsistent "endfor"');
             end;
-
-            lForLoopItem := PeekLoop;
-            lDataSourceName := lForLoopItem.DataSourceName;
-            if GetVariables.TryGetValue(lDataSourceName, lVariable) then
+            if lForLoopItem.EOF then
             begin
-              if viDataSet in lVariable.VarOption then
-              begin
-                TDataSet(lVariable.VarValue.AsObject).Next;
-                lForLoopItem.IteratorPosition := TDataSet(lVariable.VarValue.AsObject).RecNo;
-                if not TDataSet(lVariable.VarValue.AsObject).Eof then
-                begin
-                  lIdx := fTokens[lIdx].Ref1; // goto loop
-                  Continue;
-                end
-                else
-                begin
-                  PopLoop;
-                end;
-              end
-              else if viJSONObject in lVariable.VarOption then
-              begin
-                lJObj := TJDOJsonObject(lVariable.VarValue.AsObject);
-                lJArr := lJObj.Path[lForLoopItem.FullPath];
-                if lForLoopItem.IteratorPosition < lJArr.Count - 1 then
-                begin
-                  lIdx := fTokens[lIdx].Ref1; // skip to loop
-                  Continue;
-                end
-                else
-                begin
-                  PopLoop;
-                end;
-              end
-              else if viListOfObject in lVariable.VarOption then
-              begin
-                {TODO -oDanieleT -cGeneral : We need only .Count here. Could we use something lighter than WrapAsList?}
-                lObj := GetTValueFromPath(lVariable.VarValue.AsObject, lForLoopItem.FullPath);
-                lWrapped := WrapAsList(lObj.AsObject);
-                if lForLoopItem.IteratorPosition < lWrapped.Count - 1 then
-                begin
-                  lIdx := fTokens[lIdx].Ref1; // skip to loop
-                  Continue;
-                end
-                else
-                begin
-                  PopLoop;
-                end;
-              end;
+              PopLoop;
+            end
+            else
+            begin
+              lIdx := fTokens[lIdx].Ref1; // goto loop
+              Continue;
             end;
           end;
         ttIfThen:
@@ -3880,11 +3847,12 @@ end;
 
 constructor TLoopStackItem.Create(DataSourceName, LoopExpression, FullPath: String; IteratorName: String);
 begin
-  self.DataSourceName := DataSourceName;
-  self.LoopExpression := LoopExpression;
-  self.FullPath := FullPath;
-  self.IteratorName := IteratorName;
-  self.IteratorPosition := -1;
+  Self.DataSourceName := DataSourceName;
+  Self.LoopExpression := LoopExpression;
+  Self.FullPath := FullPath;
+  Self.IteratorName := IteratorName;
+  Self.IteratorPosition := -1;
+  Self.EOF := False;
 end;
 
 function TLoopStackItem.IncrementIteratorPosition: Integer;
