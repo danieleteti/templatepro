@@ -40,7 +40,7 @@ uses
   MVCFramework.Nullables in '..\MVCFramework.Nullables.pas';
 
 const
-  TestFileNameFilter = '086'; // '*' means "all files', '' means no file-based tests
+  TestFileNameFilter = '*'; // '*' means "all files', '' means no file-based tests
 
 function SayHelloFilter(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue;
 begin
@@ -74,7 +74,7 @@ begin
   Assert(lToken.Value2 = lToken2.Value2);
   Assert(lToken.Ref1 = lToken2.Ref1);
   Assert(lToken.Ref2 = lToken2.Ref2);
-  WriteLn('TestTokenWriteReadFromFile       : OK');
+  WriteLn('TestTokenWriteReadFromFile             : OK');
 end;
 
 procedure TestHTMLEntities;
@@ -90,7 +90,7 @@ begin
   Assert(HTMLEncode('ab😀cd') = 'ab&#128512;cd', '1080'); // https://home.unicode.org/
   Assert(HTMLEncode('✌') = '&#9996;', HTMLEncode('✌')); // https://home.unicode.org/
   Assert(HTMLEncode('👍') = '&#128077;', HTMLEncode('👍')); // https://home.unicode.org/
-  WriteLn('TestHTMLEntities                 : OK');
+  WriteLn('TestHTMLEntities                       : OK');
 end;
 
 procedure TestGetTValueFromPath;
@@ -153,7 +153,7 @@ begin
   SimpleObject;
   ListOfObjects;
   ListOfListOfObjects;
-  WriteLn('TestGetTValueFromPath            : OK');
+  WriteLn('TestGetTValueFromPath                  : OK');
 end;
 
 procedure TestWriteReadFromFile;
@@ -184,7 +184,7 @@ begin
   Assert('Daniele hello world Teti' = lOutput1, lOutput1);
   Assert('Bruce hello world Banner' = lOutput2, lOutput2);
 
-  WriteLn('TestWriteReadFromFile            : OK');
+  WriteLn('TestWriteReadFromFile                  : OK');
 end;
 
 procedure Main;
@@ -214,12 +214,10 @@ begin
         end;
 
         lInput := TFile.ReadAllText(lFile, TEncoding.UTF8);
-        Write(TPath.GetFileName(lFile).PadRight(32));
-        var
-        lTestScriptsFolder := TPath.Combine(GetModuleName(HInstance), '..', '..', 'test_scripts');
+        Write(TPath.GetFileName(lFile).PadRight(38));
+        var lTestScriptsFolder := TPath.Combine(GetModuleName(HInstance), '..', '..', 'test_scripts');
         lActualOutput := '';
-        var
-          lCompiledTemplate: ITProCompiledTemplate;
+        var lCompiledTemplate: ITProCompiledTemplate;
         try
           lCompiledTemplate := lTPro.Compile(lInput, lFile);
         except
