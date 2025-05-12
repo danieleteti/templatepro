@@ -1,0 +1,5 @@
+List of objects with nullables
+{{for obj in objects_nullables}}
+{{:@@index}}: [{{:obj.NullString}}] [{{:obj.NullBoolean}}] [{{:obj.NullInt32}}] [{{:obj.NullDate}}]
+---
+{{endfor}}

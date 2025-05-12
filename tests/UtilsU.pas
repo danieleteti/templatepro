@@ -3,7 +3,7 @@ unit UtilsU;
 interface
 
 uses
-  System.Generics.Collections, Data.DB, System.Rtti, TemplatePro;
+  System.Generics.Collections, Data.DB, System.Rtti, TemplatePro, MVCFramework.Nullables;
 
 type
   TDataItem = class
@@ -18,6 +18,20 @@ type
     property Prop2: string read fProp2 write fProp2;
     property Prop3: string read fProp3 write fProp3;
     property PropInt: Integer read fPropInt write fPropInt;
+  end;
+
+  TDataItemNullables = class
+  private
+    fNullString: NullableString;
+    fNullBoolean: NullableBoolean;
+    fNullInt32: NullableInt32;
+    fNullDate: NullableTDate;
+  public
+    constructor Create(NullString: NullableString; NullBoolean: NullableBoolean; NullInt32: NullableInt32; NullDate: NullableTDate);
+    property NullString: NullableString read fNullString write fNullString;
+    property NullBoolean: NullableBoolean read fNullBoolean write fNullBoolean;
+    property NullInt32: NullableInt32 read fNullInt32 write fNullInt32;
+    property NullDate: NullableTDate read fNullDate write fNullDate;
   end;
 
   TSimpleNested3 = class
@@ -79,6 +93,7 @@ type
   end;
 
 function GetItems(const WithFalsyValues: Boolean = False): TObjectList<TDataItem>;
+function GetItemsNullables: TObjectList<TDataItemNullables>;
 function GetCustomersDataset: TDataSet;
 function GetTestDataset: TDataSet;
 function GetSingleCustomerDataset: TDataSet;
@@ -204,6 +219,13 @@ begin
 end;
 
 
+function GetItemsNullables: TObjectList<TDataItemNullables>;
+begin
+  Result := TObjectList<TDataItemNullables>.Create(True);
+  Result.Add(TDataItemNullables.Create('true', false, 1, EncodeDate(2011,11,17)));
+  Result.Add(TDataItemNullables.Create(nil, nil, nil, nil));
+end;
+
 function GetItems(const WithFalsyValues: Boolean): TObjectList<TDataItem>;
 begin
   Result := TObjectList<TDataItem>.Create(True);
@@ -295,6 +317,17 @@ constructor TSimpleNested3.Create(ValueNested3: String);
 begin
   inherited Create;
   fValueNested3 := ValueNested3;
+end;
+
+{ TDataItemNullables }
+
+constructor TDataItemNullables.Create(NullString: NullableString; NullBoolean: NullableBoolean; NullInt32: NullableInt32; NullDate: NullableTDate);
+begin
+  inherited Create;
+  fNullString := NullString;
+  fNullBoolean := NullBoolean;
+  fNullInt32 := NullInt32;
+  fNullDate := NullDate;
 end;
 
 end.

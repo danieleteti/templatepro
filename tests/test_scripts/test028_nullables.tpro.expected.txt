@@ -1,0 +1,5 @@
+List of objects with nullables
+: [true] [False] [1] [2011-11-17]
+---
+: [] [] [] []
+---
