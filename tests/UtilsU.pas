@@ -65,9 +65,12 @@ type
   TSimpleDataItem = class
   private
     FValue1: String;
+    FValue2Null: NullableInt64;
   public
-    constructor Create(Value1: String);
-    property Value1: String read FValue1;
+    constructor Create(Value1: String; Value2Null: NullableInt64); overload;
+    constructor Create(Value1: String); overload;
+    property Value1: String read fValue1;
+    property Value2Null: NullableInt64 read fValue2Null;
   end;
 
 
@@ -264,7 +267,7 @@ begin
   FDataItemList := TObjectList<TSimpleDataItem>.Create(True);
   for var I := 0 to 2 do
   begin
-    FDataItemList.Add(TSimpleDataItem.Create('SimpleDataItem' + I.ToString));
+    FDataItemList.Add(TSimpleDataItem.Create('SimpleDataItem' + I.ToString, nil));
   end;
 end;
 
@@ -287,10 +290,16 @@ end;
 
 { TSimpleDataItem }
 
-constructor TSimpleDataItem.Create(Value1: String);
+constructor TSimpleDataItem.Create(Value1: String; Value2Null: NullableInt64);
 begin
   inherited Create;
   FValue1 := Value1;
+  FValue2Null := Value2Null;
+end;
+
+constructor TSimpleDataItem.Create(Value1: String);
+begin
+  Create(Value1, 123);
 end;
 
 { TSimpleNested2 }

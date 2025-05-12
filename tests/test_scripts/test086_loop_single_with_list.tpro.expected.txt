@@ -1,4 +1,4 @@
 ************* Object with child list of object
-Level |SimpleDataItem0|
-Level |SimpleDataItem1|
-Level |SimpleDataItem2|
+Level |SimpleDataItem0||
+Level |SimpleDataItem1||
+Level |SimpleDataItem2||

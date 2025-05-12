@@ -1,4 +1,4 @@
 ************* Object with child list of object
 {{for item in dataitem.DataItemList}}
-Level |{{:item.Value1}}|
+Level |{{:item.Value1}}|{{:item.Value2Null}}|
 {{endfor}}

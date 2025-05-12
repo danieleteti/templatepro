@@ -9,9 +9,11 @@ LEV1<
 LEV2>
 LEV3>
 Value1 = Value1
+Value2Null = 123
 LEV3<
 LEV3>
 Value1 = Value1.1
+Value2Null = 123
 LEV3<
  
 LEV2<
@@ -21,9 +23,11 @@ LEV1<
 LEV2>
 LEV3>
 Value1 = Value2
+Value2Null = 123
 LEV3<
 LEV3>
 Value1 = Value2.1
+Value2Null = 123
 LEV3<
  
 LEV2<
@@ -33,9 +37,11 @@ LEV1<
 LEV2>
 LEV3>
 Value1 = Value3
+Value2Null = 123
 LEV3<
 LEV3>
 Value1 = Value3.1
+Value2Null = 123
 LEV3<
  
 LEV2<
