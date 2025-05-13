@@ -1,0 +1,8 @@
+{{:dataitemnullable.NullString}}
+{{:dataitemnullable.NullBoolean}}
+{{:dataitemnullable.NullInt32}}
+{{:dataitemnullable.NullInt64}}
+{{:dataitemnullable.NullDate}}
+{{:dataitemnullable.NullDateTime$}}
+{{:dataitemnullable.NullTime}}
+{{:dataitemnullable.NullCurrency}}

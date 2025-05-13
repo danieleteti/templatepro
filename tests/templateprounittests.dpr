@@ -31,13 +31,12 @@ uses
   System.IOUtils,
   System.Rtti,
   System.Classes,
-  System.SysUtils,
   System.StrUtils,
   System.DateUtils,
   UtilsU in 'UtilsU.pas',
   TemplatePro in '..\TemplatePro.pas',
   JsonDataObjects in '..\JsonDataObjects.pas',
-  MVCFramework.Nullables in '..\MVCFramework.Nullables.pas';
+  MVCFramework.Nullables in '..\MVCFramework.Nullables.pas', System.SysUtils;
 
 const
   TestFileNameFilter = '*'; // '*' means "all files', '' means no file-based tests
@@ -193,6 +192,7 @@ var
   lInput: string;
   lItems, lItemsWithFalsy: TObjectList<TDataItem>;
   lItemsNullables: TObjectList<TDataItemNullables>;
+  lItemNullables: TDataItemNullables;
 begin
   var lFailed := False;
   var lActualOutput: String := '';
@@ -357,50 +357,60 @@ begin
                                     try
                                       var lSimpleNested := TSimpleNested1.Create('ValueNested');
                                       try
-                                        lCompiledTemplate.SetData('emptydataset', lEmptyDataSet);
-                                        lCompiledTemplate.SetData('customer', lCustomer);
-                                        lCompiledTemplate.SetData('customers', lCustomers);
-                                        lCompiledTemplate.SetData('testdst', lTestDataSet);
-                                        lCompiledTemplate.SetData('objects', lItems);
-                                        lCompiledTemplate.SetData('objects_nullables', lItemsNullables);
-                                        lCompiledTemplate.SetData('dataitems', lDataItemWithChildList);
-                                        lCompiledTemplate.SetData('dataitemsasobjectlist', lDataItemAsObjectsList);
-                                        lCompiledTemplate.SetData('ultranestedlist', lUltraNestedList);
-                                        lCompiledTemplate.SetData('emptylist', lEmptyList);
-                                        lCompiledTemplate.SetData('nested', lSimpleNested);
-                                        lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
-                                        lCompiledTemplate.SetData('jsonobj', lJSONObj);
-                                        lCompiledTemplate.SetData('json2', lJSONObj2);
-                                        lCompiledTemplate.SetData('dataitem', lDataItemWithChild);
-                                        lActualOutput := '';
+                                        var lItemNullable := TDataItemNullables.Create('Daniele', True, 123, 234,
+                                          EncodeDate(1979,11,04),
+                                          EncodeDateTime(1979,11,04, 17, 18, 19, 0),
+                                          EncodeTime(17, 18, 19, 0),
+                                          1234.5678);
                                         try
-                                          lActualOutput := lCompiledTemplate.Render;
-                                        except
-                                          on E: Exception do
-                                          begin
-                                            lActualOutput := E.Message;
+                                          lCompiledTemplate.SetData('emptydataset', lEmptyDataSet);
+                                          lCompiledTemplate.SetData('customer', lCustomer);
+                                          lCompiledTemplate.SetData('customers', lCustomers);
+                                          lCompiledTemplate.SetData('testdst', lTestDataSet);
+                                          lCompiledTemplate.SetData('objects', lItems);
+                                          lCompiledTemplate.SetData('objects_nullables', lItemsNullables);
+                                          lCompiledTemplate.SetData('dataitems', lDataItemWithChildList);
+                                          lCompiledTemplate.SetData('dataitemsasobjectlist', lDataItemAsObjectsList);
+                                          lCompiledTemplate.SetData('ultranestedlist', lUltraNestedList);
+                                          lCompiledTemplate.SetData('emptylist', lEmptyList);
+                                          lCompiledTemplate.SetData('nested', lSimpleNested);
+                                          lCompiledTemplate.SetData('objectsb', lItemsWithFalsy);
+                                          lCompiledTemplate.SetData('jsonobj', lJSONObj);
+                                          lCompiledTemplate.SetData('json2', lJSONObj2);
+                                          lCompiledTemplate.SetData('dataitem', lDataItemWithChild);
+                                          lCompiledTemplate.SetData('dataitemnullable', lItemNullable);
+                                          lActualOutput := '';
+                                          try
+                                            lActualOutput := lCompiledTemplate.Render;
+                                          except
+                                            on E: Exception do
+                                            begin
+                                              lActualOutput := E.Message;
+                                            end;
                                           end;
-                                        end;
-                                        var
-                                        lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
-                                        if lActualOutput <> lExpectedOutput then
-                                        begin
-                                          WriteLn(' : FAILED');
-                                          // lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
-                                          TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
-                                          lFailed := True;
-                                        end
-                                        else
-                                        begin
-                                          if TFile.Exists(lFile + '.failed.txt') then
+                                          var
+                                          lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
+                                          if lActualOutput <> lExpectedOutput then
                                           begin
-                                            TFile.Delete(lFile + '.failed.txt');
-                                          end;
-                                          if TFile.Exists(lFile + '.failed.dump.txt') then
+                                            WriteLn(' : FAILED');
+                                            // lCompiledTemplate.DumpToFile(lFile + '.failed.dump.txt');
+                                            TFile.WriteAllText(lFile + '.failed.txt', lActualOutput, TEncoding.UTF8);
+                                            lFailed := True;
+                                          end
+                                          else
                                           begin
-                                            TFile.Delete(lFile + '.failed.dump.txt');
+                                            if TFile.Exists(lFile + '.failed.txt') then
+                                            begin
+                                              TFile.Delete(lFile + '.failed.txt');
+                                            end;
+                                            if TFile.Exists(lFile + '.failed.dump.txt') then
+                                            begin
+                                              TFile.Delete(lFile + '.failed.dump.txt');
+                                            end;
+                                            WriteLn(' : OK');
                                           end;
-                                          WriteLn(' : OK');
+                                        finally
+                                          lItemNullable.Free;
                                         end;
                                       finally
                                         lSimpleNested.Free;

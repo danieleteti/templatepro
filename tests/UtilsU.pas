@@ -26,12 +26,28 @@ type
     fNullBoolean: NullableBoolean;
     fNullInt32: NullableInt32;
     fNullDate: NullableTDate;
+    fNullInt64: NullableInt64;
+    fNullDateTime: NullableTDateTime;
+    fNullTime: NullableTTime;
+    fNullCurrency: NullableCurrency;
   public
-    constructor Create(NullString: NullableString; NullBoolean: NullableBoolean; NullInt32: NullableInt32; NullDate: NullableTDate);
+    constructor Create(
+      NullString: NullableString;
+      NullBoolean: NullableBoolean;
+      NullInt32: NullableInt32;
+      NullInt64: NullableInt64;
+      NullDate: NullableTDate;
+      NullDateTime: NullableTDateTime;
+      NullTime: NullableTTime;
+      NullCurrency: NullableCurrency);
     property NullString: NullableString read fNullString write fNullString;
     property NullBoolean: NullableBoolean read fNullBoolean write fNullBoolean;
+    property NullCurrency: NullableCurrency read fNullCurrency write fNullCurrency;
     property NullInt32: NullableInt32 read fNullInt32 write fNullInt32;
+    property NullInt64: NullableInt64 read fNullInt64 write fNullInt64;
     property NullDate: NullableTDate read fNullDate write fNullDate;
+    property NullTime: NullableTTime read fNullTime write fNullTime;
+    property NullDateTime: NullableTDateTime read fNullDateTime write fNullDateTime;
   end;
 
   TSimpleNested3 = class
@@ -225,8 +241,8 @@ end;
 function GetItemsNullables: TObjectList<TDataItemNullables>;
 begin
   Result := TObjectList<TDataItemNullables>.Create(True);
-  Result.Add(TDataItemNullables.Create('true', false, 1, EncodeDate(2011,11,17)));
-  Result.Add(TDataItemNullables.Create(nil, nil, nil, nil));
+  Result.Add(TDataItemNullables.Create('true', false, 1, 2, EncodeDate(2011,11,17),nil,nil,nil));
+  Result.Add(TDataItemNullables.Create(nil, nil, nil, nil, nil, nil, nil, nil));
 end;
 
 function GetItems(const WithFalsyValues: Boolean): TObjectList<TDataItem>;
@@ -330,13 +346,25 @@ end;
 
 { TDataItemNullables }
 
-constructor TDataItemNullables.Create(NullString: NullableString; NullBoolean: NullableBoolean; NullInt32: NullableInt32; NullDate: NullableTDate);
+constructor TDataItemNullables.Create(
+    NullString: NullableString;
+    NullBoolean: NullableBoolean;
+    NullInt32: NullableInt32;
+    NullInt64: NullableInt64;
+    NullDate: NullableTDate;
+    NullDateTime: NullableTDateTime;
+    NullTime: NullableTTime;
+    NullCurrency: NullableCurrency);
 begin
   inherited Create;
   fNullString := NullString;
   fNullBoolean := NullBoolean;
   fNullInt32 := NullInt32;
   fNullDate := NullDate;
+  fNullInt64 := NullInt64;
+  fNullDateTime := NullDateTime;
+  fNullTime := NullTime;
+  fNullCurrency := NullCurrency;
 end;
 
 end.
