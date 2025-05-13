@@ -707,17 +707,6 @@ function TTProCompiledTemplate.GetTValueVarAsString(const Value: PValue; const V
 var
   lIsObject: Boolean;
   lAsObject: TObject;
-  lNullableInt32: NullableInt32;
-  lNullableUInt32: NullableUInt32;
-  lNullableInt16: NullableInt16;
-  lNullableUInt16: NullableUInt16;
-  lNullableInt64: NullableInt64;
-  lNullableUInt64: NullableUInt64;
-  lNullableCurrency: NullableCurrency;
-  lNullableBoolean: NullableBoolean;
-  lNullableTDate: NullableTDate;
-  lNullableTTime: NullableTTime;
-  lNullableTDateTime: NullableTDateTime;
   lVarName: string;
   lVarMember: string;
   lTmp: TValue;
