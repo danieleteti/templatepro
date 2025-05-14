@@ -250,24 +250,6 @@ begin
         // lCompiledTemplate.FormatSettings.ThousandSeparator := ',';
         // lCompiledTemplate.FormatSettings.ShortDateFormat := 'yyyy-mm-dd';
         // lCompiledTemplate.FormatSettings^ := TFormatSettings.Create('en-US');
-        lCompiledTemplate.SetData('value0', 'true');
-        lCompiledTemplate.SetData('value1', 'true');
-        lCompiledTemplate.SetData('value2', 'DANIELE2');
-        lCompiledTemplate.SetData('value3', 'DANIELE3');
-        lCompiledTemplate.SetData('value4', 'DANIELE4');
-        lCompiledTemplate.SetData('value5', 'DANIELE5');
-        lCompiledTemplate.SetData('value6', 'DANIELE6');
-        lCompiledTemplate.SetData('intvalue0', 0);
-        lCompiledTemplate.SetData('intvalue1', 1);
-        lCompiledTemplate.SetData('intvalue2', 2);
-        lCompiledTemplate.SetData('intvalue10', 10);
-        lCompiledTemplate.SetData('floatvalue', 1234.5678);
-        lCompiledTemplate.SetData('myhtml', '<div>this <strong>HTML</strong>řšč</div>');
-        lCompiledTemplate.SetData('valuedate', EncodeDate(2024, 8, 20));
-        lCompiledTemplate.SetData('valuedatetime', EncodeDateTime(2024, 8, 20, 10, 20, 30, 0));
-        lCompiledTemplate.SetData('valuetime', EncodeTime(10, 20, 30, 0));
-        lCompiledTemplate.SetData('phrasewithquotes', 'This "and that" with ''this and that''');
-        lCompiledTemplate.AddFilter('sayhello', SayHelloFilter);
         lCompiledTemplate.OnGetValue :=
             procedure(const DataSource, Members: string; var Value: TValue; var Handled: Boolean)
           begin
@@ -296,15 +278,30 @@ begin
             end;
           end;
 
-        var
-        lJSONArr := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'people.json')) as TJsonArray;
+        lCompiledTemplate.SetData('value0', 'true');
+        lCompiledTemplate.SetData('value1', 'true');
+        lCompiledTemplate.SetData('value2', 'DANIELE2');
+        lCompiledTemplate.SetData('value3', 'DANIELE3');
+        lCompiledTemplate.SetData('value4', 'DANIELE4');
+        lCompiledTemplate.SetData('value5', 'DANIELE5');
+        lCompiledTemplate.SetData('value6', 'DANIELE6');
+        lCompiledTemplate.SetData('intvalue0', 0);
+        lCompiledTemplate.SetData('intvalue1', 1);
+        lCompiledTemplate.SetData('intvalue2', 2);
+        lCompiledTemplate.SetData('intvalue10', 10);
+        lCompiledTemplate.SetData('floatvalue', 1234.5678);
+        lCompiledTemplate.SetData('myhtml', '<div>this <strong>HTML</strong>řšč</div>');
+        lCompiledTemplate.SetData('valuedate', EncodeDate(2024, 8, 20));
+        lCompiledTemplate.SetData('valuedatetime', EncodeDateTime(2024, 8, 20, 10, 20, 30, 0));
+        lCompiledTemplate.SetData('valuetime', EncodeTime(10, 20, 30, 0));
+        lCompiledTemplate.SetData('phrasewithquotes', 'This "and that" with ''this and that''');
+        lCompiledTemplate.AddFilter('sayhello', SayHelloFilter);
+        var lJSONArr := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'people.json')) as TJsonArray;
         try
-          var
-          lJSONObj := TJsonObject.Create;
+          var lJSONObj := TJsonObject.Create;
           try
             lJSONObj.A['people'] := lJSONArr.Clone;
-            var
-            lJSONObj2 := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'test.json')) as TJsonObject;
+            var lJSONObj2 := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'test.json')) as TJsonObject;
             try
               lItems := GetItems;
               try
@@ -362,6 +359,7 @@ begin
                                           EncodeDateTime(1979,11,04, 17, 18, 19, 0),
                                           EncodeTime(17, 18, 19, 0),
                                           1234.5678);
+                                        var lItemNullableAllNull := TDataItemNullables.Create(nil,nil,nil,nil,nil,nil,nil,nil);
                                         try
                                           lCompiledTemplate.SetData('emptydataset', lEmptyDataSet);
                                           lCompiledTemplate.SetData('customer', lCustomer);
@@ -379,6 +377,7 @@ begin
                                           lCompiledTemplate.SetData('json2', lJSONObj2);
                                           lCompiledTemplate.SetData('dataitem', lDataItemWithChild);
                                           lCompiledTemplate.SetData('dataitemnullable', lItemNullable);
+                                          lCompiledTemplate.SetData('dataitemnullableallnull', lItemNullableAllNull);
                                           lActualOutput := '';
                                           try
                                             lActualOutput := lCompiledTemplate.Render;
@@ -411,6 +410,7 @@ begin
                                           end;
                                         finally
                                           lItemNullable.Free;
+                                          lItemNullableAllNull.Free;
                                         end;
                                       finally
                                         lSimpleNested.Free;

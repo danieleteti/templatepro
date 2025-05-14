@@ -1,0 +1,145 @@
+---
+1
+{{if dataitemnullableallnull }}
+OK
+{{else}}
+WRONG
+{{endif}}
+4
+---
+1
+{{if !dataitemnullableallnull }}
+WRONG
+{{else}}
+OK
+{{endif}}
+4
+---
+1
+{{if dataitemnullableallnull.NullInt32 }}
+WRONG
+{{else}}
+OK
+{{endif}}
+4
+---
+1
+{{if !dataitemnullableallnull.NullInt32 }}
+OK
+{{else}}
+WRONG
+{{endif}}
+4
+---
+1
+{{if dataitemnullableallnull.NullInt64 }}
+WRONG
+{{else}}
+OK
+{{endif}}
+4
+---
+1
+{{if !dataitemnullableallnull.NullInt64 }}
+OK
+{{else}}
+WRONG
+{{endif}}
+4
+---
+1
+{{if dataitemnullableallnull.NullString }}
+WRONG
+{{else}}
+OK
+{{endif}}
+4
+---
+1
+{{if !dataitemnullableallnull.NullString }}
+OK
+{{else}}
+WRONG
+{{endif}}
+4
+---
+1
+{{if dataitemnullableallnull.NullBoolean }}
+WRONG
+{{else}}
+OK
+{{endif}}
+4
+---
+1
+{{if !dataitemnullableallnull.NullBoolean }}
+OK
+{{else}}
+WRONG
+{{endif}}
+4
+---
+1
+{{if dataitemnullableallnull.NullCurrency }}
+WRONG
+{{else}}
+OK
+{{endif}}
+4
+---
+1
+{{if !dataitemnullableallnull.NullCurrency }}
+OK
+{{else}}
+WRONG
+{{endif}}
+4
+---
+1
+{{if dataitemnullableallnull.NullDate }}
+WRONG
+{{else}}
+OK
+{{endif}}
+4
+---
+1
+{{if !dataitemnullableallnull.NullDate }}
+OK
+{{else}}
+WRONG
+{{endif}}
+4
+---
+1
+{{if dataitemnullableallnull.NullTime }}
+WRONG
+{{else}}
+OK
+{{endif}}
+4
+---
+1
+{{if !dataitemnullableallnull.NullTime }}
+OK
+{{else}}
+WRONG
+{{endif}}
+4
+---
+1
+{{if dataitemnullableallnull.NullDateTime }}
+WRONG
+{{else}}
+OK
+{{endif}}
+4
+---
+1
+{{if !dataitemnullableallnull.NullDateTime }}
+OK
+{{else}}
+WRONG
+{{endif}}
+4
+---
