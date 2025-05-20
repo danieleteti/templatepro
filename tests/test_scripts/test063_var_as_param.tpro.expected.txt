@@ -1,2 +1,13 @@
 intvalue10 = intvalue10
 x  DANIELE2x
+
+False
+True
+True
+False
+False
+
+When Null is involved in any kind of expression
+result is always Null
+
+False

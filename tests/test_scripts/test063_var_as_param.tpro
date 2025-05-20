@@ -2,3 +2,14 @@
 intvalue10 = intvalue10
 {{endif}}
 x{{:value2|lpad,intvalue10}}x
+
+{{:intvalue10|eq,dataitem.PropInt}}
+{{:intvalue10|gt,dataitem.PropInt}}
+{{:intvalue10|ge,dataitem.PropInt}}
+{{:intvalue10|lt,dataitem.PropInt}}
+{{:intvalue10|le,dataitem.PropInt}}
+
+When Null is involved in any kind of expression
+result is always Null
+
+{{:intvalue10|eq,dataitemnullable.NullInt32}}

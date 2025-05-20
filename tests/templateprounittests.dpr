@@ -192,7 +192,6 @@ var
   lInput: string;
   lItems, lItemsWithFalsy: TObjectList<TDataItem>;
   lItemsNullables: TObjectList<TDataItemNullables>;
-  lItemNullables: TDataItemNullables;
 begin
   var lFailed := False;
   var lActualOutput: String := '';
