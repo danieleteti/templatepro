@@ -64,6 +64,7 @@ type
     fSimpleNested3: TSimpleNested3;
   public
     constructor Create(ValueNested2: String);
+    destructor Destroy; override;
     property SimpleNested3: TSimpleNested3 read fSimpleNested3;
     property ValueNested2: String read fValueNested2;
   end;
@@ -74,6 +75,7 @@ type
     fSimpleNested2: TSimpleNested2;
   public
     constructor Create(ValueNested1: String);
+    destructor Destroy; override;
     property SimpleNested2: TSimpleNested2 read fSimpleNested2;
     property ValueNested1: String read fValueNested1 write fValueNested1;
   end;
@@ -327,6 +329,12 @@ begin
   fSimpleNested3 := TSimpleNested3.Create(ValueNested2 + '.3');
 end;
 
+destructor TSimpleNested2.Destroy;
+begin
+  fSimpleNested3.Free;
+  inherited Destroy;
+end;
+
 { TSimpleNested1 }
 
 constructor TSimpleNested1.Create(ValueNested1: String);
@@ -334,6 +342,12 @@ begin
   inherited Create;
   fValueNested1 := ValueNested1 + '.1';
   fSimpleNested2 := TSimpleNested2.Create(fValueNested1 + '.2');
+end;
+
+destructor TSimpleNested1.Destroy;
+begin
+  fSimpleNested2.Free;
+  inherited Destroy;
 end;
 
 { TSimpleNested3 }
