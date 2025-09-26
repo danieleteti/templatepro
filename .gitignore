@@ -71,3 +71,7 @@ tests/bin/output.tp
 samples/playground/bin/output/last_output.html
 *.delphilsp.json
 *.tpro.failed.txt
+/.claude/settings.local.json
+/CLAUDE.md
+/tests/*.tp
+/tests/*.tpc

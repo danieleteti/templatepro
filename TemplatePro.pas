@@ -748,10 +748,10 @@ begin
       SplitVariableName(VarName, lVarName, lVarMember);
       if lVarMember.IsEmpty then
       begin
-        Result := lAsObject.ToString;
-      end
-      else
-      begin
+      Result := lAsObject.ToString;
+  end
+  else
+  begin
         lTmp := GetTValueFromPath(lAsObject, lVarMember);
         if IsNullableType(@lTmp) then
         begin
@@ -841,117 +841,117 @@ var
   lNullableTDate: NullableTDate;
   lNullableTTime: NullableTTime;
   lNullableTDateTime: NullableTDateTime;
-begin
-  Result := '';
+    begin
+      Result := '';
   WasNull := True;
-  if Value.TypeInfo = TypeInfo(NullableInt32) then
-  begin
-    lNullableInt32 := Value.AsType<NullableInt32>;
-    if lNullableInt32.HasValue then
+      if Value.TypeInfo = TypeInfo(NullableInt32) then
+      begin
+        lNullableInt32 := Value.AsType<NullableInt32>;
+        if lNullableInt32.HasValue then
     begin
       WasNull := False;
-      Result := lNullableInt32.Value.ToString
+          Result := lNullableInt32.Value.ToString
     end;
-  end
-  else if Value.TypeInfo = TypeInfo(NullableUInt32) then
-  begin
-    lNullableUInt32 := Value.AsType<NullableUInt32>;
-    if lNullableUInt32.HasValue then
+      end
+      else if Value.TypeInfo = TypeInfo(NullableUInt32) then
+      begin
+        lNullableUInt32 := Value.AsType<NullableUInt32>;
+        if lNullableUInt32.HasValue then
     begin
       WasNull := False;
-      Result := lNullableUInt32.Value.ToString
+          Result := lNullableUInt32.Value.ToString
     end;
-  end
-  else if Value.TypeInfo = TypeInfo(NullableInt16) then
-  begin
-    lNullableInt16 := Value.AsType<NullableInt16>;
-    if lNullableInt16.HasValue then
+      end
+      else if Value.TypeInfo = TypeInfo(NullableInt16) then
+      begin
+        lNullableInt16 := Value.AsType<NullableInt16>;
+        if lNullableInt16.HasValue then
     begin
       WasNull := False;
-      Result := lNullableInt16.Value.ToString
+          Result := lNullableInt16.Value.ToString
     end;
-  end
-  else if Value.TypeInfo = TypeInfo(NullableUInt16) then
-  begin
-    lNullableUInt16 := Value.AsType<NullableUInt16>;
-    if lNullableUInt16.HasValue then
+      end
+      else if Value.TypeInfo = TypeInfo(NullableUInt16) then
+      begin
+        lNullableUInt16 := Value.AsType<NullableUInt16>;
+        if lNullableUInt16.HasValue then
     begin
       WasNull := False;
-      Result := lNullableUInt16.Value.ToString
+          Result := lNullableUInt16.Value.ToString
     end;
-  end
-  else if Value.TypeInfo = TypeInfo(NullableInt64) then
-  begin
-    lNullableInt64 := Value.AsType<NullableInt64>;
-    if lNullableInt64.HasValue then
+      end
+      else if Value.TypeInfo = TypeInfo(NullableInt64) then
+      begin
+        lNullableInt64 := Value.AsType<NullableInt64>;
+        if lNullableInt64.HasValue then
     begin
       WasNull := False;
-      Result := lNullableInt64.Value.ToString
+          Result := lNullableInt64.Value.ToString
     end;
-  end
-  else if Value.TypeInfo = TypeInfo(NullableUInt64) then
-  begin
-    lNullableUInt64 := Value.AsType<NullableUInt64>;
-    if lNullableUInt64.HasValue then
+      end
+      else if Value.TypeInfo = TypeInfo(NullableUInt64) then
+      begin
+        lNullableUInt64 := Value.AsType<NullableUInt64>;
+        if lNullableUInt64.HasValue then
     begin
       WasNull := False;
-      Result := lNullableUInt64.Value.ToString
+          Result := lNullableUInt64.Value.ToString
     end;
-  end
-  else if Value.TypeInfo = TypeInfo(NullableString) then
-  begin
-    Result := Value.AsType<NullableString>.ValueOrDefault;
+      end
+      else if Value.TypeInfo = TypeInfo(NullableString) then
+      begin
+        Result := Value.AsType<NullableString>.ValueOrDefault;
     WasNull := False;
-  end
-  else if Value.TypeInfo = TypeInfo(NullableCurrency) then
-  begin
-    lNullableCurrency := Value.AsType<NullableCurrency>;
-    if lNullableCurrency.HasValue then
+      end
+      else if Value.TypeInfo = TypeInfo(NullableCurrency) then
+      begin
+        lNullableCurrency := Value.AsType<NullableCurrency>;
+        if lNullableCurrency.HasValue then
     begin
       WasNull := False;
-      Result := FloatToStr(lNullableCurrency.Value, fLocaleFormatSettings);
+          Result := FloatToStr(lNullableCurrency.Value, fLocaleFormatSettings);
     end;
-  end
-  else if Value.TypeInfo = TypeInfo(NullableBoolean) then
-  begin
-    lNullableBoolean := Value.AsType<NullableBoolean>;
-    if lNullableBoolean.HasValue then
+      end
+      else if Value.TypeInfo = TypeInfo(NullableBoolean) then
+      begin
+        lNullableBoolean := Value.AsType<NullableBoolean>;
+        if lNullableBoolean.HasValue then
     begin
       WasNull := False;
-      Result := BoolToStr(lNullableBoolean.Value, True);
+          Result := BoolToStr(lNullableBoolean.Value, True);
     end;
-  end
-  else if Value.TypeInfo = TypeInfo(NullableTDate) then
-  begin
-    lNullableTDate := Value.AsType<NullableTDate>;
-    if lNullableTDate.HasValue then
+      end
+      else if Value.TypeInfo = TypeInfo(NullableTDate) then
+      begin
+        lNullableTDate := Value.AsType<NullableTDate>;
+        if lNullableTDate.HasValue then
     begin
       WasNull := False;
-      Result := DateToStr(lNullableTDate.Value, Self.fLocaleFormatSettings);
+          Result := DateToStr(lNullableTDate.Value, Self.fLocaleFormatSettings);
     end;
-  end
-  else if Value.TypeInfo = TypeInfo(NullableTTime) then
-  begin
-    lNullableTTime := Value.AsType<NullableTTime>;
-    if lNullableTTime.HasValue then
+      end
+      else if Value.TypeInfo = TypeInfo(NullableTTime) then
+      begin
+        lNullableTTime := Value.AsType<NullableTTime>;
+        if lNullableTTime.HasValue then
     begin
       WasNull := False;
       Result := TimeToStr(lNullableTTime.Value, Self.fLocaleFormatSettings);
     end;
-  end
-  else if Value.TypeInfo = TypeInfo(NullableTDateTime) then
-  begin
-    lNullableTDateTime := Value.AsType<NullableTDateTime>;
-    if lNullableTDateTime.HasValue then
+      end
+      else if Value.TypeInfo = TypeInfo(NullableTDateTime) then
+      begin
+        lNullableTDateTime := Value.AsType<NullableTDateTime>;
+        if lNullableTDateTime.HasValue then
     begin
       WasNull := False;
       Result := DateToISO8601(lNullableTDateTime.Value, False);
     end;
-  end
-  else
-  begin
-    raise ETProException.Create('Unsupported type for variable "' + VarName + '"');
-  end;
+            end
+            else
+            begin
+        raise ETProException.Create('Unsupported type for variable "' + VarName + '"');
+      end;
 end;
 
 procedure TTProCompiledTemplate.AddFilter(const FunctionName: string; const AnonFunctionImpl: TTProTemplateAnonFunction);
@@ -1173,7 +1173,7 @@ begin
         Error('Expected digit/s after "."');
       end;
       lDecimalPart := lTmp.Trim.ToInteger;
-      lTmpFloat := Power(10, lDigits);
+      lTmpFloat := Power(Double(10), lDigits);
       Result := True;
       aParamValue.ParType := fptFloat;
       aParamValue.ParFloatValue := lIntegerPart + lDecimalPart / lTmpFloat;
@@ -2027,7 +2027,6 @@ function TTProCompiledTemplate.ExecuteFilter(aFunctionName: string; var aParamet
   const aVarNameWhereShoudBeApplied: String): TValue;
 var
   lDateValue: TDateTime;
-  lDateFilterFormatSetting: TFormatSettings;
   lStrValue: string;
   lFunc: TTProTemplateFunction;
   lAnonFunc: TTProTemplateAnonFunction;
@@ -2263,8 +2262,7 @@ begin
       else
       begin
         CheckParNumber(1, aParameters);
-        lDateFilterFormatSetting.ShortDateFormat := aParameters[0].ParStrText;
-        Result := DateToStr(lDateValue, lDateFilterFormatSetting)
+        Result := FormatDateTime(aParameters[0].ParStrText, lDateValue);
       end;
     end
     else if aValue.TypeInfo = TypeInfo(NullableTDate) then
@@ -2293,7 +2291,6 @@ begin
       FunctionError(aFunctionName, 'Invalid date ' + GetTValueVarAsString(@aValue, lIsNull, aVarNameWhereShoudBeApplied));
     end;
   end
-
   else if SameText(aFunctionName, 'datetimetostr') or SameText(aFunctionName, 'formatdatetime') then
   begin
     if aValue.IsEmpty then
@@ -3289,6 +3286,10 @@ begin
           begin
             Result := lPJSONDataValue.ULongValue;
           end
+          else if lPJSONDataValue.Typ = jdtFloat then
+          begin
+            Result := lPJSONDataValue.FloatValue;
+          end
           else if lPJSONDataValue.Typ = jdtArray then
           begin
             Result := lPJSONDataValue.ArrayValue;
@@ -3353,14 +3354,14 @@ begin
         end
         else
         begin
-          if lHasMember then
-          begin
-            Result := GetTValueFromPath(lVariable.VarValue.AsObject, lVarMembers);
-          end
-          else
-          begin
-            Result := lVariable.VarValue;
-          end;
+      if lHasMember then
+      begin
+        Result := GetTValueFromPath(lVariable.VarValue.AsObject, lVarMembers);
+      end
+      else
+      begin
+        Result := lVariable.VarValue;
+      end;
         end;
       end;
     end
@@ -3602,15 +3603,15 @@ begin
     end;
 
     try
-      case lCurrTokenType of
-        ttValue:
-          Result := ExecuteFilter(lFilterName, lFilterParameters, GetVarAsTValue(lVarName), lVarName);
-        ttBoolExpression:
-          Result := IsTruthy(ExecuteFilter(lFilterName, lFilterParameters, GetVarAsTValue(lVarName), lVarName));
-        ttLiteralString:
-          Result := ExecuteFilter(lFilterName, lFilterParameters, lVarName, lVarName);
-      else
-        Error('Invalid token in EvaluateValue');
+    case lCurrTokenType of
+      ttValue:
+        Result := ExecuteFilter(lFilterName, lFilterParameters, GetVarAsTValue(lVarName), lVarName);
+      ttBoolExpression:
+        Result := IsTruthy(ExecuteFilter(lFilterName, lFilterParameters, GetVarAsTValue(lVarName), lVarName));
+      ttLiteralString:
+        Result := ExecuteFilter(lFilterName, lFilterParameters, lVarName, lVarName);
+    else
+      Error('Invalid token in EvaluateValue');
       end;
     except
       on E: Exception do
