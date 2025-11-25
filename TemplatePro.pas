@@ -95,6 +95,11 @@ type
 
   PFilterParameter = ^TFilterParameter;
 
+  TFilterInfo = record
+    FilterName: String;
+    Parameters: TArray<TFilterParameter>;
+  end;
+
   TToken = packed record
     TokenType: TTokenType;
     Value1: String;
@@ -286,8 +291,8 @@ type
     procedure ProcessJumps(const aTokens: TList<TToken>);
     procedure Compile(const aTemplate: string; const aTokens: TList<TToken>; const aFileNameRefPath: String); overload;
     constructor Create(const aEncoding: TEncoding; const aOptions: TTProCompilerOptions = []); overload;
-    procedure MatchFilter(lVarName: string; var lFuncName: string; var lFuncParamsCount: Integer;
-      var lFuncParams: TArray<TFilterParameter>);
+    procedure MatchFilters(lVarName: string; var lFilters: TArray<TFilterInfo>);
+    procedure AddFilterTokens(aTokens: TList<TToken>; const aFilters: TArray<TFilterInfo>);
   public
     function Compile(const aTemplate: string; const aFileNameRefPath: String = ''): ITProCompiledTemplate; overload;
     constructor Create(aEncoding: TEncoding = nil); overload;
@@ -919,19 +924,12 @@ end;
 procedure TTProCompiler.InternalMatchFilter(lIdentifier: String; var lStartVerbatim: Int64; const CurrToken: TTokenType;
   aTokens: TList<TToken>; const lRef2: Integer);
 var
-  lFilterName: string;
-  lFilterParamsCount: Integer;
-  lFilterParams: TArray<TFilterParameter>;
-  I: Integer;
+  lFilters: TArray<TFilterInfo>;
 begin
-  lFilterName := '';
-  lFilterParamsCount := -1; { -1 means "no filter applied to value" }
+  SetLength(lFilters, 0);
   if MatchSymbol('|') then
   begin
-    if not MatchVariable(lFilterName) then
-      Error('Invalid function name applied to variable or literal string "' + lIdentifier + '"');
-    lFilterParams := GetFunctionParameters;
-    lFilterParamsCount := Length(lFilterParams);
+    MatchFilters(lIdentifier, lFilters);
   end;
 
   if not MatchEndTag then
@@ -939,21 +937,11 @@ begin
     Error('Expected end tag "' + END_TAG + '"');
   end;
   lStartVerbatim := fCharIndex;
-  aTokens.Add(TToken.Create(CurrToken, lIdentifier, '', lFilterParamsCount, lRef2));
+  { Ref1 now stores number of filters (0 = no filter, >0 = filter count) }
+  aTokens.Add(TToken.Create(CurrToken, lIdentifier, '', Length(lFilters), lRef2));
 
-  // add function with params
-  if not lFilterName.IsEmpty then
-  begin
-    aTokens.Add(TToken.Create(ttFilterName, lFilterName, '', lFilterParamsCount));
-    if lFilterParamsCount > 0 then
-    begin
-      for I := 0 to lFilterParamsCount - 1 do
-      begin
-        aTokens.Add(CreateFilterParameterToken(@lFilterParams[I]));
-      end;
-    end;
-  end;
-
+  // add filter tokens
+  AddFilterTokens(aTokens, lFilters);
 end;
 
 constructor TTProCompiler.Create(aEncoding: TEncoding = nil);
@@ -994,16 +982,46 @@ begin
 
 end;
 
-procedure TTProCompiler.MatchFilter(lVarName: string; var lFuncName: string; var lFuncParamsCount: Integer;
-  var lFuncParams: TArray<TFilterParameter>);
+procedure TTProCompiler.MatchFilters(lVarName: string; var lFilters: TArray<TFilterInfo>);
+var
+  lFuncName: string;
+  lFuncParams: TArray<TFilterParameter>;
+  lFilterInfo: TFilterInfo;
 begin
-  MatchSpace;
-  if not MatchVariable(lFuncName) then
-    Error('Invalid function name applied to variable ' + lVarName);
-  MatchSpace;
-  lFuncParams := GetFunctionParameters;
-  lFuncParamsCount := Length(lFuncParams);
-  MatchSpace;
+  SetLength(lFilters, 0);
+  while True do
+  begin
+    MatchSpace;
+    if not MatchVariable(lFuncName) then
+      Error('Invalid function name applied to variable ' + lVarName);
+    MatchSpace;
+    lFuncParams := GetFunctionParameters;
+    MatchSpace;
+
+    lFilterInfo.FilterName := lFuncName;
+    lFilterInfo.Parameters := lFuncParams;
+    SetLength(lFilters, Length(lFilters) + 1);
+    lFilters[High(lFilters)] := lFilterInfo;
+
+    if not MatchSymbol('|') then
+      Break;
+  end;
+end;
+
+procedure TTProCompiler.AddFilterTokens(aTokens: TList<TToken>; const aFilters: TArray<TFilterInfo>);
+var
+  I, J: Integer;
+  lFilter: TFilterInfo;
+begin
+  for I := 0 to High(aFilters) do
+  begin
+    lFilter := aFilters[I];
+    aTokens.Add(TToken.Create(ttFilterName, lFilter.FilterName, '', Length(lFilter.Parameters)));
+    for J := 0 to High(lFilter.Parameters) do
+    begin
+      aTokens.Add(CreateFilterParameterToken(@lFilter.Parameters[J]));
+    end;
+  end;
 end;
 
 function TTProCompiler.CurrentChar: Char;
@@ -1237,14 +1255,12 @@ var
   lLastToken: TTokenType;
   lChar: Char;
   lVarName: string;
-  lFuncName: string;
   lIdentifier: string;
   lIteratorName: string;
   lStartVerbatim: Int64;
   lEndVerbatim: Int64;
   lNegation: Boolean;
   lFuncParams: TArray<TFilterParameter>;
-  lFuncParamsCount: Integer;
   I: Integer;
   lTemplateSource: string;
   lCurrentFileName: string;
@@ -1255,6 +1271,7 @@ var
   lLayoutFound: Boolean;
   lFoundVar: Boolean;
   lFoundFilter: Boolean;
+  lFilters: TArray<TFilterInfo>;
 begin
   aTokens.Add(TToken.Create(ttSystemVersion, TEMPLATEPRO_VERSION, ''));
   lLastToken := ttEOF;
@@ -1337,13 +1354,12 @@ begin
         Step;
         MatchSpace;
         lRef2 := -1;
+        SetLength(lFilters, 0);
         if MatchVariable(lVarName) then { variable }
         begin
           lFoundVar := True;
           if lVarName.IsEmpty then
             Error('Invalid variable name');
-          lFuncName := '';
-          lFuncParamsCount := -1; { -1 means "no filter applied to value" }
           lRef2 := IfThen(MatchSymbol('$'), 1, -1); // {{value$}} means no escaping
           MatchSpace;
         end;
@@ -1351,7 +1367,7 @@ begin
         if MatchSymbol('|') then
         begin
           lFoundFilter := True;
-          MatchFilter(lVarName, lFuncName, lFuncParamsCount, lFuncParams);
+          MatchFilters(lVarName, lFilters);
         end;
 
         if lFoundVar or lFoundFilter then
@@ -1362,21 +1378,12 @@ begin
           end;
           lStartVerbatim := fCharIndex;
           lLastToken := ttValue;
-          aTokens.Add(TToken.Create(lLastToken, lVarName, '', lFuncParamsCount, lRef2));
+          { Ref1 now stores number of filters (0 = no filter, >0 = filter count) }
+          aTokens.Add(TToken.Create(lLastToken, lVarName, '', Length(lFilters), lRef2));
           Inc(lContentOnThisLine);
 
-          // add function with params
-          if not lFuncName.IsEmpty then
-          begin
-            aTokens.Add(TToken.Create(ttFilterName, lFuncName, '', lFuncParamsCount));
-            if lFuncParamsCount > 0 then
-            begin
-              for I := 0 to lFuncParamsCount - 1 do
-              begin
-                aTokens.Add(CreateFilterParameterToken(@lFuncParams[I]));
-              end;
-            end;
-          end;
+          // add filter tokens
+          AddFilterTokens(aTokens, lFilters);
         end
         else
         begin
@@ -1462,16 +1469,10 @@ begin
           MatchSpace;
           if not MatchVariable(lIdentifier) then
             Error('Expected identifier after "if"');
-          lFuncParamsCount := -1;
-          { lFuncParamsCount = -1 means "no filter applied" }
-          lFuncName := '';
+          SetLength(lFilters, 0);
           if MatchSymbol('|') then
           begin
-            MatchSpace;
-            if not MatchVariable(lFuncName) then
-              Error('Invalid function applied to variable ' + lIdentifier);
-            lFuncParams := GetFunctionParameters;
-            lFuncParamsCount := Length(lFuncParams);
+            MatchFilters(lIdentifier, lFilters);
           end;
           MatchSpace;
           if not MatchEndTag then
@@ -1486,20 +1487,11 @@ begin
           lStartVerbatim := fCharIndex;
 
           lLastToken := ttBoolExpression;
-          aTokens.Add(TToken.Create(lLastToken, lIdentifier, '', lFuncParamsCount, -1 { no html escape } ));
+          { Ref1 now stores number of filters (0 = no filter, >0 = filter count) }
+          aTokens.Add(TToken.Create(lLastToken, lIdentifier, '', Length(lFilters), -1 { no html escape } ));
 
-          // add function with params
-          if not lFuncName.IsEmpty then
-          begin
-            aTokens.Add(TToken.Create(ttFilterName, lFuncName, '', lFuncParamsCount));
-            if lFuncParamsCount > 0 then
-            begin
-              for I := 0 to lFuncParamsCount - 1 do
-              begin
-                aTokens.Add(CreateFilterParameterToken(@lFuncParams[I]));
-              end;
-            end;
-          end;
+          // add filter tokens
+          AddFilterTokens(aTokens, lFilters);
         end
         else if MatchSymbol('else') then
         begin
@@ -3702,58 +3694,75 @@ var
   lVarName: string;
   lFilterName: string;
   lFilterParCount: Int64;
+  lFilterCount: Int64;
   lFilterParameters: TArray<TFilterParameter>;
-  I: Integer;
+  I, J: Integer;
   lNegated: Boolean;
+  lCurrentValue: TValue;
 begin
-  // Ref1 contains the optional filter parameter number (-1 if there isn't any filter)
+  // Ref1 contains the number of filters (0 if there isn't any filter)
   // Ref2 is -1 if the variable must be HTMLEncoded, while contains 1 is the value must not be HTMLEncoded
   MustBeEncoded := fTokens[Idx].Ref2 = -1;
   lCurrTokenType := fTokens[Idx].TokenType;
   lVarName := fTokens[Idx].Value1;
+  lFilterCount := fTokens[Idx].Ref1;
   lNegated := lVarName.StartsWith('!');
   if lNegated then
   begin
     lVarName := lVarName.Substring(1);
   end;
 
-  if fTokens[Idx].Ref1 > -1 { has a filter with Ref1 parameters cout } then
+  if lFilterCount > 0 { has filters } then
   begin
-    Inc(Idx);
-    lFilterName := fTokens[Idx].Value1;
-    lFilterParCount := fTokens[Idx].Ref1; // parameter count
-    SetLength(lFilterParameters, lFilterParCount);
-    for I := 0 to lFilterParCount - 1 do
-    begin
-      Inc(Idx);
-      Assert(fTokens[Idx].TokenType = ttFilterParameter);
-      lFilterParameters[I].ParType := TFilterParameterType(fTokens[Idx].Ref2);
-
-      case lFilterParameters[I].ParType of
-        fptInteger:
-          lFilterParameters[I].ParIntValue := fTokens[Idx].Value1.ToInteger;
-        fptString, fptVariable:
-          lFilterParameters[I].ParStrText := fTokens[Idx].Value1;
-      end;
-    end;
-
-    try
+    // Get initial value
     case lCurrTokenType of
       ttValue:
-        Result := ExecuteFilter(lFilterName, lFilterParameters, GetVarAsTValue(lVarName), lVarName);
+        lCurrentValue := GetVarAsTValue(lVarName);
       ttBoolExpression:
-        Result := IsTruthy(ExecuteFilter(lFilterName, lFilterParameters, GetVarAsTValue(lVarName), lVarName));
+        lCurrentValue := GetVarAsTValue(lVarName);
       ttLiteralString:
-        Result := ExecuteFilter(lFilterName, lFilterParameters, lVarName, lVarName);
+        lCurrentValue := lVarName;
     else
       Error('Invalid token in EvaluateValue');
-      end;
-    except
-      on E: Exception do
+    end;
+
+    // Apply each filter in sequence
+    for J := 0 to lFilterCount - 1 do
+    begin
+      Inc(Idx);
+      Assert(fTokens[Idx].TokenType = ttFilterName);
+      lFilterName := fTokens[Idx].Value1;
+      lFilterParCount := fTokens[Idx].Ref1; // parameter count for this filter
+      SetLength(lFilterParameters, lFilterParCount);
+      for I := 0 to lFilterParCount - 1 do
       begin
-        Error('Error while evaluating filter [%s] on variable [%s]- Inner Exception: [%s][%s]', [lFilterName, lVarName, E.ClassName, E.Message]);
+        Inc(Idx);
+        Assert(fTokens[Idx].TokenType = ttFilterParameter);
+        lFilterParameters[I].ParType := TFilterParameterType(fTokens[Idx].Ref2);
+
+        case lFilterParameters[I].ParType of
+          fptInteger:
+            lFilterParameters[I].ParIntValue := fTokens[Idx].Value1.ToInteger;
+          fptString, fptVariable:
+            lFilterParameters[I].ParStrText := fTokens[Idx].Value1;
+        end;
+      end;
+
+      try
+        lCurrentValue := ExecuteFilter(lFilterName, lFilterParameters, lCurrentValue, lVarName);
+      except
+        on E: Exception do
+        begin
+          Error('Error while evaluating filter [%s] on variable [%s]- Inner Exception: [%s][%s]', [lFilterName, lVarName, E.ClassName, E.Message]);
+        end;
       end;
     end;
+
+    // For bool expressions, convert final result to boolean
+    if lCurrTokenType = ttBoolExpression then
+      Result := IsTruthy(lCurrentValue)
+    else
+      Result := lCurrentValue;
   end
   else
   begin

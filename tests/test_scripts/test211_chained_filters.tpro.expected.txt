@@ -1,0 +1,4 @@
+Testing chained filters:
+uppercase then lowercase: true
+lowercase then uppercase: DANIELE2
+lpad then rpad:     1     

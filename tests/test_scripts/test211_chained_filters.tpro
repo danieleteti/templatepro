@@ -1,0 +1,4 @@
+Testing chained filters:
+uppercase then lowercase: {{:value1|uppercase|lowercase}}
+lowercase then uppercase: {{:value2|lowercase|uppercase}}
+lpad then rpad: {{:intvalue1|lpad,5|rpad,10}}
