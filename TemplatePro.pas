@@ -35,7 +35,7 @@ uses
   Data.DB;
 
 const
-  TEMPLATEPRO_VERSION = '0.7.3';
+  TEMPLATEPRO_VERSION = '0.8.0';
 
 type
   ETProException = class(Exception)
@@ -60,12 +60,13 @@ type
 
   TTokenType = (ttContent, ttInclude, ttFor, ttEndFor, ttIfThen, ttBoolExpression, ttElse, ttEndIf, ttStartTag, ttComment, ttJump, ttBlock,
     ttEndBlock, ttContinue, ttLiteralString, ttEndTag, ttValue, ttFilterName, ttFilterParameter, ttLineBreak, ttSystemVersion, ttExit,
-    ttEOF, ttInfo);
+    ttEOF, ttInfo, ttMacro, ttEndMacro, ttCallMacro, ttMacroParam);
 
 const
   TOKEN_TYPE_DESCR: array [Low(TTokenType) .. High(TTokenType)] of string = ('ttContent', 'ttInclude', 'ttFor', 'ttEndFor', 'ttIfThen',
     'ttBoolExpression', 'ttElse', 'ttEndIf', 'ttStartTag', 'ttComment', 'ttJump', 'ttBlock', 'ttEndBlock', 'ttContinue', 'ttLiteralString',
-    'ttEndTag', 'ttValue', 'ttFilterName', 'ttFilterParameter', 'ttLineBreak', 'ttSystemVersion', 'ttExit', 'ttEOF', 'ttInfo');
+    'ttEndTag', 'ttValue', 'ttFilterName', 'ttFilterParameter', 'ttLineBreak', 'ttSystemVersion', 'ttExit', 'ttEOF', 'ttInfo', 'ttMacro',
+    'ttEndMacro', 'ttCallMacro', 'ttMacroParam');
 
 const
   { ttInfo value1 can be: }
@@ -110,6 +111,21 @@ type
   TBlockAddress = record
     BeginBlockAddress, EndBlockAddress: Int64;
     class function Create(BeginBlockAddress, EndBlockAddress: Int64): TBlockAddress; static;
+  end;
+
+  TMacroParameter = record
+    Name: String;
+    DefaultValue: String;
+    HasDefault: Boolean;
+    class function Create(const Name: String; const DefaultValue: String = ''; HasDefault: Boolean = False): TMacroParameter; static;
+  end;
+
+  TMacroDefinition = record
+    Name: String;
+    Parameters: TArray<TMacroParameter>;
+    BeginTokenIndex: Int64;
+    EndTokenIndex: Int64;
+    class function Create(const Name: String; const Parameters: TArray<TMacroParameter>; BeginTokenIndex, EndTokenIndex: Int64): TMacroDefinition; static;
   end;
 
   TTokenWalkProc = reference to procedure(const Index: Integer; const Token: TToken);
@@ -186,6 +202,7 @@ type
     fVariables: TTProVariables;
     fTemplateFunctions: TDictionary<string, TTProTemplateFunction>;
     fTemplateAnonFunctions: TDictionary<string, TTProTemplateAnonFunction>;
+    fMacros: TDictionary<string, TMacroDefinition>;
     fLoopsStack: TObjectList<TLoopStackItem>;
     fOnGetValue: TTProCompiledTemplateGetValueEvent;
     function IsNullableType(const Value: PValue): Boolean;
@@ -223,6 +240,8 @@ type
     class procedure InternalDumpToFile(const FileName: String; const aTokens: TList<TToken>);
     function ComparandOperator(const aComparandType: TComparandType; const aValue: TValue; const aParameters: TArray<TFilterParameter>;
       const aLocaleFormatSettings: TFormatSettings): TValue;
+    procedure RegisterMacro(const TokenIndex: Int64);
+    function ExecuteMacro(const CallTokenIndex: Int64): String;
   public
     destructor Destroy; override;
     function Render: String;
@@ -256,6 +275,7 @@ type
     procedure InternalMatchFilter(lIdentifier: String; var lStartVerbatim: Int64; const CurrToken: TTokenType; aTokens: TList<TToken>;
       const lRef2: Integer);
     function GetFunctionParameters: TArray<TFilterParameter>;
+    function GetMacroParameters: TArray<TFilterParameter>;
     function CreateFilterParameterToken(const FilterParameter: PFilterParameter): TToken;
     procedure Error(const aMessage: string);
     function Step: Char;
@@ -1685,6 +1705,68 @@ begin
           aTokens.Add(TToken.Create(lLastToken, '', ''));
           lStartVerbatim := fCharIndex;
         end
+        else if MatchSymbol('macro') then { macro definition }
+        begin
+          if not MatchSpace then
+            Error('Expected "space" after "macro"');
+          if not MatchVariable(lIdentifier) then
+            Error('Expected macro name after "macro"');
+
+          // Parse macro parameters: macro name(param1, param2='default', ...)
+          lFuncParams := GetMacroParameters;
+
+          MatchSpace;
+          if not MatchEndTag then
+            Error('Expected closing tag for "macro"');
+
+          lLastToken := ttMacro;
+          // Value1 = macro name, Ref1 = parameter count
+          aTokens.Add(TToken.Create(lLastToken, lIdentifier, '', Length(lFuncParams), -1));
+
+          // Add macro parameters as tokens
+          for I := 0 to Length(lFuncParams) - 1 do
+          begin
+            aTokens.Add(CreateFilterParameterToken(@lFuncParams[I]));
+          end;
+
+          lStartVerbatim := fCharIndex;
+        end
+        else if MatchSymbol('endmacro') then { endmacro }
+        begin
+          MatchSpace;
+          if not MatchEndTag then
+            Error('Expected closing tag for "endmacro"');
+          lLastToken := ttEndMacro;
+          aTokens.Add(TToken.Create(lLastToken, '', ''));
+          lStartVerbatim := fCharIndex;
+        end
+        else if MatchSymbol('call') then { call macro }
+        begin
+          if not MatchSpace then
+            Error('Expected "space" after "call"');
+          if not MatchVariable(lIdentifier) then
+            Error('Expected macro name after "call"');
+
+          // Parse call parameters
+          lFuncParams := GetMacroParameters;
+
+          MatchSpace;
+          if not MatchEndTag then
+            Error('Expected closing tag for "call"');
+
+          lLastToken := ttCallMacro;
+          Inc(lContentOnThisLine);
+          // Value1 = macro name, Ref1 = parameter count
+          aTokens.Add(TToken.Create(lLastToken, lIdentifier, '', Length(lFuncParams), -1));
+
+          // Add call parameters as tokens
+          for I := 0 to Length(lFuncParams) - 1 do
+          begin
+            aTokens.Add(CreateFilterParameterToken(@lFuncParams[I]));
+          end;
+
+          lStartVerbatim := fCharIndex;
+        end
         else if MatchSymbol('exit') then { exit }
         begin
           MatchSpace;
@@ -1951,6 +2033,25 @@ begin
                     aTokens[lIfStackItem.ElseIndex] := lToken;
                   end;
                 end;
+              ttMacro:
+                begin
+                  // Store macro start position, will be linked to ttEndMacro later
+                  lForInStack.Push(I); // Reuse the same stack for simplicity
+                end;
+
+              ttEndMacro:
+                begin
+                  // Link ttMacro to ttEndMacro
+                  lForAddress := lForInStack.Pop;
+                  lToken := aTokens[lForAddress];
+                  lToken.Ref2 := I; // ttMacro.Ref2 -> ttEndMacro
+                  aTokens[lForAddress] := lToken;
+
+                  lToken := aTokens[I];
+                  lToken.Ref1 := lForAddress; // ttEndMacro.Ref1 -> ttMacro
+                  aTokens[I] := lToken;
+                end;
+
               ttExit:
                 begin
                   lCheckForUnbalancedPair := False;
@@ -1994,6 +2095,40 @@ begin
     Result := Result + [lFuncPar];
     MatchSpace;
   end;
+end;
+
+function TTProCompiler.GetMacroParameters: TArray<TFilterParameter>;
+var
+  lFuncPar: TFilterParameter;
+begin
+  Result := [];
+  MatchSpace;
+  if not MatchSymbol('(') then
+    Exit; // No parameters
+
+  MatchSpace;
+  // Check for empty parameter list ()
+  if MatchSymbol(')') then
+    Exit;
+
+  // Parse first parameter
+  if not MatchFilterParamValue(lFuncPar) then
+    Error('Expected macro parameter');
+  Result := Result + [lFuncPar];
+  MatchSpace;
+
+  // Parse remaining parameters
+  while MatchSymbol(',') do
+  begin
+    MatchSpace;
+    if not MatchFilterParamValue(lFuncPar) then
+      Error('Expected macro parameter');
+    Result := Result + [lFuncPar];
+    MatchSpace;
+  end;
+
+  if not MatchSymbol(')') then
+    Error('Expected ")" after macro parameters');
 end;
 
 function TTProCompiler.GetSubsequentText: String;
@@ -2742,6 +2877,7 @@ begin
   fTokens := Tokens;
   fTemplateFunctions := TDictionary<string, TTProTemplateFunction>.Create(TTProEqualityComparer.Create);
   fTemplateAnonFunctions := nil;
+  fMacros := TDictionary<string, TMacroDefinition>.Create(TTProEqualityComparer.Create);
   TTProConfiguration.RegisterHandlers(self);
   fLocaleFormatSettings := TFormatSettings.Invariant;
   fLocaleFormatSettings.ShortDateFormat := 'yyyy-mm-dd';
@@ -2788,6 +2924,7 @@ begin
   fLoopsStack.Free;
   fTemplateFunctions.Free;
   fTemplateAnonFunctions.Free;
+  fMacros.Free;
   fTokens.Free;
   fVariables.Free;
   inherited;
@@ -3113,6 +3250,24 @@ begin
             end
             else
               Error('Internal Error: [E35E98FB]');
+          end;
+        ttMacro:
+          begin
+            // Register macro and skip to endmacro
+            RegisterMacro(lIdx);
+            lIdx := fTokens[lIdx].Ref2; // Jump to ttEndMacro
+            Continue;
+          end;
+        ttEndMacro:
+          begin
+            // Do nothing, macro already registered
+          end;
+        ttCallMacro:
+          begin
+            // Execute macro
+            lBuff.Append(ExecuteMacro(lIdx));
+            // Skip the call parameters
+            lIdx := lIdx + fTokens[lIdx].Ref1;
           end;
       else
         begin
@@ -3979,6 +4134,21 @@ begin
   Result.EndBlockAddress := EndBlockAddress;
 end;
 
+class function TMacroParameter.Create(const Name: String; const DefaultValue: String; HasDefault: Boolean): TMacroParameter;
+begin
+  Result.Name := Name;
+  Result.DefaultValue := DefaultValue;
+  Result.HasDefault := HasDefault;
+end;
+
+class function TMacroDefinition.Create(const Name: String; const Parameters: TArray<TMacroParameter>; BeginTokenIndex, EndTokenIndex: Int64): TMacroDefinition;
+begin
+  Result.Name := Name;
+  Result.Parameters := Parameters;
+  Result.BeginTokenIndex := BeginTokenIndex;
+  Result.EndTokenIndex := EndTokenIndex;
+end;
+
 function HandleTemplateSectionStateMachine(const aTokenValue1: String; var aTemplateSectionType: TTProTemplateSectionType;
   out aErrorMessage: String): Boolean;
 begin
@@ -4093,6 +4263,166 @@ begin
         end;
       end;
     end;
+  end;
+end;
+
+procedure TTProCompiledTemplate.RegisterMacro(const TokenIndex: Int64);
+var
+  lMacroName: String;
+  lParamCount: Integer;
+  lParams: TArray<TMacroParameter>;
+  lMacroDef: TMacroDefinition;
+  I: Integer;
+  lParamToken: TToken;
+begin
+  // Extract macro information from tokens
+  lMacroName := fTokens[TokenIndex].Value1;
+  lParamCount := fTokens[TokenIndex].Ref1;
+
+  // Parse macro parameters
+  SetLength(lParams, lParamCount);
+  for I := 0 to lParamCount - 1 do
+  begin
+    lParamToken := fTokens[TokenIndex + 1 + I];
+    if lParamToken.TokenType <> ttMacroParam then
+    begin
+      // For now, use ttFilterParameter as ttMacroParam
+      if lParamToken.TokenType = ttFilterParameter then
+      begin
+        lParams[I].Name := lParamToken.Value1;
+        // Check if it has a default value (string type means it's a default)
+        if lParamToken.Ref2 = Ord(fptString) then
+        begin
+          lParams[I].DefaultValue := lParamToken.Value1;
+          lParams[I].HasDefault := True;
+        end
+        else
+        begin
+          lParams[I].DefaultValue := '';
+          lParams[I].HasDefault := False;
+        end;
+      end;
+    end;
+  end;
+
+  // Create macro definition
+  lMacroDef := TMacroDefinition.Create(
+    lMacroName,
+    lParams,
+    TokenIndex + 1 + lParamCount, // Start after parameters
+    fTokens[TokenIndex].Ref2 // End at ttEndMacro
+  );
+
+  // Register macro
+  if fMacros.ContainsKey(lMacroName.ToLower) then
+    fMacros.AddOrSetValue(lMacroName.ToLower, lMacroDef)
+  else
+    fMacros.Add(lMacroName.ToLower, lMacroDef);
+end;
+
+function TTProCompiledTemplate.ExecuteMacro(const CallTokenIndex: Int64): String;
+var
+  lMacroName: String;
+  lMacroDef: TMacroDefinition;
+  lCallParamCount: Integer;
+  lCallParams: TArray<TValue>;
+  I: Integer;
+  lIdx: Int64;
+  lBuff: TStringBuilder;
+  lSavedVariables: TTProVariables;
+  lParamToken: TToken;
+  lMustBeEncoded: Boolean;
+  lParamValue: TValue;
+begin
+  // Get macro name and parameters from call
+  lMacroName := fTokens[CallTokenIndex].Value1;
+  lCallParamCount := fTokens[CallTokenIndex].Ref1;
+
+  // Find macro definition
+  if not fMacros.TryGetValue(lMacroName.ToLower, lMacroDef) then
+  begin
+    Error('Macro "' + lMacroName + '" not defined');
+  end;
+
+  // Evaluate call parameters
+  SetLength(lCallParams, lCallParamCount);
+  for I := 0 to lCallParamCount - 1 do
+  begin
+    lParamToken := fTokens[CallTokenIndex + 1 + I];
+    case TFilterParameterType(lParamToken.Ref2) of
+      fptString:
+        lCallParams[I] := lParamToken.Value1;
+      fptInteger:
+        lCallParams[I] := StrToInt(lParamToken.Value1);
+      fptFloat:
+        lCallParams[I] := StrToFloat(lParamToken.Value1, fLocaleFormatSettings);
+      fptVariable:
+        lCallParams[I] := GetVarAsTValue(lParamToken.Value1);
+    end;
+  end;
+
+  // Save current variables and create new scope
+  lSavedVariables := fVariables;
+  try
+    fVariables := TTProVariables.Create;
+    try
+      // Set macro parameters as variables in new scope
+      for I := 0 to High(lMacroDef.Parameters) do
+      begin
+        if I < Length(lCallParams) then
+        begin
+          // Use provided parameter
+          fVariables.Add(lMacroDef.Parameters[I].Name, TVarDataSource.Create(lCallParams[I], [viSimpleType]));
+        end
+        else if lMacroDef.Parameters[I].HasDefault then
+        begin
+          // Use default value
+          fVariables.Add(lMacroDef.Parameters[I].Name, TVarDataSource.Create(lMacroDef.Parameters[I].DefaultValue, [viSimpleType]));
+        end
+        else
+        begin
+          Error('Missing required parameter "' + lMacroDef.Parameters[I].Name + '" for macro "' + lMacroName + '"');
+        end;
+      end;
+
+      // Execute macro body
+      lBuff := TStringBuilder.Create;
+      try
+        lIdx := lMacroDef.BeginTokenIndex;
+        while (lIdx < lMacroDef.EndTokenIndex) and (lIdx < fTokens.Count) do
+        begin
+          case fTokens[lIdx].TokenType of
+            ttContent:
+              lBuff.Append(fTokens[lIdx].Value1);
+            ttValue:
+              begin
+                lParamValue := EvaluateValue(lIdx, lMustBeEncoded);
+                if lMustBeEncoded then
+                  lBuff.Append(HTMLEncode(lParamValue.ToString))
+                else
+                  lBuff.Append(lParamValue.ToString);
+              end;
+            ttLineBreak:
+              lBuff.AppendLine;
+            ttCallMacro:
+              begin
+                // Nested macro call
+                lBuff.Append(ExecuteMacro(lIdx));
+                // Skip the call parameters
+                lIdx := lIdx + fTokens[lIdx].Ref1;
+              end;
+          end;
+          Inc(lIdx);
+        end;
+        Result := lBuff.ToString;
+      finally
+        lBuff.Free;
+      end;
+    finally
+      fVariables.Free;
+    end;
+  finally
+    fVariables := lSavedVariables;
   end;
 end;
 

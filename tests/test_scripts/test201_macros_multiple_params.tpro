@@ -1,0 +1,9 @@
+{{macro card(title, content)}}
+<div class="card">
+  <h3>{{:title}}</h3>
+  <p>{{:content}}</p>
+</div>
+{{endmacro}}
+
+{{call card("Welcome", "This is the content")}}
+{{call card("Second Card", "More content here")}}

@@ -1,0 +1,6 @@
+{{macro display(text)}}
+Value: {{:text}}
+{{endmacro}}
+
+{{call display(value2)}}
+{{call display(value3)}}

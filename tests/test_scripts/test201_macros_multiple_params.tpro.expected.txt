@@ -1,0 +1,11 @@
+
+<div class="card">
+  <h3>Welcome</h3>
+  <p>This is the content</p>
+</div>
+
+<div class="card">
+  <h3>Second Card</h3>
+  <p>More content here</p>
+</div>
+

@@ -1,1 +1,1 @@
-Expected closing tag for "if" after "var" - (got: "-1") at line 1 in file C:\DEV\templatepro\tests\test_scripts\test027_fail_if_expression.tpro
+﻿Expected closing tag for "if" after "var" - (got: "-1") at line 1 in file C:\DEV\templatepro\tests\test_scripts\test027_fail_if_expression.tpro

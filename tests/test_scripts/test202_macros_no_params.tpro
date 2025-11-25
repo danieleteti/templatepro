@@ -1,0 +1,9 @@
+{{macro separator()}}
+---
+{{endmacro}}
+
+Start
+{{call separator()}}
+Middle
+{{call separator()}}
+End

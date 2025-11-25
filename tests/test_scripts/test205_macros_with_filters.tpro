@@ -1,0 +1,6 @@
+{{macro format(text)}}
+[{{:text|uppercase}}]
+{{endmacro}}
+
+{{call format("hello")}}
+{{call format(value2)}}

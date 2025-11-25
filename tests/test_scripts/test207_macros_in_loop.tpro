@@ -1,0 +1,7 @@
+{{macro item(name, value)}}
+- {{:name}}: {{:value}}
+{{endmacro}}
+
+{{for obj in objects}}
+{{call item(obj.Prop1, obj.Prop2)}}
+{{endfor}}

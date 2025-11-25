@@ -1,1 +1,1 @@
-Unbalanced "for" - expected "endfor" - (got: "<eof>") at line 3 in file C:\DEV\templatepro\tests\test_scripts\test024_fail_no_endif.tpro
+﻿Unbalanced "if" - expected "endif" - (got: "<eof>") at line 3 in file C:\DEV\templatepro\tests\test_scripts\test024_fail_no_endif.tpro

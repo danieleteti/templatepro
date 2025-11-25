@@ -1,0 +1,9 @@
+{{macro inner(text)}}
+*{{:text}}*
+{{endmacro}}
+
+{{macro outer(text)}}
+[{{call inner(text)}}]
+{{endmacro}}
+
+{{call outer("nested")}}
