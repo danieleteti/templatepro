@@ -1,0 +1,4 @@
+Testing DEFAULT filter:
+Value with content: true
+Empty/zero value: fallback
+Empty/zero value with number: 42

@@ -1,0 +1,9 @@
+Testing AND filter:
+both are true
+
+at least one is false (intvalue0=0)
+
+Testing OR filter:
+at least one is true
+
+both are zero/false

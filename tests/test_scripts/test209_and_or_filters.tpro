@@ -1,0 +1,25 @@
+Testing AND filter:
+{{if value1|and,value2}}
+both are true
+{{else}}
+at least one is false
+{{endif}}
+
+{{if value1|and,intvalue0}}
+both are true
+{{else}}
+at least one is false (intvalue0=0)
+{{endif}}
+
+Testing OR filter:
+{{if value1|or,intvalue0}}
+at least one is true
+{{else}}
+both are false
+{{endif}}
+
+{{if intvalue0|or,intvalue0}}
+at least one is true
+{{else}}
+both are zero/false
+{{endif}}

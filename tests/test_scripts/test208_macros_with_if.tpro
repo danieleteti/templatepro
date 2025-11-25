@@ -1,0 +1,10 @@
+{{macro greeting(name, formal)}}
+{{if formal}}
+Good morning, Mr. {{:name}}.
+{{else}}
+Hey {{:name}}!
+{{endif}}
+{{endmacro}}
+
+{{call greeting("Smith", true)}}
+{{call greeting("John", false)}}

@@ -2210,6 +2210,82 @@ begin
   begin
     Result := ComparandOperator(ctNE, aValue, aParameters, fLocaleFormatSettings);
   end
+  else if SameText(aFunctionName, 'and') then
+  begin
+    CheckParNumber(1, aParameters);
+    if not IsTruthy(aValue) then
+      Result := False
+    else
+    begin
+      case aParameters[0].ParType of
+        fptString:
+          Result := IsTruthy(aParameters[0].ParStrText);
+        fptInteger:
+          Result := aParameters[0].ParIntValue <> 0;
+        fptVariable:
+          begin
+            // Handle boolean literals
+            if SameText(aParameters[0].ParStrText, 'true') then
+              Result := True
+            else if SameText(aParameters[0].ParStrText, 'false') then
+              Result := False
+            else
+              Result := IsTruthy(GetVarAsTValue(aParameters[0].ParStrText));
+          end;
+      else
+        Result := False;
+      end;
+    end;
+  end
+  else if SameText(aFunctionName, 'or') then
+  begin
+    CheckParNumber(1, aParameters);
+    if IsTruthy(aValue) then
+      Result := True
+    else
+    begin
+      case aParameters[0].ParType of
+        fptString:
+          Result := IsTruthy(aParameters[0].ParStrText);
+        fptInteger:
+          Result := aParameters[0].ParIntValue <> 0;
+        fptVariable:
+          begin
+            // Handle boolean literals
+            if SameText(aParameters[0].ParStrText, 'true') then
+              Result := True
+            else if SameText(aParameters[0].ParStrText, 'false') then
+              Result := False
+            else
+              Result := IsTruthy(GetVarAsTValue(aParameters[0].ParStrText));
+          end;
+      else
+        Result := False;
+      end;
+    end;
+  end
+  else if SameText(aFunctionName, 'default') then
+  begin
+    CheckParNumber(1, aParameters);
+    // Return the value if truthy, otherwise return the default parameter
+    if IsTruthy(aValue) then
+      Result := aValue
+    else
+    begin
+      case aParameters[0].ParType of
+        fptString:
+          Result := aParameters[0].ParStrText;
+        fptInteger:
+          Result := aParameters[0].ParIntValue;
+        fptFloat:
+          Result := aParameters[0].ParFloatValue;
+        fptVariable:
+          Result := GetVarAsTValue(aParameters[0].ParStrText);
+      else
+        Result := aValue;
+      end;
+    end;
+  end
   else if SameText(aFunctionName, 'contains') then
   begin
     if Length(aParameters) <> 1 then
@@ -4333,6 +4409,8 @@ var
   lParamToken: TToken;
   lMustBeEncoded: Boolean;
   lParamValue: TValue;
+  lSavedIdx: Int64;
+  lJumpTo: Integer;
 begin
   // Get macro name and parameters from call
   lMacroName := fTokens[CallTokenIndex].Value1;
@@ -4357,7 +4435,15 @@ begin
       fptFloat:
         lCallParams[I] := StrToFloat(lParamToken.Value1, fLocaleFormatSettings);
       fptVariable:
-        lCallParams[I] := GetVarAsTValue(lParamToken.Value1);
+        begin
+          // Handle boolean literals
+          if SameText(lParamToken.Value1, 'true') then
+            lCallParams[I] := True
+          else if SameText(lParamToken.Value1, 'false') then
+            lCallParams[I] := False
+          else
+            lCallParams[I] := GetVarAsTValue(lParamToken.Value1);
+        end;
     end;
   end;
 
@@ -4394,7 +4480,7 @@ begin
           case fTokens[lIdx].TokenType of
             ttContent:
               lBuff.Append(fTokens[lIdx].Value1);
-            ttValue:
+            ttValue, ttLiteralString:
               begin
                 lParamValue := EvaluateValue(lIdx, lMustBeEncoded);
                 if lMustBeEncoded then
@@ -4410,6 +4496,40 @@ begin
                 lBuff.Append(ExecuteMacro(lIdx));
                 // Skip the call parameters
                 lIdx := lIdx + fTokens[lIdx].Ref1;
+              end;
+            ttIfThen:
+              begin
+                lSavedIdx := lIdx;
+                if EvaluateIfExpressionAt(lIdx) then
+                begin
+                  // condition is true, continue executing
+                end
+                else
+                begin
+                  lIdx := lSavedIdx;
+                  if fTokens[lIdx].Ref1 > -1 then { there is an else }
+                  begin
+                    lJumpTo := fTokens[lIdx].Ref1 + 1;
+                    // jump to the statement "after" ttElse (if it is ttLineBreak, jump it)
+                    if fTokens[lJumpTo].TokenType <> ttLineBreak then
+                      lIdx := lJumpTo
+                    else
+                      lIdx := lJumpTo + 1;
+                    Continue;
+                  end;
+                  lIdx := fTokens[lIdx].Ref2; // jump to "endif"
+                  Continue;
+                end;
+              end;
+            ttElse:
+              begin
+                // always jump to ttEndIf which it reference is at ttElse.Ref2
+                lIdx := fTokens[lIdx].Ref2;
+                Continue;
+              end;
+            ttEndIf:
+              begin
+                // do nothing, just continue
               end;
           end;
           Inc(lIdx);

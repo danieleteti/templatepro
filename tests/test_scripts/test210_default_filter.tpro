@@ -1,0 +1,4 @@
+Testing DEFAULT filter:
+Value with content: {{:value1|default,"fallback"}}
+Empty/zero value: {{:intvalue0|default,"fallback"}}
+Empty/zero value with number: {{:intvalue0|default,42}}
