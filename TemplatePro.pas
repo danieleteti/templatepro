@@ -850,128 +850,32 @@ end;
 
 function TTProCompiledTemplate.GetTValueWithNullableTypeAsString(const Value: PValue; out WasNull: Boolean; const VarName: string): String;
 var
-  lNullableInt32: NullableInt32;
-  lNullableUInt32: NullableUInt32;
-  lNullableInt16: NullableInt16;
-  lNullableUInt16: NullableUInt16;
-  lNullableInt64: NullableInt64;
-  lNullableUInt64: NullableUInt64;
-  lNullableCurrency: NullableCurrency;
-  lNullableBoolean: NullableBoolean;
-  lNullableTDate: NullableTDate;
-  lNullableTTime: NullableTTime;
-  lNullableTDateTime: NullableTDateTime;
-    begin
-      Result := '';
+  lUnwrappedValue: TValue;
+begin
+  Result := '';
   WasNull := True;
-      if Value.TypeInfo = TypeInfo(NullableInt32) then
-      begin
-        lNullableInt32 := Value.AsType<NullableInt32>;
-        if lNullableInt32.HasValue then
-    begin
-      WasNull := False;
-          Result := lNullableInt32.Value.ToString
-    end;
-      end
-      else if Value.TypeInfo = TypeInfo(NullableUInt32) then
-      begin
-        lNullableUInt32 := Value.AsType<NullableUInt32>;
-        if lNullableUInt32.HasValue then
-    begin
-      WasNull := False;
-          Result := lNullableUInt32.Value.ToString
-    end;
-      end
-      else if Value.TypeInfo = TypeInfo(NullableInt16) then
-      begin
-        lNullableInt16 := Value.AsType<NullableInt16>;
-        if lNullableInt16.HasValue then
-    begin
-      WasNull := False;
-          Result := lNullableInt16.Value.ToString
-    end;
-      end
-      else if Value.TypeInfo = TypeInfo(NullableUInt16) then
-      begin
-        lNullableUInt16 := Value.AsType<NullableUInt16>;
-        if lNullableUInt16.HasValue then
-    begin
-      WasNull := False;
-          Result := lNullableUInt16.Value.ToString
-    end;
-      end
-      else if Value.TypeInfo = TypeInfo(NullableInt64) then
-      begin
-        lNullableInt64 := Value.AsType<NullableInt64>;
-        if lNullableInt64.HasValue then
-    begin
-      WasNull := False;
-          Result := lNullableInt64.Value.ToString
-    end;
-      end
-      else if Value.TypeInfo = TypeInfo(NullableUInt64) then
-      begin
-        lNullableUInt64 := Value.AsType<NullableUInt64>;
-        if lNullableUInt64.HasValue then
-    begin
-      WasNull := False;
-          Result := lNullableUInt64.Value.ToString
-    end;
-      end
-      else if Value.TypeInfo = TypeInfo(NullableString) then
-      begin
-        Result := Value.AsType<NullableString>.ValueOrDefault;
-    WasNull := False;
-      end
-      else if Value.TypeInfo = TypeInfo(NullableCurrency) then
-      begin
-        lNullableCurrency := Value.AsType<NullableCurrency>;
-        if lNullableCurrency.HasValue then
-    begin
-      WasNull := False;
-          Result := FloatToStr(lNullableCurrency.Value, fLocaleFormatSettings);
-    end;
-      end
-      else if Value.TypeInfo = TypeInfo(NullableBoolean) then
-      begin
-        lNullableBoolean := Value.AsType<NullableBoolean>;
-        if lNullableBoolean.HasValue then
-    begin
-      WasNull := False;
-          Result := BoolToStr(lNullableBoolean.Value, True);
-    end;
-      end
-      else if Value.TypeInfo = TypeInfo(NullableTDate) then
-      begin
-        lNullableTDate := Value.AsType<NullableTDate>;
-        if lNullableTDate.HasValue then
-    begin
-      WasNull := False;
-          Result := DateToStr(lNullableTDate.Value, Self.fLocaleFormatSettings);
-    end;
-      end
-      else if Value.TypeInfo = TypeInfo(NullableTTime) then
-      begin
-        lNullableTTime := Value.AsType<NullableTTime>;
-        if lNullableTTime.HasValue then
-    begin
-      WasNull := False;
-      Result := TimeToStr(lNullableTTime.Value, Self.fLocaleFormatSettings);
-    end;
-      end
-      else if Value.TypeInfo = TypeInfo(NullableTDateTime) then
-      begin
-        lNullableTDateTime := Value.AsType<NullableTDateTime>;
-        if lNullableTDateTime.HasValue then
-    begin
-      WasNull := False;
-      Result := DateToISO8601(lNullableTDateTime.Value, False);
-    end;
-            end
-            else
-            begin
-        raise ETProException.Create('Unsupported type for variable "' + VarName + '"');
-      end;
+
+  // Use GetNullableTValueAsTValue to extract the inner value
+  lUnwrappedValue := GetNullableTValueAsTValue(Value, VarName);
+
+  if lUnwrappedValue.IsEmpty then
+    Exit;
+
+  WasNull := False;
+
+  // Apply specific formatting based on the original Nullable type
+  if Value.TypeInfo = TypeInfo(NullableCurrency) then
+    Result := FloatToStr(lUnwrappedValue.AsCurrency, fLocaleFormatSettings)
+  else if Value.TypeInfo = TypeInfo(NullableTDate) then
+    Result := DateToStr(lUnwrappedValue.AsExtended, fLocaleFormatSettings)
+  else if Value.TypeInfo = TypeInfo(NullableTTime) then
+    Result := TimeToStr(lUnwrappedValue.AsExtended, fLocaleFormatSettings)
+  else if Value.TypeInfo = TypeInfo(NullableTDateTime) then
+    Result := DateToISO8601(lUnwrappedValue.AsExtended, False)
+  else if Value.TypeInfo = TypeInfo(NullableBoolean) then
+    Result := BoolToStr(lUnwrappedValue.AsBoolean, True)
+  else
+    Result := lUnwrappedValue.ToString;
 end;
 
 procedure TTProCompiledTemplate.AddFilter(const FunctionName: string; const AnonFunctionImpl: TTProTemplateAnonFunction);
