@@ -1,0 +1,17 @@
+﻿Expression in If Tests
+======================
+
+Simple expression condition:
+Ten is greater than 5
+Expression with else:
+Two <= 5
+Arithmetic in condition:
+Sum is big
+Multiple conditions with and:
+Both conditions met
+Multiple conditions with or:
+At least one condition met
+Comparison with equality:
+Value equals 10
+Nested parentheses:
+Complex condition true

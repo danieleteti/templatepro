@@ -32,7 +32,9 @@ uses
   System.TypInfo,
   System.DateUtils,
   System.RTTI,
-  Data.DB;
+  System.Variants,
+  Data.DB,
+  ExprEvaluator;
 
 const
   TEMPLATEPRO_VERSION = '0.8.0';
@@ -60,13 +62,13 @@ type
 
   TTokenType = (ttContent, ttInclude, ttFor, ttEndFor, ttIfThen, ttBoolExpression, ttElse, ttEndIf, ttStartTag, ttComment, ttJump, ttBlock,
     ttEndBlock, ttContinue, ttLiteralString, ttEndTag, ttValue, ttFilterName, ttFilterParameter, ttLineBreak, ttSystemVersion, ttExit,
-    ttEOF, ttInfo, ttMacro, ttEndMacro, ttCallMacro, ttMacroParam);
+    ttEOF, ttInfo, ttMacro, ttEndMacro, ttCallMacro, ttMacroParam, ttExpression);
 
 const
   TOKEN_TYPE_DESCR: array [Low(TTokenType) .. High(TTokenType)] of string = ('ttContent', 'ttInclude', 'ttFor', 'ttEndFor', 'ttIfThen',
     'ttBoolExpression', 'ttElse', 'ttEndIf', 'ttStartTag', 'ttComment', 'ttJump', 'ttBlock', 'ttEndBlock', 'ttContinue', 'ttLiteralString',
     'ttEndTag', 'ttValue', 'ttFilterName', 'ttFilterParameter', 'ttLineBreak', 'ttSystemVersion', 'ttExit', 'ttEOF', 'ttInfo', 'ttMacro',
-    'ttEndMacro', 'ttCallMacro', 'ttMacroParam');
+    'ttEndMacro', 'ttCallMacro', 'ttMacroParam', 'ttExpression');
 
 const
   { ttInfo value1 can be: }
@@ -180,6 +182,12 @@ type
     function GetFormatSettings: PTProFormatSettings;
     procedure SetFormatSettings(const Value: PTProFormatSettings);
     property FormatSettings: PTProFormatSettings read GetFormatSettings write SetFormatSettings;
+    /// <summary>
+    /// Evaluates a complex expression using the ExpressionEvaluator engine.
+    /// The expression can reference template variables using their names.
+    /// Example: EvaluateExpression('price * qty * (1 - discount)')
+    /// </summary>
+    function EvaluateExpression(const Expression: string): TValue;
   end;
 
   TTProCompiledTemplateEvent = reference to procedure(const TemplateProCompiledTemplate: ITProCompiledTemplate);
@@ -210,6 +218,7 @@ type
     fMacros: TDictionary<string, TMacroDefinition>;
     fLoopsStack: TObjectList<TLoopStackItem>;
     fOnGetValue: TTProCompiledTemplateGetValueEvent;
+    fExprEvaluator: IExprEvaluator;
     function IsNullableType(const Value: PValue): Boolean;
     procedure InitTemplateAnonFunctions; inline;
     function PeekLoop: TLoopStackItem;
@@ -247,7 +256,11 @@ type
       const aLocaleFormatSettings: TFormatSettings): TValue;
     procedure RegisterMacro(const TokenIndex: Int64);
     function ExecuteMacro(const CallTokenIndex: Int64): String;
+    function GetExprEvaluator: IExprEvaluator;
+    function TValueToVariant(const Value: TValue): Variant;
+    function VariantToTValue(const Value: Variant): TValue;
   public
+    function EvaluateExpression(const Expression: string): TValue;
     destructor Destroy; override;
     function Render: String;
     procedure ForEachToken(const TokenProc: TTokenWalkProc);
@@ -1347,7 +1360,28 @@ begin
         Continue;
       end;
 
-      if CurrentChar = ':' then // variable
+      if CurrentChar = '@' then // expression {{@expr}}
+      begin
+        Step; // skip '@'
+        MatchSpace; // skip optional spaces after '@'
+        lVarName := '';
+        // Read expression until end tag
+        while not MatchEndTag do
+        begin
+          if fCharIndex > Length(fInputString) then
+            Error('Unclosed expression tag');
+          lVarName := lVarName + CurrentChar;
+          Step;
+        end;
+        lVarName := lVarName.Trim;
+        if lVarName.IsEmpty then
+          Error('Empty expression after "@"');
+        lLastToken := ttExpression;
+        aTokens.Add(TToken.Create(lLastToken, lVarName, ''));
+        lStartVerbatim := fCharIndex;
+        Inc(lContentOnThisLine);
+      end
+      else if CurrentChar = ':' then // variable
       begin
         lFoundVar := False;
         lFoundFilter := False;
@@ -1465,33 +1499,72 @@ begin
           begin
             Error('Expected <space> after "if"');
           end;
-          lNegation := MatchSymbol('!');
-          MatchSpace;
-          if not MatchVariable(lIdentifier) then
-            Error('Expected identifier after "if"');
-          SetLength(lFilters, 0);
-          if MatchSymbol('|') then
-          begin
-            MatchFilters(lIdentifier, lFilters);
-          end;
-          MatchSpace;
-          if not MatchEndTag then
-            Error('Expected closing tag for "if" after "' + lIdentifier + '"');
-          if lNegation then
-          begin
-            lIdentifier := '!' + lIdentifier;
-          end;
-          lLastToken := ttIfThen;
-          aTokens.Add(TToken.Create(lLastToken, '' { lIdentifier } , ''));
-          Inc(lIfStatementCount);
-          lStartVerbatim := fCharIndex;
 
-          lLastToken := ttBoolExpression;
-          { Ref1 now stores number of filters (0 = no filter, >0 = filter count) }
-          aTokens.Add(TToken.Create(lLastToken, lIdentifier, '', Length(lFilters), -1 { no html escape } ));
+          // Check for expression syntax: @(expr)
+          if MatchSymbol('@(') then
+          begin
+            // Read expression until matching closing parenthesis
+            lIdentifier := '';
+            var lParenCount := 1;
+            while lParenCount > 0 do
+            begin
+              if fCharIndex > Length(fInputString) then
+                Error('Unclosed expression in "if @(...)"');
+              if CurrentChar = '(' then
+                Inc(lParenCount)
+              else if CurrentChar = ')' then
+                Dec(lParenCount);
+              if lParenCount > 0 then
+                lIdentifier := lIdentifier + CurrentChar;
+              Step;
+            end;
+            lIdentifier := lIdentifier.Trim;
+            if lIdentifier.IsEmpty then
+              Error('Empty expression in "if @(...)"');
+            MatchSpace;
+            if not MatchEndTag then
+              Error('Expected closing tag for "if" after expression');
 
-          // add filter tokens
-          AddFilterTokens(aTokens, lFilters);
+            lLastToken := ttIfThen;
+            aTokens.Add(TToken.Create(lLastToken, '', ''));
+            Inc(lIfStatementCount);
+            lStartVerbatim := fCharIndex;
+
+            // Use ttExpression for the condition (Ref2 = 1 marks it as expression-based)
+            lLastToken := ttBoolExpression;
+            aTokens.Add(TToken.Create(lLastToken, lIdentifier, '', 0, 1 { 1 = expression mode }));
+          end
+          else
+          begin
+            // Original variable-based condition
+            lNegation := MatchSymbol('!');
+            MatchSpace;
+            if not MatchVariable(lIdentifier) then
+              Error('Expected identifier after "if"');
+            SetLength(lFilters, 0);
+            if MatchSymbol('|') then
+            begin
+              MatchFilters(lIdentifier, lFilters);
+            end;
+            MatchSpace;
+            if not MatchEndTag then
+              Error('Expected closing tag for "if" after "' + lIdentifier + '"');
+            if lNegation then
+            begin
+              lIdentifier := '!' + lIdentifier;
+            end;
+            lLastToken := ttIfThen;
+            aTokens.Add(TToken.Create(lLastToken, '' { lIdentifier } , ''));
+            Inc(lIfStatementCount);
+            lStartVerbatim := fCharIndex;
+
+            lLastToken := ttBoolExpression;
+            { Ref1 now stores number of filters (0 = no filter, >0 = filter count) }
+            aTokens.Add(TToken.Create(lLastToken, lIdentifier, '', Length(lFilters), -1 { no html escape } ));
+
+            // add filter tokens
+            AddFilterTokens(aTokens, lFilters);
+          end;
         end
         else if MatchSymbol('else') then
         begin
@@ -3148,6 +3221,11 @@ begin
               lVarValue.AsObject.Free;
             end;
           end;
+        ttExpression:
+          begin
+            lVarValue := EvaluateExpression(fTokens[lIdx].Value1);
+            lBuff.Append(lVarValue.ToString);
+          end;
         ttLineBreak:
           begin
             lBuff.AppendLine;
@@ -3679,13 +3757,26 @@ end;
 function TTProCompiledTemplate.EvaluateIfExpressionAt(var Idx: Int64): Boolean;
 var
   lMustBeEncoded: Boolean;
+  lExprResult: TValue;
 begin
   Inc(Idx);
   if fTokens[Idx].TokenType <> ttBoolExpression then
   begin
     Error('Expected ttBoolExpression after ttIfThen');
   end;
-  Result := IsTruthy(EvaluateValue(Idx, lMustBeEncoded));
+
+  // Check if this is an expression-based condition (Ref2 = 1)
+  if fTokens[Idx].Ref2 = 1 then
+  begin
+    // Evaluate using ExpressionEvaluator
+    lExprResult := EvaluateExpression(fTokens[Idx].Value1);
+    Result := IsTruthy(lExprResult);
+  end
+  else
+  begin
+    // Original variable-based evaluation
+    Result := IsTruthy(EvaluateValue(Idx, lMustBeEncoded));
+  end;
 end;
 
 function TTProCompiledTemplate.EvaluateValue(var Idx: Int64; out MustBeEncoded: Boolean): TValue;
@@ -4401,6 +4492,11 @@ begin
                 else
                   lBuff.Append(lParamValue.ToString);
               end;
+            ttExpression:
+              begin
+                lParamValue := EvaluateExpression(fTokens[lIdx].Value1);
+                lBuff.Append(lParamValue.ToString);
+              end;
             ttLineBreak:
               lBuff.AppendLine;
             ttCallMacro:
@@ -4459,6 +4555,94 @@ begin
   end;
 end;
 
+{ Expression Evaluator Integration }
+
+function TTProCompiledTemplate.TValueToVariant(const Value: TValue): Variant;
+begin
+  if Value.IsEmpty then
+    Result := Null
+  else if Value.Kind = tkInteger then
+    Result := Value.AsInteger
+  else if Value.Kind = tkInt64 then
+    Result := Value.AsInt64
+  else if Value.Kind = tkFloat then
+    Result := Value.AsExtended
+  else if Value.Kind in [tkString, tkUString, tkLString, tkWString] then
+    Result := Value.AsString
+  else if Value.Kind = tkEnumeration then
+  begin
+    if Value.TypeInfo = TypeInfo(Boolean) then
+      Result := Value.AsBoolean
+    else
+      Result := Value.AsOrdinal;
+  end
+  else if Value.Kind = tkVariant then
+    Result := Value.AsVariant
+  else
+    Result := Value.ToString;
+end;
+
+function TTProCompiledTemplate.VariantToTValue(const Value: Variant): TValue;
+begin
+  case VarType(Value) and varTypeMask of
+    varEmpty, varNull:
+      Result := TValue.Empty;
+    varSmallint, varInteger, varShortInt, varByte, varWord, varLongWord:
+      Result := TValue.From<Integer>(Value);
+    varInt64, varUInt64:
+      Result := TValue.From<Int64>(Value);
+    varSingle, varDouble, varCurrency:
+      Result := TValue.From<Double>(Value);
+    varBoolean:
+      Result := TValue.From<Boolean>(Value);
+    varString, varUString, varOleStr:
+      Result := TValue.From<string>(string(Value));
+    varDate:
+      Result := TValue.From<TDateTime>(Value);
+  else
+    Result := TValue.From<string>(VarToStr(Value));
+  end;
+end;
+
+function TTProCompiledTemplate.GetExprEvaluator: IExprEvaluator;
+var
+  lSelf: TTProCompiledTemplate;
+begin
+  if fExprEvaluator = nil then
+  begin
+    fExprEvaluator := CreateExprEvaluator;
+    lSelf := Self;
+    fExprEvaluator.SetOnResolveExternalVariable(
+      function(const VarName: string; out Value: Variant): Boolean
+      var
+        lTValue: TValue;
+      begin
+        try
+          lTValue := lSelf.GetVarAsTValue(VarName);
+          if not lTValue.IsEmpty then
+          begin
+            Value := lSelf.TValueToVariant(lTValue);
+            Result := True;
+          end
+          else
+            Result := False;
+        except
+          Result := False;
+        end;
+      end);
+  end;
+  Result := fExprEvaluator;
+end;
+
+function TTProCompiledTemplate.EvaluateExpression(const Expression: string): TValue;
+var
+  lEval: IExprEvaluator;
+  lResult: Variant;
+begin
+  lEval := GetExprEvaluator;
+  lResult := lEval.Evaluate(Expression);
+  Result := VariantToTValue(lResult);
+end;
 
 initialization
 

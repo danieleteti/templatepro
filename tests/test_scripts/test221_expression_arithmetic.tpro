@@ -1,0 +1,23 @@
+Expression Arithmetic Tests
+===========================
+
+Basic operations:
+Addition: {{@intvalue10 + intvalue2}}
+Subtraction: {{@intvalue10 - intvalue2}}
+Multiplication: {{@intvalue2 * intvalue10}}
+Division: {{@intvalue10 / intvalue2}}
+Integer division: {{@intvalue10 div intvalue2}}
+Modulo: {{@intvalue10 mod 3}}
+Power: {{@intvalue2 ^ 3}}
+
+Operator precedence:
+No parens: {{@intvalue2 + intvalue1 * intvalue10}}
+With parens: {{@(intvalue2 + intvalue1) * intvalue10}}
+
+Negative numbers:
+Negation: {{@-intvalue10}}
+Negative calc: {{@intvalue2 - intvalue10}}
+
+Float operations:
+Float value: {{@floatvalue}}
+Float calc: {{@floatvalue / 10}}

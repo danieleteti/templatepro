@@ -1,0 +1,26 @@
+﻿Expression Functions Tests
+==========================
+
+Math functions:
+Sqrt of 16: 4
+Abs of -5: 5
+Floor: 3
+Ceil: 4
+Round: 1234,57
+Min: 2
+Max: 10
+
+String functions:
+Length: 8
+Upper: HELLO
+Lower: daniele2
+Trim: test
+Left: DANI
+Right: 2
+
+Conversion functions:
+ToString: 10
+ToInteger: 42
+
+Combined:
+Complex: 8

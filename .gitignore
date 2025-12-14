@@ -75,3 +75,5 @@ samples/playground/bin/output/last_output.html
 /CLAUDE.md
 /tests/*.tp
 /tests/*.tpc
+/output.tpc
+/output.tp

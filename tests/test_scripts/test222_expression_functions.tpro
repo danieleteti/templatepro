@@ -1,0 +1,26 @@
+Expression Functions Tests
+==========================
+
+Math functions:
+Sqrt of 16: {{@sqrt(16)}}
+Abs of -5: {{@abs(-5)}}
+Floor: {{@floor(3.7)}}
+Ceil: {{@ceil(3.2)}}
+Round: {{@Round(floatvalue, -2)}}
+Min: {{@Min(intvalue10, intvalue2)}}
+Max: {{@Max(intvalue10, intvalue2)}}
+
+String functions:
+Length: {{@Length(value2)}}
+Upper: {{@Upper("hello")}}
+Lower: {{@Lower(value2)}}
+Trim: {{@Trim("  test  ")}}
+Left: {{@Left(value2, 4)}}
+Right: {{@Right(value2, 1)}}
+
+Conversion functions:
+ToString: {{@ToString(intvalue10)}}
+ToInteger: {{@ToInteger("42")}}
+
+Combined:
+Complex: {{@sqrt(intvalue10 + 6) * intvalue2}}

@@ -116,6 +116,7 @@
         <DCC_DebugDCUs>false</DCC_DebugDCUs>
         <DCC_NXCompat>false</DCC_NXCompat>
         <DCC_DynamicBase>false</DCC_DynamicBase>
+        <DCC_UnitSearchPath>C:\DEV\expressionsevaluator;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Cfg_1_Win64)'!=''">
         <DCC_DebugDCUs>false</DCC_DebugDCUs>
@@ -137,6 +138,7 @@
         <DCCReference Include="..\TemplatePro.pas"/>
         <DCCReference Include="..\JsonDataObjects.pas"/>
         <DCCReference Include="..\MVCFramework.Nullables.pas"/>
+        <DCCReference Include="..\ExprEvaluator.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -181,6 +183,18 @@
                     </Platform>
                 </DeployFile>
                 <DeployFile LocalName="bin\templateprounittests.exe" Configuration="Debug" Class="ProjectOutput"/>
+                <DeployFile LocalName="bin\templateprounittests.exe" Configuration="Debug" Class="ProjectOutput">
+                    <Platform Name="Win64">
+                        <RemoteName>templateprounittests.exe</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
+                <DeployFile LocalName="bin\templateprounittests.rsm" Configuration="Debug" Class="DebugSymbols">
+                    <Platform Name="Win64">
+                        <RemoteName>templateprounittests.rsm</RemoteName>
+                        <Overwrite>true</Overwrite>
+                    </Platform>
+                </DeployFile>
                 <DeployClass Name="AdditionalDebugSymbols">
                     <Platform Name="iOSSimulator">
                         <Operation>1</Operation>

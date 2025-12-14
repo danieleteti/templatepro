@@ -1,0 +1,23 @@
+Expression Conditional Tests
+============================
+
+Simple if-then-else:
+Check 10>5: yes
+Check 2>5: no
+
+With calculations:
+Sum check: big
+Product check: tiny
+
+Nested conditionals:
+Nested: A
+
+Boolean expressions:
+And: both
+Or: one true
+
+Comparison operators:
+Equal: equal
+Not equal: different
+GTE: gte
+LTE: lte

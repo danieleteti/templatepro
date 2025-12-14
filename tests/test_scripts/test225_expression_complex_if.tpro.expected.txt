@@ -1,0 +1,15 @@
+﻿Expression Complex If Tests
+===========================
+
+Function in condition:
+Long string
+String comparison:
+Match!
+Calculated threshold:
+Over threshold
+Multiple nested conditions:
+  Level 1: Level 2: Both high
+Expression result in condition:
+Max is greater than 5
+Boolean not:
+Two is not greater than 10

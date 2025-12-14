@@ -36,7 +36,9 @@ uses
   UtilsU in 'UtilsU.pas',
   TemplatePro in '..\TemplatePro.pas',
   JsonDataObjects in '..\JsonDataObjects.pas',
-  MVCFramework.Nullables in '..\MVCFramework.Nullables.pas', System.SysUtils;
+  MVCFramework.Nullables in '..\MVCFramework.Nullables.pas',
+  System.SysUtils,
+  ExprEvaluator in '..\ExprEvaluator.pas';
 
 const
   TestFileNameFilter = '*'; // '*' means "all files', '' means no file-based tests
@@ -90,6 +92,189 @@ begin
   Assert(HTMLEncode('✌') = '&#9996;', HTMLEncode('✌')); // https://home.unicode.org/
   Assert(HTMLEncode('👍') = '&#128077;', HTMLEncode('👍')); // https://home.unicode.org/
   WriteLn('TestHTMLEntities                       : OK');
+end;
+
+procedure TestExpressionEvaluator;
+var
+  lCompiler: TTProCompiler;
+  lCompiledTmpl: ITProCompiledTemplate;
+  lResult: TValue;
+  lIntVal: Integer;
+  lDblVal: Double;
+begin
+  lCompiler := TTProCompiler.Create();
+  try
+    lCompiledTmpl := lCompiler.Compile('dummy template');
+
+    // Set up template variables
+    lCompiledTmpl.SetData('price', 100);
+    lCompiledTmpl.SetData('qty', 5);
+    lCompiledTmpl.SetData('discount', 0.1);
+    lCompiledTmpl.SetData('name', 'John');
+
+    // Test basic arithmetic with template variables
+    lResult := lCompiledTmpl.EvaluateExpression('price * qty');
+    lIntVal := lResult.AsVariant;
+    Assert(lIntVal = 500, 'price * qty should be 500, got: ' + IntToStr(lIntVal));
+
+    // Test complex expression
+    lResult := lCompiledTmpl.EvaluateExpression('price * qty * (1 - discount)');
+    lDblVal := lResult.AsVariant;
+    Assert(Abs(lDblVal - 450.0) < 0.001, 'price * qty * (1 - discount) should be 450');
+
+    // Test string functions
+    lResult := lCompiledTmpl.EvaluateExpression('Length(name)');
+    lIntVal := lResult.AsVariant;
+    Assert(lIntVal = 4, 'Length(name) should be 4');
+
+    lResult := lCompiledTmpl.EvaluateExpression('Upper(name)');
+    Assert(lResult.AsString = 'JOHN', 'Upper(name) should be JOHN');
+
+    // Test conditional expressions
+    lResult := lCompiledTmpl.EvaluateExpression('if price > 50 then "expensive" else "cheap"');
+    Assert(lResult.AsString = 'expensive', 'Conditional should return expensive');
+
+    // Test comparison operators
+    lResult := lCompiledTmpl.EvaluateExpression('price > 50');
+    Assert(Boolean(lResult.AsVariant) = True, 'price > 50 should be True');
+
+    lResult := lCompiledTmpl.EvaluateExpression('qty >= 5');
+    Assert(Boolean(lResult.AsVariant) = True, 'qty >= 5 should be True');
+
+    // Test logical operators
+    lResult := lCompiledTmpl.EvaluateExpression('price > 50 and qty > 3');
+    Assert(Boolean(lResult.AsVariant) = True, 'price > 50 and qty > 3 should be True');
+
+    // Test pure expressions (without template variables)
+    lResult := lCompiledTmpl.EvaluateExpression('10 + 20 * 2');
+    lIntVal := lResult.AsVariant;
+    Assert(lIntVal = 50, '10 + 20 * 2 should be 50');
+
+    lResult := lCompiledTmpl.EvaluateExpression('sqrt(16)');
+    lIntVal := lResult.AsVariant;
+    Assert(lIntVal = 4, 'sqrt(16) should be 4');
+
+    WriteLn('TestExpressionEvaluator                : OK');
+  finally
+    lCompiler.Free;
+  end;
+end;
+
+procedure TestExpressionInTemplate;
+var
+  lCompiler: TTProCompiler;
+  lCompiledTmpl: ITProCompiledTemplate;
+  lOutput: string;
+begin
+  lCompiler := TTProCompiler.Create();
+  try
+    // Test basic expression in template
+    lCompiledTmpl := lCompiler.Compile('Total: {{@price * qty}}');
+    lCompiledTmpl.SetData('price', 100);
+    lCompiledTmpl.SetData('qty', 5);
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'Total: 500', 'Expected "Total: 500", got: ' + lOutput);
+
+    // Test expression with space after @
+    lCompiledTmpl := lCompiler.Compile('Total: {{@ price * qty}}');
+    lCompiledTmpl.SetData('price', 100);
+    lCompiledTmpl.SetData('qty', 5);
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'Total: 500', 'Expected "Total: 500" with space, got: ' + lOutput);
+
+    // Test complex expression
+    lCompiledTmpl := lCompiler.Compile('Discounted: {{@price * qty * (1 - discount)}}');
+    lCompiledTmpl.SetData('price', 100);
+    lCompiledTmpl.SetData('qty', 5);
+    lCompiledTmpl.SetData('discount', 0.1);
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'Discounted: 450', 'Expected "Discounted: 450", got: ' + lOutput);
+
+    // Test string expression
+    lCompiledTmpl := lCompiler.Compile('Name: {{@Upper(name)}}');
+    lCompiledTmpl.SetData('name', 'john');
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'Name: JOHN', 'Expected "Name: JOHN", got: ' + lOutput);
+
+    // Test conditional expression
+    lCompiledTmpl := lCompiler.Compile('Status: {{@if price > 50 then "expensive" else "cheap"}}');
+    lCompiledTmpl.SetData('price', 100);
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'Status: expensive', 'Expected "Status: expensive", got: ' + lOutput);
+
+    // Test mixed template with regular variables and expressions
+    lCompiledTmpl := lCompiler.Compile('Item: {{:name}}, Total: {{@price * qty}}');
+    lCompiledTmpl.SetData('name', 'Widget');
+    lCompiledTmpl.SetData('price', 25);
+    lCompiledTmpl.SetData('qty', 4);
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'Item: Widget, Total: 100', 'Expected "Item: Widget, Total: 100", got: ' + lOutput);
+
+    WriteLn('TestExpressionInTemplate               : OK');
+  finally
+    lCompiler.Free;
+  end;
+end;
+
+procedure TestExpressionInIf;
+var
+  lCompiler: TTProCompiler;
+  lCompiledTmpl: ITProCompiledTemplate;
+  lOutput: string;
+begin
+  lCompiler := TTProCompiler.Create();
+  try
+    // Test expression in if condition
+    lCompiledTmpl := lCompiler.Compile('{{if @(price > 100)}}expensive{{endif}}');
+    lCompiledTmpl.SetData('price', 150);
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'expensive', 'Expected "expensive", got: ' + lOutput);
+
+    // Test expression evaluating to false
+    lCompiledTmpl := lCompiler.Compile('{{if @(price > 100)}}expensive{{endif}}');
+    lCompiledTmpl.SetData('price', 50);
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = '', 'Expected empty, got: ' + lOutput);
+
+    // Test complex expression in if
+    lCompiledTmpl := lCompiler.Compile('{{if @(price * qty > 500)}}big order{{else}}small order{{endif}}');
+    lCompiledTmpl.SetData('price', 100);
+    lCompiledTmpl.SetData('qty', 10);
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'big order', 'Expected "big order", got: ' + lOutput);
+
+    // Test with else branch
+    lCompiledTmpl := lCompiler.Compile('{{if @(price * qty > 500)}}big order{{else}}small order{{endif}}');
+    lCompiledTmpl.SetData('price', 10);
+    lCompiledTmpl.SetData('qty', 2);
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'small order', 'Expected "small order", got: ' + lOutput);
+
+    // Test logical operators
+    lCompiledTmpl := lCompiler.Compile('{{if @(price > 50 and qty >= 5)}}discount{{else}}no discount{{endif}}');
+    lCompiledTmpl.SetData('price', 100);
+    lCompiledTmpl.SetData('qty', 10);
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'discount', 'Expected "discount", got: ' + lOutput);
+
+    // Test with string comparison
+    lCompiledTmpl := lCompiler.Compile('{{if @(status = "active")}}active user{{else}}inactive{{endif}}');
+    lCompiledTmpl.SetData('status', 'active');
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'active user', 'Expected "active user", got: ' + lOutput);
+
+    // Test nested parentheses in expression
+    lCompiledTmpl := lCompiler.Compile('{{if @((price + tax) * qty > 100)}}over budget{{endif}}');
+    lCompiledTmpl.SetData('price', 10);
+    lCompiledTmpl.SetData('tax', 2);
+    lCompiledTmpl.SetData('qty', 10);
+    lOutput := lCompiledTmpl.Render;
+    Assert(lOutput = 'over budget', 'Expected "over budget", got: ' + lOutput);
+
+    WriteLn('TestExpressionInIf                     : OK');
+  finally
+    lCompiler.Free;
+  end;
 end;
 
 procedure TestGetTValueFromPath;
@@ -509,6 +694,9 @@ begin
       TestWriteReadFromFile;
       TestHTMLEntities;
       TestGetTValueFromPath;
+      TestExpressionEvaluator;
+      TestExpressionInTemplate;
+      TestExpressionInIf;
     end;
     Main;
   except

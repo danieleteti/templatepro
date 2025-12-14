@@ -1,0 +1,18 @@
+Expression Basic Tests
+======================
+
+Simple variable via expression:
+Int1: 1
+Int2: 2
+Int10: 10
+
+Simple arithmetic:
+Sum: 3
+Product: 20
+Difference: 8
+
+With spaces after @:
+Total: 20
+
+Complex expression:
+Result: 12

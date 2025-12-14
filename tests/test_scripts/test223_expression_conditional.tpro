@@ -1,0 +1,23 @@
+Expression Conditional Tests
+============================
+
+Simple if-then-else:
+Check 10>5: {{@if intvalue10 > 5 then "yes" else "no"}}
+Check 2>5: {{@if intvalue2 > 5 then "yes" else "no"}}
+
+With calculations:
+Sum check: {{@if intvalue10 + intvalue2 > 10 then "big" else "small"}}
+Product check: {{@if intvalue2 * intvalue1 > 5 then "large" else "tiny"}}
+
+Nested conditionals:
+Nested: {{@if intvalue10 > 5 then (if intvalue2 > 1 then "A" else "B") else "C"}}
+
+Boolean expressions:
+And: {{@if intvalue10 > 5 and intvalue2 > 1 then "both" else "not both"}}
+Or: {{@if intvalue10 < 5 or intvalue2 > 1 then "one true" else "none"}}
+
+Comparison operators:
+Equal: {{@if intvalue10 = 10 then "equal" else "not equal"}}
+Not equal: {{@if intvalue10 <> 5 then "different" else "same"}}
+GTE: {{@if intvalue10 >= 10 then "gte" else "lt"}}
+LTE: {{@if intvalue2 <= 2 then "lte" else "gt"}}

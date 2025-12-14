@@ -1,0 +1,27 @@
+Expression Mixed With Variables Tests
+=====================================
+
+Regular variable: true
+Expression output: 12
+Regular again: DANIELE2
+
+Filter on variable vs expression function:
+Filtered: DANIELE2
+Expression: DANIELE2
+
+Conditional mix:
+Expression says yes, variable is: true
+
+Multiple expressions in sequence:
+Sum: 12, Product: 20, Diff: 8
+
+Expression inside variable context:
+Value1 is "true" and 10+2=12
+
+Spaces after @:
+With space: 15
+Without: 15
+
+Expression with string result:
+true
+

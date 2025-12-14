@@ -1,0 +1,23 @@
+﻿Expression Arithmetic Tests
+===========================
+
+Basic operations:
+Addition: 12
+Subtraction: 8
+Multiplication: 20
+Division: 5
+Integer division: 5
+Modulo: 1
+Power: 8
+
+Operator precedence:
+No parens: 12
+With parens: 30
+
+Negative numbers:
+Negation: -10
+Negative calc: -8
+
+Float operations:
+Float value: 1234,5678
+Float calc: 123,45678

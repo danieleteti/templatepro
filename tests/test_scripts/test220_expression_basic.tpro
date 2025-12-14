@@ -1,0 +1,18 @@
+Expression Basic Tests
+======================
+
+Simple variable via expression:
+Int1: {{@intvalue1}}
+Int2: {{@intvalue2}}
+Int10: {{@intvalue10}}
+
+Simple arithmetic:
+Sum: {{@intvalue1 + intvalue2}}
+Product: {{@intvalue2 * intvalue10}}
+Difference: {{@intvalue10 - intvalue2}}
+
+With spaces after @:
+Total: {{@ intvalue2 * intvalue10}}
+
+Complex expression:
+Result: {{@(intvalue10 + intvalue2) * intvalue1}}

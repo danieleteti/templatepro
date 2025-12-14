@@ -1,0 +1,23 @@
+Expression in If Tests
+======================
+
+Simple expression condition:
+{{if @(intvalue10 > 5)}}Ten is greater than 5{{endif}}
+
+Expression with else:
+{{if @(intvalue2 > 5)}}Two > 5{{else}}Two <= 5{{endif}}
+
+Arithmetic in condition:
+{{if @(intvalue10 + intvalue2 > 10)}}Sum is big{{else}}Sum is small{{endif}}
+
+Multiple conditions with and:
+{{if @(intvalue10 > 5 and intvalue2 > 1)}}Both conditions met{{endif}}
+
+Multiple conditions with or:
+{{if @(intvalue10 < 5 or intvalue2 > 1)}}At least one condition met{{endif}}
+
+Comparison with equality:
+{{if @(intvalue10 = 10)}}Value equals 10{{endif}}
+
+Nested parentheses:
+{{if @((intvalue10 + intvalue2) * intvalue1 > 10)}}Complex condition true{{endif}}

@@ -1,0 +1,27 @@
+Expression Mixed With Variables Tests
+=====================================
+
+Regular variable: {{:value1}}
+Expression output: {{@intvalue10 + intvalue2}}
+Regular again: {{:value2}}
+
+Filter on variable vs expression function:
+Filtered: {{:value2|uppercase}}
+Expression: {{@Upper(value2)}}
+
+Conditional mix:
+{{if @(intvalue10 > 5)}}Expression says yes, variable is: {{:value1}}{{endif}}
+
+Multiple expressions in sequence:
+Sum: {{@intvalue10 + intvalue2}}, Product: {{@intvalue10 * intvalue2}}, Diff: {{@intvalue10 - intvalue2}}
+
+Expression inside variable context:
+Value1 is "{{:value1}}" and 10+2={{@intvalue10 + intvalue2}}
+
+Spaces after @:
+With space: {{@ intvalue10 + 5}}
+Without: {{@intvalue10 + 5}}
+
+Expression with string result:
+{{@if intvalue10 > 5 then value1 else value2}}
+

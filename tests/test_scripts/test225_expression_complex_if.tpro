@@ -1,0 +1,24 @@
+Expression Complex If Tests
+===========================
+
+Function in condition:
+{{if @(Length(value2) > 5)}}Long string{{else}}Short string{{endif}}
+
+String comparison:
+{{if @(Upper(value2) = "DANIELE2")}}Match!{{endif}}
+
+Calculated threshold:
+{{if @(floatvalue / 100 > intvalue10)}}Over threshold{{else}}Under threshold{{endif}}
+
+Multiple nested conditions:
+{{if @(intvalue10 >= 10)}}
+  Level 1: {{if @(intvalue2 >= 2)}}Level 2: Both high{{else}}Level 2: Only first high{{endif}}
+{{else}}
+  Level 1: First is low
+{{endif}}
+
+Expression result in condition:
+{{if @(Max(intvalue10, intvalue2) > 5)}}Max is greater than 5{{endif}}
+
+Boolean not:
+{{if @(not (intvalue2 > 10))}}Two is not greater than 10{{endif}}
