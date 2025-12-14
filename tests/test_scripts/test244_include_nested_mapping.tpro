@@ -1,0 +1,6 @@
+Nested include with mapping test
+================================
+
+{{include "included_outer.tpro", outerval = "OUTER_VALUE"}}
+
+After all includes, value2 = {{:value2}}

@@ -1,0 +1,8 @@
+﻿Nested include with mapping test
+================================
+
+OUTER: outerval=OUTER_VALUE
+INNER: innerval=INNER_VALUE, outerval=OVERWRITTEN_IN_INNER
+OUTER after inner: outerval=OUTER_VALUE
+
+After all includes, value2 = DANIELE2

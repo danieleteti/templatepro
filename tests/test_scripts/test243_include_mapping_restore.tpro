@@ -1,0 +1,16 @@
+Variable restoration test
+=========================
+
+Test 1: Variable that did NOT exist before include
+--------------------------------------------------
+localvalue does not exist before include.
+{{include "included_echo.tpro", localvalue = "MAPPED_VALUE"}}
+After include, localvalue should not exist:
+{{if localvalue}}ERROR: localvalue still exists{{else}}OK: localvalue was removed{{endif}}
+
+Test 2: Variable that DID exist before include
+----------------------------------------------
+Before include, value2 = {{:value2}}
+{{include "included_setvar.tpro", value2 = "OVERWRITTEN"}}
+After include, value2 should be restored: {{:value2}}
+{{if value2|eq,"DANIELE2"}}OK: value2 restored correctly{{else}}ERROR: value2 not restored{{endif}}

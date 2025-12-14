@@ -1,0 +1,15 @@
+﻿Variable restoration test
+=========================
+
+Test 1: Variable that did NOT exist before include
+--------------------------------------------------
+localvalue does not exist before include.
+Echoing: MAPPED_VALUE
+After include, localvalue should not exist:
+OK: localvalue was removed
+Test 2: Variable that DID exist before include
+----------------------------------------------
+Before include, value2 = DANIELE2
+Inside include, value2 = OVERWRITTEN
+After include, value2 should be restored: DANIELE2
+OK: value2 restored correctly

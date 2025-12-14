@@ -1,0 +1,2 @@
+{{set x = :value2|uppercase}}
+x = {{:x}}

@@ -1,0 +1,20 @@
+Include mapping with different types
+=====================================
+
+Boolean true:
+{{include "included_bool.tpro", flag = true}}
+
+Boolean false:
+{{include "included_bool.tpro", flag = false}}
+
+Float:
+{{include "included_float.tpro", num = 3.14}}
+
+Negative integer:
+{{include "included_int.tpro", num = -42}}
+
+Expression:
+{{include "included_int.tpro", num = @(intvalue10 * 2)}}
+
+Multiple mappings:
+{{include "included_multi.tpro", a = "AAA", b = :value2, c = 123}}

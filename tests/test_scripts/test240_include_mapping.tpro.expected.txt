@@ -1,0 +1,13 @@
+﻿Include with variable mapping test
+===================================
+
+Mapping string: value2 -> localvalue
+Echoing: DANIELE2
+
+Mapping with literal string:
+Echoing: Hello from mapping!
+
+Mapping with integer:
+Number: 10
+
+Original value2 after include: DANIELE2

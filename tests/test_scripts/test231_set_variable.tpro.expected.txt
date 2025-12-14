@@ -1,0 +1,6 @@
+﻿Set Variable Reference Tests
+============================
+
+Copy variable:
+copied = DANIELE2
+

@@ -37,7 +37,7 @@ uses
   ExprEvaluator;
 
 const
-  TEMPLATEPRO_VERSION = '0.8.0';
+  TEMPLATEPRO_VERSION = '0.9.0';
 
 type
   ETProException = class(Exception)
@@ -62,13 +62,13 @@ type
 
   TTokenType = (ttContent, ttInclude, ttFor, ttEndFor, ttIfThen, ttBoolExpression, ttElse, ttEndIf, ttStartTag, ttComment, ttJump, ttBlock,
     ttEndBlock, ttContinue, ttLiteralString, ttEndTag, ttValue, ttFilterName, ttFilterParameter, ttLineBreak, ttSystemVersion, ttExit,
-    ttEOF, ttInfo, ttMacro, ttEndMacro, ttCallMacro, ttMacroParam, ttExpression);
+    ttEOF, ttInfo, ttMacro, ttEndMacro, ttCallMacro, ttMacroParam, ttExpression, ttSet, ttIncludeStart, ttIncludeEnd);
 
 const
   TOKEN_TYPE_DESCR: array [Low(TTokenType) .. High(TTokenType)] of string = ('ttContent', 'ttInclude', 'ttFor', 'ttEndFor', 'ttIfThen',
     'ttBoolExpression', 'ttElse', 'ttEndIf', 'ttStartTag', 'ttComment', 'ttJump', 'ttBlock', 'ttEndBlock', 'ttContinue', 'ttLiteralString',
     'ttEndTag', 'ttValue', 'ttFilterName', 'ttFilterParameter', 'ttLineBreak', 'ttSystemVersion', 'ttExit', 'ttEOF', 'ttInfo', 'ttMacro',
-    'ttEndMacro', 'ttCallMacro', 'ttMacroParam', 'ttExpression');
+    'ttEndMacro', 'ttCallMacro', 'ttMacroParam', 'ttExpression', 'ttSet', 'ttIncludeStart', 'ttIncludeEnd');
 
 const
   { ttInfo value1 can be: }
@@ -208,6 +208,12 @@ type
   TTProCompilerOption = (coIgnoreSysVersion, coParentTemplate);
   TTProCompilerOptions = set of TTProCompilerOption;
 
+  TIncludeSavedVar = record
+    Existed: Boolean;
+    Value: TValue;
+  end;
+  TIncludeSavedVars = TDictionary<String, TIncludeSavedVar>;
+
   TTProCompiledTemplate = class(TInterfacedObject, ITProCompiledTemplate)
   private
     fLocaleFormatSettings: TFormatSettings;
@@ -217,6 +223,7 @@ type
     fTemplateAnonFunctions: TDictionary<string, TTProTemplateAnonFunction>;
     fMacros: TDictionary<string, TMacroDefinition>;
     fLoopsStack: TObjectList<TLoopStackItem>;
+    fIncludeSavedVarsStack: TObjectList<TIncludeSavedVars>;
     fOnGetValue: TTProCompiledTemplateGetValueEvent;
     fExprEvaluator: IExprEvaluator;
     function IsNullableType(const Value: PValue): Boolean;
@@ -256,6 +263,11 @@ type
       const aLocaleFormatSettings: TFormatSettings): TValue;
     procedure RegisterMacro(const TokenIndex: Int64);
     function ExecuteMacro(const CallTokenIndex: Int64): String;
+    procedure ProcessSetToken(var Idx: Int64);
+    function ExecuteStringFilter(const aFunctionName: string; var aParameters: TArray<TFilterParameter>;
+      const aValue: TValue; const aExecuteAsFilterOnAValue: Boolean; out aResult: TValue): Boolean;
+    function ExecuteDateFilter(const aFunctionName: string; var aParameters: TArray<TFilterParameter>;
+      const aValue: TValue; const aVarNameWhereShoudBeApplied: String; out aResult: TValue): Boolean;
     function GetExprEvaluator: IExprEvaluator;
     function TValueToVariant(const Value: TValue): Variant;
     function VariantToTValue(const Value: Variant): TValue;
@@ -288,6 +300,7 @@ type
     function MatchVariable(var aIdentifier: string): Boolean;
     function MatchFilterParamValue(var aParamValue: TFilterParameter): Boolean;
     function MatchSymbol(const aSymbol: string): Boolean;
+    function MatchExpression(out aExpression: string): Boolean;
     function MatchSpace: Boolean;
     function MatchString(out aStringValue: string): Boolean;
     procedure InternalMatchFilter(lIdentifier: String; var lStartVerbatim: Int64; const CurrToken: TTokenType; aTokens: TList<TToken>;
@@ -1203,6 +1216,33 @@ begin
     fCharIndex := lSavedCharIndex;
 end;
 
+function TTProCompiler.MatchExpression(out aExpression: string): Boolean;
+var
+  lParenCount: Integer;
+begin
+  // Matches @(expression) and returns the expression content
+  Result := MatchSymbol('@(');
+  if not Result then
+    Exit;
+  aExpression := '';
+  lParenCount := 1;
+  while lParenCount > 0 do
+  begin
+    if fCharIndex > Length(fInputString) then
+      Error('Unclosed expression @(...)');
+    if CurrentChar = '(' then
+      Inc(lParenCount)
+    else if CurrentChar = ')' then
+      Dec(lParenCount);
+    if lParenCount > 0 then
+      aExpression := aExpression + CurrentChar;
+    Step;
+  end;
+  aExpression := aExpression.Trim;
+  if aExpression.IsEmpty then
+    Error('Empty expression in @(...)');
+end;
+
 function TTProCompiler.Step: Char;
 begin
   Inc(fCharIndex);
@@ -1475,6 +1515,120 @@ begin
           lLastToken := ttContinue;
           aTokens.Add(TToken.Create(lLastToken, '', ''));
         end
+        else if MatchSymbol('set') then { set variable }
+        begin
+          if not MatchSpace then
+            Error('Expected <space> after "set"');
+          if not MatchVariable(lIdentifier) then
+            Error('Expected variable name after "set"');
+          MatchSpace;
+          if not MatchSymbol('=') then
+            Error('Expected "=" after variable name in "set"');
+          MatchSpace;
+
+          // Check what follows: :var, @(expr), or literal
+          if MatchSymbol(':') then
+          begin
+            // Variable reference with optional filters
+            if not MatchVariable(lVarName) then
+              Error('Expected variable name after ":" in "set"');
+            // Parse filters
+            SetLength(lFilters, 0);
+            if MatchSymbol('|') then
+              MatchFilters(lVarName, lFilters);
+            MatchSpace;
+            if not MatchEndTag then
+              Error('Expected closing tag for "set"');
+            lStartVerbatim := fCharIndex;
+            lLastToken := ttSet;
+            // Ref2=0 for variable reference, Ref1=filter count
+            aTokens.Add(TToken.Create(lLastToken, lIdentifier, lVarName, Length(lFilters), 0));
+            AddFilterTokens(aTokens, lFilters);
+          end
+          else if MatchExpression(lVarName) then
+          begin
+            // Expression
+            MatchSpace;
+            if not MatchEndTag then
+              Error('Expected closing tag for "set"');
+            lStartVerbatim := fCharIndex;
+            lLastToken := ttSet;
+            // Ref2=1 for expression
+            aTokens.Add(TToken.Create(lLastToken, lIdentifier, lVarName, 0, 1));
+          end
+          else if MatchString(lVarName) then
+          begin
+            // String literal
+            MatchSpace;
+            if not MatchEndTag then
+              Error('Expected closing tag for "set"');
+            lStartVerbatim := fCharIndex;
+            lLastToken := ttSet;
+            // Ref2=2 for string literal
+            aTokens.Add(TToken.Create(lLastToken, lIdentifier, lVarName, 0, 2));
+          end
+          else if MatchSymbol('true') then
+          begin
+            MatchSpace;
+            if not MatchEndTag then
+              Error('Expected closing tag for "set"');
+            lStartVerbatim := fCharIndex;
+            lLastToken := ttSet;
+            // Ref2=3 for boolean true
+            aTokens.Add(TToken.Create(lLastToken, lIdentifier, 'true', 0, 3));
+          end
+          else if MatchSymbol('false') then
+          begin
+            MatchSpace;
+            if not MatchEndTag then
+              Error('Expected closing tag for "set"');
+            lStartVerbatim := fCharIndex;
+            lLastToken := ttSet;
+            // Ref2=4 for boolean false
+            aTokens.Add(TToken.Create(lLastToken, lIdentifier, 'false', 0, 4));
+          end
+          else if CharInSet(fInputString.Chars[fCharIndex], SignAndNumbers) then
+          begin
+            // Number literal (integer or float)
+            lVarName := fInputString.Chars[fCharIndex];
+            Inc(fCharIndex);
+            while CharInSet(fInputString.Chars[fCharIndex], Numbers) do
+            begin
+              lVarName := lVarName + fInputString.Chars[fCharIndex];
+              Inc(fCharIndex);
+            end;
+            if MatchSymbol('.') then
+            begin
+              // Float
+              lVarName := lVarName + '.';
+              while CharInSet(fInputString.Chars[fCharIndex], Numbers) do
+              begin
+                lVarName := lVarName + fInputString.Chars[fCharIndex];
+                Inc(fCharIndex);
+              end;
+              MatchSpace;
+              if not MatchEndTag then
+                Error('Expected closing tag for "set"');
+              lStartVerbatim := fCharIndex;
+              lLastToken := ttSet;
+              // Ref2=6 for float literal
+              aTokens.Add(TToken.Create(lLastToken, lIdentifier, lVarName, 0, 6));
+            end
+            else
+            begin
+              // Integer
+              MatchSpace;
+              if not MatchEndTag then
+                Error('Expected closing tag for "set"');
+              lStartVerbatim := fCharIndex;
+              lLastToken := ttSet;
+              // Ref2=5 for integer literal
+              aTokens.Add(TToken.Create(lLastToken, lIdentifier, lVarName, 0, 5));
+            end;
+          end
+          else
+            Error('Expected literal value, variable reference (:var), or expression (@(...)) in "set"');
+        end
         else if MatchSymbol('endif') then { endif }
         begin
           MatchSpace;
@@ -1501,26 +1655,8 @@ begin
           end;
 
           // Check for expression syntax: @(expr)
-          if MatchSymbol('@(') then
+          if MatchExpression(lIdentifier) then
           begin
-            // Read expression until matching closing parenthesis
-            lIdentifier := '';
-            var lParenCount := 1;
-            while lParenCount > 0 do
-            begin
-              if fCharIndex > Length(fInputString) then
-                Error('Unclosed expression in "if @(...)"');
-              if CurrentChar = '(' then
-                Inc(lParenCount)
-              else if CurrentChar = ')' then
-                Dec(lParenCount);
-              if lParenCount > 0 then
-                lIdentifier := lIdentifier + CurrentChar;
-              Step;
-            end;
-            lIdentifier := lIdentifier.Trim;
-            if lIdentifier.IsEmpty then
-              Error('Empty expression in "if @(...)"');
             MatchSpace;
             if not MatchEndTag then
               Error('Expected closing tag for "if" after expression');
@@ -1580,36 +1716,153 @@ begin
           if not MatchSpace then
             Error('Expected "space" after "include"');
 
-          { In a future version we could implement a function call }
           if not MatchString(lStringValue) then
           begin
             Error('Expected string after "include"');
           end;
 
+          // Save filename before it gets overwritten by mapping parsing
+          var lIncludeFileName := lStringValue;
+
           MatchSpace;
 
-          if not MatchEndTag then
-            Error('Expected closing tag for "include"');
-
-          // create another element in the sections stack
+          // Check for variable mappings: {{include "file", var1 = :source1, var2 = :source2}}
+          var lHasMappings := False;
+          var lMappingTargets: TArray<String>;
+          var lMappingTokens: TList<TToken>;
+          lMappingTokens := TList<TToken>.Create;
           try
-            if TDirectory.Exists(aFileNameRefPath) then
+            if MatchSymbol(',') then
             begin
-              lCurrentFileName := TPath.GetFullPath(TPath.Combine(aFileNameRefPath, lStringValue));
-            end
-            else
-            begin
-              lCurrentFileName := TPath.GetFullPath(TPath.Combine(TPath.GetDirectoryName(aFileNameRefPath), lStringValue));
+              lHasMappings := True;
+              // Parse variable mappings
+              repeat
+                MatchSpace;
+                var lTargetVar: String;
+                if not MatchVariable(lTargetVar) then
+                  Error('Expected variable name in include mapping');
+                MatchSpace;
+                if not MatchSymbol('=') then
+                  Error('Expected "=" in include mapping');
+                MatchSpace;
+
+                // Parse source value (similar to set)
+                var lMappingToken: TToken;
+                lMappingToken.TokenType := ttSet;
+                lMappingToken.Value1 := lTargetVar;
+                lMappingToken.Ref1 := 0; // filter count
+
+                if MatchSymbol(':') then
+                begin
+                  // Variable reference
+                  var lSourceVar: String;
+                  if not MatchVariable(lSourceVar) then
+                    Error('Expected variable name after ":" in include mapping');
+                  lMappingToken.Value2 := lSourceVar;
+                  lMappingToken.Ref2 := 0; // mode: variable
+                end
+                else if MatchString(lStringValue) then
+                begin
+                  // String literal
+                  lMappingToken.Value2 := lStringValue;
+                  lMappingToken.Ref2 := 2; // mode: string
+                end
+                else if MatchExpression(lStringValue) then
+                begin
+                  // Expression
+                  lMappingToken.Value2 := lStringValue;
+                  lMappingToken.Ref2 := 1; // mode: expression
+                end
+                else if MatchSymbol('true') then
+                begin
+                  lMappingToken.Ref2 := 3; // mode: bool true
+                end
+                else if MatchSymbol('false') then
+                begin
+                  lMappingToken.Ref2 := 4; // mode: bool false
+                end
+                else
+                begin
+                  // Try to match a number
+                  var lNumStr := '';
+                  var lIsFloat := False;
+                  var lIsNeg := MatchSymbol('-');
+                  while (fCharIndex <= Length(fInputString)) and (CharInSet(CurrentChar, ['0'..'9', '.'])) do
+                  begin
+                    if CurrentChar = '.' then
+                      lIsFloat := True;
+                    lNumStr := lNumStr + CurrentChar;
+                    Step;
+                  end;
+                  if lNumStr = '' then
+                    Error('Expected value in include mapping');
+                  if lIsNeg then
+                    lNumStr := '-' + lNumStr;
+                  lMappingToken.Value2 := lNumStr;
+                  if lIsFloat then
+                    lMappingToken.Ref2 := 6 // mode: float
+                  else
+                    lMappingToken.Ref2 := 5; // mode: integer
+                end;
+
+                lMappingTokens.Add(lMappingToken);
+                SetLength(lMappingTargets, Length(lMappingTargets) + 1);
+                lMappingTargets[High(lMappingTargets)] := lTargetVar;
+
+                MatchSpace;
+              until not MatchSymbol(',');
             end;
-            lTemplateSource := TFile.ReadAllText(lCurrentFileName, fEncoding);
-          except
-            on E: Exception do
-            begin
-              Error('Cannot read "' + lStringValue + '"');
+
+            if not MatchEndTag then
+              Error('Expected closing tag for "include"');
+
+            // Read the included file
+            try
+              if TDirectory.Exists(aFileNameRefPath) then
+              begin
+                lCurrentFileName := TPath.GetFullPath(TPath.Combine(aFileNameRefPath, lIncludeFileName));
+              end
+              else
+              begin
+                lCurrentFileName := TPath.GetFullPath(TPath.Combine(TPath.GetDirectoryName(aFileNameRefPath), lIncludeFileName));
+              end;
+              lTemplateSource := TFile.ReadAllText(lCurrentFileName, fEncoding);
+            except
+              on E: Exception do
+              begin
+                Error('Cannot read "' + lIncludeFileName + '"');
+              end;
             end;
+            Inc(lContentOnThisLine);
+
+            // Generate tokens
+            if lHasMappings then
+            begin
+              // Add ttIncludeStart with target variable names
+              var lIncludeStartToken: TToken;
+              lIncludeStartToken.TokenType := ttIncludeStart;
+              lIncludeStartToken.Value1 := String.Join(',', lMappingTargets);
+              lIncludeStartToken.Ref1 := Length(lMappingTargets);
+              aTokens.Add(lIncludeStartToken);
+
+              // Add mapping tokens (ttSet)
+              for var lMapToken in lMappingTokens do
+                aTokens.Add(lMapToken);
+            end;
+
+            // Compile the included template
+            InternalCompileIncludedTemplate(lTemplateSource, aTokens, lCurrentFileName, [coIgnoreSysVersion, coParentTemplate]);
+
+            if lHasMappings then
+            begin
+              // Add ttIncludeEnd
+              var lIncludeEndToken: TToken;
+              lIncludeEndToken.TokenType := ttIncludeEnd;
+              aTokens.Add(lIncludeEndToken);
+            end;
+          finally
+            lMappingTokens.Free;
           end;
-          Inc(lContentOnThisLine);
-          InternalCompileIncludedTemplate(lTemplateSource, aTokens, lCurrentFileName, [coIgnoreSysVersion, coParentTemplate]);
           lStartVerbatim := fCharIndex;
         end
         else if MatchSymbol('extends') then { extends }
@@ -2127,22 +2380,227 @@ begin
   CheckParNumber(aHowManyPars, aHowManyPars, aParameters);
 end;
 
+function TTProCompiledTemplate.ExecuteStringFilter(const aFunctionName: string;
+  var aParameters: TArray<TFilterParameter>; const aValue: TValue;
+  const aExecuteAsFilterOnAValue: Boolean; out aResult: TValue): Boolean;
+var
+  lStrValue: string;
+  lValue: TValue;
+  lVarValue: TValue;
+  lIntegerPar1: Integer;
+begin
+  Result := True;
+  if SameText(aFunctionName, 'uppercase') then
+  begin
+    if aExecuteAsFilterOnAValue then
+    begin
+      CheckParNumber(0, aParameters);
+      aResult := UpperCase(aValue.AsString);
+    end
+    else
+    begin
+      CheckParNumber(1, aParameters);
+      aResult := UpperCase(aParameters[0].ParStrText);
+    end;
+  end
+  else if SameText(aFunctionName, 'lowercase') then
+  begin
+    if aExecuteAsFilterOnAValue then
+    begin
+      CheckParNumber(0, aParameters);
+      aResult := lowercase(aValue.AsString);
+    end
+    else
+    begin
+      CheckParNumber(1, aParameters);
+      aResult := lowercase(aParameters[0].ParStrText);
+    end;
+  end
+  else if SameText(aFunctionName, 'capitalize') then
+  begin
+    if aExecuteAsFilterOnAValue then
+    begin
+      CheckParNumber(0, aParameters);
+      aResult := CapitalizeString(aValue.AsString, True);
+    end
+    else
+    begin
+      CheckParNumber(1, aParameters);
+      aResult := CapitalizeString(aParameters[0].ParStrText, True);
+    end;
+  end
+  else if SameText(aFunctionName, 'trunc') then
+  begin
+    CheckParNumber(1, 1, aParameters);
+    lStrValue := aValue.AsString.TrimRight;
+    lIntegerPar1 := aParameters[0].ParIntValue;
+    if Length(lStrValue) > lIntegerPar1 then
+      aResult := lStrValue.Substring(0, aParameters[0].ParIntValue) + '...'
+    else
+      aResult := lStrValue;
+  end
+  else if SameText(aFunctionName, 'rpad') then
+  begin
+    if aValue.IsType<Integer> then
+      lStrValue := aValue.AsInteger.ToString
+    else if aValue.IsType<string> then
+      lStrValue := aValue.AsString
+    else
+      FunctionError(aFunctionName, 'Invalid parameter/s');
+
+    CheckParNumber(1, 2, aParameters);
+    if Length(aParameters) = 1 then
+      aResult := lStrValue.PadRight(aParameters[0].ParIntValue)
+    else
+      aResult := lStrValue.PadRight(aParameters[0].ParIntValue, aParameters[1].ParStrText.Chars[0]);
+  end
+  else if SameText(aFunctionName, 'lpad') then
+  begin
+    if not(aParameters[0].ParType in [fptInteger, fptVariable]) then
+      FunctionError('lpad', 'Invalid parameter type');
+
+    if aValue.IsType<Integer> then
+      lStrValue := aValue.AsInteger.ToString
+    else if aValue.IsType<string> then
+      lStrValue := aValue.AsString
+    else
+      FunctionError(aFunctionName, 'Cannot apply function lpad on this value');
+
+    CheckParNumber(1, 2, aParameters);
+    if Length(aParameters) = 1 then
+    begin
+      if aParameters[0].ParType = fptVariable then
+      begin
+        lVarValue := GetVarAsTValue(aParameters[0].ParStrText);
+        aResult := lStrValue.PadLeft(lVarValue.AsInteger);
+      end
+      else
+        aResult := lStrValue.PadLeft(aParameters[0].ParIntValue);
+    end
+    else
+      aResult := lStrValue.PadLeft(aParameters[0].ParIntValue, aParameters[1].ParStrText.Chars[0]);
+  end
+  else if SameText(aFunctionName, 'contains') then
+  begin
+    if Length(aParameters) <> 1 then
+      FunctionError(aFunctionName, 'expected 1 parameter');
+    if not(aParameters[0].ParType in [fptString, fptVariable]) then
+      FunctionError(aFunctionName, 'Invalid parameter type');
+    if aParameters[0].ParType = fptVariable then
+    begin
+      lValue := GetVarAsTValue(aParameters[0].ParStrText);
+      lStrValue := GetNullableTValueAsTValue(@lValue, aParameters[0].ParStrText).AsString;
+    end
+    else
+      lStrValue := aParameters[0].ParStrText;
+    aResult := aValue.AsString.Contains(lStrValue);
+  end
+  else if SameText(aFunctionName, 'icontains') then
+  begin
+    if Length(aParameters) <> 1 then
+      FunctionError(aFunctionName, 'expected 1 parameter');
+    if not(aParameters[0].ParType in [fptString, fptVariable]) then
+      FunctionError(aFunctionName, 'Invalid parameter type');
+    if aParameters[0].ParType = fptVariable then
+    begin
+      lValue := GetVarAsTValue(aParameters[0].ParStrText);
+      lStrValue := GetNullableTValueAsTValue(@lValue, aParameters[0].ParStrText).AsString;
+    end
+    else
+      lStrValue := aParameters[0].ParStrText;
+    aResult := aValue.AsString.ToLowerInvariant.Contains(lStrValue);
+  end
+  else
+    Result := False;
+end;
+
+function TTProCompiledTemplate.ExecuteDateFilter(const aFunctionName: string;
+  var aParameters: TArray<TFilterParameter>; const aValue: TValue;
+  const aVarNameWhereShoudBeApplied: String; out aResult: TValue): Boolean;
+var
+  lDateValue: TDateTime;
+  lNullableDate: NullableTDate;
+  lSQLTimestampOffset: TSQLTimeStampOffset;
+  lIsNull: Boolean;
+begin
+  Result := True;
+  if SameText(aFunctionName, 'datetostr') then
+  begin
+    if aValue.IsEmpty then
+      aResult := ''
+    else if aValue.TryAsType<TDateTime>(lDateValue) then
+    begin
+      if Length(aParameters) = 0 then
+        aResult := DateToStr(lDateValue, fLocaleFormatSettings)
+      else
+      begin
+        CheckParNumber(1, aParameters);
+        aResult := FormatDateTime(aParameters[0].ParStrText, lDateValue);
+      end;
+    end
+    else if aValue.TypeInfo = TypeInfo(NullableTDate) then
+    begin
+      lNullableDate := aValue.AsType<NullableTDate>(True);
+      if lNullableDate.IsNull then
+        aResult := ''
+      else
+      begin
+        lDateValue := lNullableDate.Value;
+        if Length(aParameters) = 0 then
+          aResult := DateToStr(lDateValue, fLocaleFormatSettings)
+        else
+        begin
+          CheckParNumber(1, aParameters);
+          aResult := FormatDateTime(aParameters[0].ParStrText, lDateValue);
+        end;
+      end;
+    end
+    else
+      FunctionError(aFunctionName, 'Invalid date ' + GetTValueVarAsString(@aValue, lIsNull, aVarNameWhereShoudBeApplied));
+  end
+  else if SameText(aFunctionName, 'datetimetostr') or SameText(aFunctionName, 'formatdatetime') then
+  begin
+    if aValue.IsEmpty then
+      aResult := ''
+    else if aValue.TryAsType<TDateTime>(lDateValue) then
+    begin
+      if Length(aParameters) = 0 then
+        aResult := DateTimeToStr(lDateValue, fLocaleFormatSettings)
+      else
+      begin
+        CheckParNumber(1, aParameters);
+        aResult := FormatDateTime(aParameters[0].ParStrText, lDateValue);
+      end;
+    end
+    else if aValue.TryAsType<TSQLTimeStampOffset>(lSQLTimestampOffset) then
+    begin
+      lDateValue := SQLTimeStampOffsetToDateTime(lSQLTimestampOffset);
+      if Length(aParameters) = 0 then
+        aResult := DateTimeToStr(lDateValue, fLocaleFormatSettings)
+      else
+      begin
+        CheckParNumber(1, aParameters);
+        aResult := FormatDateTime(aParameters[0].ParStrText, lDateValue);
+      end;
+    end
+    else
+      FunctionError(aFunctionName, 'Invalid datetime ' + aValue.AsString.QuotedString);
+  end
+  else
+    Result := False;
+end;
+
 function TTProCompiledTemplate.ExecuteFilter(aFunctionName: string; var aParameters: TArray<TFilterParameter>; aValue: TValue;
   const aVarNameWhereShoudBeApplied: String): TValue;
 var
-  lDateValue: TDateTime;
-  lStrValue: string;
   lFunc: TTProTemplateFunction;
   lAnonFunc: TTProTemplateAnonFunction;
   lIntegerPar1: Integer;
   lDecimalMask: string;
   lExecuteAsFilterOnAValue: Boolean;
-  lNullableDate: NullableTDate;
   lValue, lVarValue: TValue;
   lExtendedValue: Extended;
-  lSQLTimestampOffset: TSQLTimeStampOffset;
   lInt64: Int64;
-  lIsNull: Boolean;
 
   procedure CheckParamType(const FunctionName: String; const FilterParameter: PFilterParameter; const Types: TFilterParameterTypes);
   begin
@@ -2155,6 +2613,15 @@ var
 begin
   lExecuteAsFilterOnAValue := not aVarNameWhereShoudBeApplied.IsEmpty;
   aFunctionName := lowercase(aFunctionName);
+
+  // Try string filters first
+  if ExecuteStringFilter(aFunctionName, aParameters, aValue, lExecuteAsFilterOnAValue, Result) then
+    Exit;
+
+  // Try date filters
+  if ExecuteDateFilter(aFunctionName, aParameters, aValue, aVarNameWhereShoudBeApplied, Result) then
+    Exit;
+
   if SameText(aFunctionName, 'gt') then
   begin
     Result := ComparandOperator(ctGT, aValue, aParameters, fLocaleFormatSettings);
@@ -2179,60 +2646,6 @@ begin
   begin
     Result := ComparandOperator(ctNE, aValue, aParameters, fLocaleFormatSettings);
   end
-  else if SameText(aFunctionName, 'and') then
-  begin
-    CheckParNumber(1, aParameters);
-    if not IsTruthy(aValue) then
-      Result := False
-    else
-    begin
-      case aParameters[0].ParType of
-        fptString:
-          Result := IsTruthy(aParameters[0].ParStrText);
-        fptInteger:
-          Result := aParameters[0].ParIntValue <> 0;
-        fptVariable:
-          begin
-            // Handle boolean literals
-            if SameText(aParameters[0].ParStrText, 'true') then
-              Result := True
-            else if SameText(aParameters[0].ParStrText, 'false') then
-              Result := False
-            else
-              Result := IsTruthy(GetVarAsTValue(aParameters[0].ParStrText));
-          end;
-      else
-        Result := False;
-      end;
-    end;
-  end
-  else if SameText(aFunctionName, 'or') then
-  begin
-    CheckParNumber(1, aParameters);
-    if IsTruthy(aValue) then
-      Result := True
-    else
-    begin
-      case aParameters[0].ParType of
-        fptString:
-          Result := IsTruthy(aParameters[0].ParStrText);
-        fptInteger:
-          Result := aParameters[0].ParIntValue <> 0;
-        fptVariable:
-          begin
-            // Handle boolean literals
-            if SameText(aParameters[0].ParStrText, 'true') then
-              Result := True
-            else if SameText(aParameters[0].ParStrText, 'false') then
-              Result := False
-            else
-              Result := IsTruthy(GetVarAsTValue(aParameters[0].ParStrText));
-          end;
-      else
-        Result := False;
-      end;
-    end;
-  end
   else if SameText(aFunctionName, 'default') then
   begin
     CheckParNumber(1, aParameters);
@@ -2255,38 +2668,6 @@ begin
       end;
     end;
   end
-  else if SameText(aFunctionName, 'contains') then
-  begin
-    if Length(aParameters) <> 1 then
-      FunctionError(aFunctionName, 'expected 1 parameter');
-    CheckParamType(aFunctionName, @aParameters[0], [fptString, fptVariable]);
-    if aParameters[0].ParType = fptVariable then
-    begin
-      lValue := GetVarAsTValue(aParameters[0].ParStrText);
-      lStrValue := GetNullableTValueAsTValue(@lValue, aParameters[0].ParStrText).AsString;
-    end
-    else
-    begin
-      lStrValue := aParameters[0].ParStrText;
-    end;
-    Result := aValue.AsString.Contains(lStrValue);
-  end
-  else if SameText(aFunctionName, 'icontains') then
-  begin
-    if Length(aParameters) <> 1 then
-      FunctionError(aFunctionName, 'expected 1 parameter');
-    CheckParamType(aFunctionName, @aParameters[0], [fptString, fptVariable]);
-    if aParameters[0].ParType = fptVariable then
-    begin
-      lValue := GetVarAsTValue(aParameters[0].ParStrText);
-      lStrValue := GetNullableTValueAsTValue(@lValue, aParameters[0].ParStrText).AsString;
-    end
-    else
-    begin
-      lStrValue := aParameters[0].ParStrText;
-    end;
-    Result := aValue.AsString.ToLowerInvariant.Contains(lStrValue);
-  end
   else if SameText(aFunctionName, 'mod') then
   begin
     if Length(aParameters) <> 1 then
@@ -2298,110 +2679,6 @@ begin
     begin
       lInt64 := lValue.AsInt64;
       Result := lInt64 mod aParameters[0].ParIntValue;
-    end;
-  end
-  else if SameText(aFunctionName, 'uppercase') then
-  begin
-    if lExecuteAsFilterOnAValue then
-    begin
-      CheckParNumber(0, aParameters);
-      Result := UpperCase(aValue.AsString);
-    end
-    else
-    begin
-      CheckParNumber(1, aParameters);
-      Result := UpperCase(aParameters[0].ParStrText);
-    end;
-  end
-  else if SameText(aFunctionName, 'lowercase') then
-  begin
-    if lExecuteAsFilterOnAValue then
-    begin
-      CheckParNumber(0, aParameters);
-      Result := lowercase(aValue.AsString);
-    end
-    else
-    begin
-      CheckParNumber(1, aParameters);
-      Result := lowercase(aParameters[0].ParStrText);
-    end;
-  end
-  else if SameText(aFunctionName, 'capitalize') then
-  begin
-    if lExecuteAsFilterOnAValue then
-    begin
-      CheckParNumber(0, aParameters);
-      Result := CapitalizeString(aValue.AsString, True);
-    end
-    else
-    begin
-      CheckParNumber(1, aParameters);
-      Result := CapitalizeString(aParameters[0].ParStrText, True);
-    end;
-  end
-  else if SameText(aFunctionName, 'trunc') then
-  begin
-    CheckParNumber(1, 1, aParameters);
-    lStrValue := aValue.AsString.TrimRight;
-    lIntegerPar1 := aParameters[0].ParIntValue;
-    if Length(lStrValue) > lIntegerPar1 then
-    begin
-      Result := lStrValue.Substring(0, aParameters[0].ParIntValue) + '...';
-    end
-    else
-    begin
-      Result := lStrValue;
-    end;
-  end
-  else if SameText(aFunctionName, 'rpad') then
-  begin
-    if aValue.IsType<Integer> then
-      lStrValue := aValue.AsInteger.ToString
-    else if aValue.IsType<string> then
-      lStrValue := aValue.AsString
-    else
-      FunctionError(aFunctionName, 'Invalid parameter/s');
-
-    CheckParNumber(1, 2, aParameters);
-    if Length(aParameters) = 1 then
-    begin
-      Result := lStrValue.PadRight(aParameters[0].ParIntValue);
-    end
-    else
-    begin
-      Result := lStrValue.PadRight(aParameters[0].ParIntValue, aParameters[1].ParStrText.Chars[0]);
-    end;
-  end
-  else if SameText(aFunctionName, 'lpad') then
-  begin
-    if not(aParameters[0].ParType in [fptInteger, fptVariable]) then
-    begin
-      FunctionError('lpad', 'Invalid parameter type');
-    end;
-
-    if aValue.IsType<Integer> then
-      lStrValue := aValue.AsInteger.ToString
-    else if aValue.IsType<string> then
-      lStrValue := aValue.AsString
-    else
-      FunctionError(aFunctionName, 'Cannot apply function lpad on this value');
-
-    CheckParNumber(1, 2, aParameters);
-    if Length(aParameters) = 1 then
-    begin
-      if aParameters[0].ParType = fptVariable then
-      begin
-        lVarValue := GetVarAsTValue(aParameters[0].ParStrText);
-        Result := lStrValue.PadLeft(lVarValue.AsInteger);
-      end
-      else
-      begin
-        Result := lStrValue.PadLeft(aParameters[0].ParIntValue);
-      end;
-    end
-    else
-    begin
-      Result := lStrValue.PadLeft(aParameters[0].ParIntValue, aParameters[1].ParStrText.Chars[0]);
     end;
   end
   else if SameText(aFunctionName, 'round') then
@@ -2426,82 +2703,6 @@ begin
     end;
     lExtendedValue := RoundTo(aValue.AsExtended, lIntegerPar1);
     Result := FormatFloat('0' + lDecimalMask, lExtendedValue);
-  end
-  else if SameText(aFunctionName, 'datetostr') then
-  begin
-    if aValue.IsEmpty then
-    begin
-      Result := '';
-    end
-    else if aValue.TryAsType<TDateTime>(lDateValue) then
-    begin
-      if Length(aParameters) = 0 then
-      begin
-        Result := DateToStr(lDateValue, fLocaleFormatSettings)
-      end
-      else
-      begin
-        CheckParNumber(1, aParameters);
-        Result := FormatDateTime(aParameters[0].ParStrText, lDateValue);
-      end;
-    end
-    else if aValue.TypeInfo = TypeInfo(NullableTDate) then
-    begin
-      lNullableDate := aValue.AsType<NullableTDate>(True);
-      if lNullableDate.IsNull then
-      begin
-        Result := '';
-      end
-      else
-      begin
-        lDateValue := lNullableDate.Value;
-        if Length(aParameters) = 0 then
-        begin
-          Result := DateToStr(lDateValue, fLocaleFormatSettings)
-        end
-        else
-        begin
-          CheckParNumber(1, aParameters);
-          Result := FormatDateTime(aParameters[0].ParStrText, lDateValue);
-        end;
-      end;
-    end
-    else
-    begin
-      FunctionError(aFunctionName, 'Invalid date ' + GetTValueVarAsString(@aValue, lIsNull, aVarNameWhereShoudBeApplied));
-    end;
-  end
-  else if SameText(aFunctionName, 'datetimetostr') or SameText(aFunctionName, 'formatdatetime') then
-  begin
-    if aValue.IsEmpty then
-    begin
-      Result := '';
-    end
-    else if aValue.TryAsType<TDateTime>(lDateValue) then
-    begin
-      if Length(aParameters) = 0 then
-        Result := DateTimeToStr(lDateValue, fLocaleFormatSettings)
-      else
-      begin
-        CheckParNumber(1, aParameters);
-        Result := FormatDateTime(aParameters[0].ParStrText, lDateValue);
-      end;
-    end
-    else if aValue.TryAsType<TSQLTimeStampOffset>(lSQLTimestampOffset) then
-    begin
-      lDateValue := SQLTimeStampOffsetToDateTime(lSQLTimestampOffset);
-      if Length(aParameters) = 0 then
-        Result := DateTimeToStr(lDateValue, fLocaleFormatSettings)
-      else
-      begin
-        CheckParNumber(1, aParameters);
-        Result := FormatDateTime(aParameters[0].ParStrText, lDateValue);
-      end;
-    end
-    else
-    begin
-      FunctionError(aFunctionName, 'Invalid datetime ' + aValue.AsString.QuotedString);
-    end;
   end
   else if SameText(aFunctionName, 'formatfloat') then
   begin
@@ -2919,6 +3120,7 @@ constructor TTProCompiledTemplate.Create(Tokens: TList<TToken>);
 begin
   inherited Create;
   fLoopsStack := TObjectList<TLoopStackItem>.Create(True);
+  fIncludeSavedVarsStack := TObjectList<TIncludeSavedVars>.Create(True);
   fTokens := Tokens;
   fTemplateFunctions := TDictionary<string, TTProTemplateFunction>.Create(TTProEqualityComparer.Create);
   fTemplateAnonFunctions := nil;
@@ -2967,6 +3169,7 @@ end;
 destructor TTProCompiledTemplate.Destroy;
 begin
   fLoopsStack.Free;
+  fIncludeSavedVarsStack.Free;
   fTemplateFunctions.Free;
   fTemplateAnonFunctions.Free;
   fMacros.Free;
@@ -3225,6 +3428,47 @@ begin
           begin
             lVarValue := EvaluateExpression(fTokens[lIdx].Value1);
             lBuff.Append(lVarValue.ToString);
+          end;
+        ttSet:
+          ProcessSetToken(lIdx);
+        ttIncludeStart:
+          begin
+            // Save current values of variables that will be mapped
+            var lSavedVars := TIncludeSavedVars.Create;
+            var lVarNames := fTokens[lIdx].Value1.Split([',']);
+            var lVarDataSource: TVarDataSource;
+            var lSavedVar: TIncludeSavedVar;
+            for var lVarNameItem in lVarNames do
+            begin
+              if GetVariables.TryGetValue(lVarNameItem, lVarDataSource) and (lVarDataSource <> nil) then
+              begin
+                lSavedVar.Existed := True;
+                lSavedVar.Value := lVarDataSource.VarValue;
+              end
+              else
+              begin
+                lSavedVar.Existed := False;
+                lSavedVar.Value := TValue.Empty;
+              end;
+              lSavedVars.Add(lVarNameItem, lSavedVar);
+            end;
+            fIncludeSavedVarsStack.Add(lSavedVars);
+          end;
+        ttIncludeEnd:
+          begin
+            // Restore saved variables
+            if fIncludeSavedVarsStack.Count > 0 then
+            begin
+              var lSavedVars := fIncludeSavedVarsStack[fIncludeSavedVarsStack.Count - 1];
+              for var lPair in lSavedVars do
+              begin
+                if not lPair.Value.Existed then
+                  GetVariables.Remove(lPair.Key)
+                else
+                  SetData(lPair.Key, lPair.Value.Value);
+              end;
+              fIncludeSavedVarsStack.Delete(fIncludeSavedVarsStack.Count - 1);
+            end;
           end;
         ttLineBreak:
           begin
@@ -3897,7 +4141,7 @@ var
 begin
   if Value.IsEmpty then
   begin
-    GetVariables.Add(Name, nil);
+    GetVariables.AddOrSetValue(Name, nil);
     Exit;
   end;
 
@@ -3907,11 +4151,11 @@ begin
         lObj := Value.AsObject;
         if lObj is TDataSet then
         begin
-          GetVariables.Add(Name, TVarDataSource.Create(lObj, [viDataSet, viIterable]));
+          GetVariables.AddOrSetValue(Name, TVarDataSource.Create(lObj, [viDataSet, viIterable]));
         end
         else if Value.TypeInfo = TypeInfo(TJDOJsonObject) then
         begin
-          GetVariables.Add(Name, TVarDataSource.Create(TJDOJsonObject(lObj), [viJSONObject]));
+          GetVariables.AddOrSetValue(Name, TVarDataSource.Create(TJDOJsonObject(lObj), [viJSONObject]));
         end
         else if Value.TypeInfo = TypeInfo(TJDOJsonArray) then
         begin
@@ -3920,17 +4164,17 @@ begin
         end
         else if TTProDuckTypedList.CanBeWrappedAsList(lObj, lWrappedList) then
         begin
-          GetVariables.Add(Name, TVarDataSource.Create(TTProDuckTypedList(lObj), [viListOfObject, viIterable]));
+          GetVariables.AddOrSetValue(Name, TVarDataSource.Create(TTProDuckTypedList(lObj), [viListOfObject, viIterable]));
         end
         else
         begin
-          GetVariables.Add(Name, TVarDataSource.Create(lObj, [viObject]));
+          GetVariables.AddOrSetValue(Name, TVarDataSource.Create(lObj, [viObject]));
         end;
       end;
     tkInterface:
-      GetVariables.Add(Name, TVarDataSource.Create(Value.AsInterface as TObject, [viObject]));
+      GetVariables.AddOrSetValue(Name, TVarDataSource.Create(Value.AsInterface as TObject, [viObject]));
     tkInteger, tkString, tkUString, tkFloat, tkEnumeration:
-      GetVariables.Add(Name, TVarDataSource.Create(Value, [viSimpleType]));
+      GetVariables.AddOrSetValue(Name, TVarDataSource.Create(Value, [viSimpleType]));
   else
     raise ETProException.Create('Invalid type for variable "' + Name + '": ' + TRttiEnumerationType.GetName<TTypeKind>(Value.Kind));
   end;
@@ -4400,6 +4644,67 @@ begin
     fMacros.Add(lMacroName.ToLower, lMacroDef);
 end;
 
+procedure TTProCompiledTemplate.ProcessSetToken(var Idx: Int64);
+var
+  lVarValue: TValue;
+  lSetTargetVar: String;
+  lSetSourceVar: String;
+  lSetFilterCount: Integer;
+  lSetFilterName: String;
+  lSetFilterParCount: Integer;
+  lSetFilterParams: TArray<TFilterParameter>;
+  lSetJ, lSetI: Integer;
+begin
+  case fTokens[Idx].Ref2 of
+    0: // Variable reference with optional filters
+      begin
+        lSetTargetVar := fTokens[Idx].Value1;
+        lSetSourceVar := fTokens[Idx].Value2;
+        // Get initial value from source variable (Value2)
+        lVarValue := GetVarAsTValue(lSetSourceVar);
+        // Apply filters if any (Ref1 = filter count)
+        lSetFilterCount := fTokens[Idx].Ref1;
+        for lSetJ := 0 to lSetFilterCount - 1 do
+        begin
+          Inc(Idx);
+          Assert(fTokens[Idx].TokenType = ttFilterName);
+          lSetFilterName := fTokens[Idx].Value1;
+          lSetFilterParCount := fTokens[Idx].Ref1;
+          SetLength(lSetFilterParams, lSetFilterParCount);
+          for lSetI := 0 to lSetFilterParCount - 1 do
+          begin
+            Inc(Idx);
+            Assert(fTokens[Idx].TokenType = ttFilterParameter);
+            lSetFilterParams[lSetI].ParType := TFilterParameterType(fTokens[Idx].Ref2);
+            case lSetFilterParams[lSetI].ParType of
+              fptInteger:
+                lSetFilterParams[lSetI].ParIntValue := fTokens[Idx].Value1.ToInteger;
+              fptString, fptVariable:
+                lSetFilterParams[lSetI].ParStrText := fTokens[Idx].Value1;
+            end;
+          end;
+          lVarValue := ExecuteFilter(lSetFilterName, lSetFilterParams, lVarValue, lSetSourceVar);
+        end;
+        SetData(lSetTargetVar, lVarValue);
+      end;
+    1: // Expression
+      begin
+        lVarValue := EvaluateExpression(fTokens[Idx].Value2);
+        SetData(fTokens[Idx].Value1, lVarValue);
+      end;
+    2: // String literal
+      SetData(fTokens[Idx].Value1, fTokens[Idx].Value2);
+    3: // Boolean true
+      SetData(fTokens[Idx].Value1, True);
+    4: // Boolean false
+      SetData(fTokens[Idx].Value1, False);
+    5: // Integer literal
+      SetData(fTokens[Idx].Value1, StrToInt(fTokens[Idx].Value2));
+    6: // Float literal
+      SetData(fTokens[Idx].Value1, StrToFloat(fTokens[Idx].Value2, fLocaleFormatSettings));
+  end;
+end;
+
 function TTProCompiledTemplate.ExecuteMacro(const CallTokenIndex: Int64): String;
 var
   lMacroName: String;
@@ -4497,6 +4802,8 @@ begin
                 lParamValue := EvaluateExpression(fTokens[lIdx].Value1);
                 lBuff.Append(lParamValue.ToString);
               end;
+            ttSet:
+              ProcessSetToken(lIdx);
             ttLineBreak:
               lBuff.AppendLine;
             ttCallMacro:

@@ -1,0 +1,27 @@
+Set Literals Tests
+==================
+
+Integer literal:
+{{set myint = 42}}
+myint = {{:myint}}
+
+String literal:
+{{set mystr = "Hello World"}}
+mystr = {{:mystr}}
+
+Boolean true:
+{{set mybool = true}}
+{{if mybool}}mybool is true{{endif}}
+
+Boolean false:
+{{set mybool2 = false}}
+{{if mybool2}}mybool2 is true{{else}}mybool2 is false{{endif}}
+
+Float literal:
+{{set myfloat = 3.14}}
+myfloat = {{:myfloat}}
+
+Negative integer:
+{{set myneg = -10}}
+myneg = {{:myneg}}
+

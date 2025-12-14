@@ -1,0 +1,3 @@
+OUTER: outerval={{:outerval}}
+{{include "included_inner.tpro", innerval = "INNER_VALUE", outerval = "OVERWRITTEN_IN_INNER"}}
+OUTER after inner: outerval={{:outerval}}

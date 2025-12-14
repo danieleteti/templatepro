@@ -1,0 +1,20 @@
+﻿Include mapping with different types
+=====================================
+
+Boolean true:
+YES
+
+Boolean false:
+NO
+
+Float:
+Float: 3.14
+
+Negative integer:
+Number: -42
+
+Expression:
+Number: 20
+
+Multiple mappings:
+a=AAA b=DANIELE2 c=123
