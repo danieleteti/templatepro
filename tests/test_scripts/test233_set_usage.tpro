@@ -2,18 +2,18 @@ Set Usage Tests
 ===============
 
 Set and use in condition:
-{{set threshold = 5}}
-{{set myvalue = @(intvalue10)}}
+{{set threshold := 5}}
+{{set myvalue := @(intvalue10)}}
 {{if @(myvalue > threshold)}}Value {{:myvalue}} exceeds threshold {{:threshold}}{{endif}}
 
 Set computed value and reuse:
-{{set base = @(intvalue10 * 2)}}
-{{set doubled = @(base * 2)}}
+{{set base := @(intvalue10 * 2)}}
+{{set doubled := @(base * 2)}}
 base = {{:base}}, doubled = {{:doubled}}
 
 Override existing value:
-{{set counter = 1}}
+{{set counter := 1}}
 counter = {{:counter}}
-{{set counter = 2}}
+{{set counter := 2}}
 counter = {{:counter}}
 

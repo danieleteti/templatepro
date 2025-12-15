@@ -2,22 +2,22 @@ Set Expression Tests
 ====================
 
 Simple expression:
-{{set sum = @(intvalue10 + intvalue2)}}
+{{set sum := @(intvalue10 + intvalue2)}}
 sum = {{:sum}}
 
 Expression with multiplication:
-{{set product = @(intvalue10 * intvalue2)}}
+{{set product := @(intvalue10 * intvalue2)}}
 product = {{:product}}
 
 Expression with function:
-{{set maxval = @(Max(intvalue10, intvalue2))}}
+{{set maxval := @(Max(intvalue10, intvalue2))}}
 maxval = {{:maxval}}
 
 Complex expression:
-{{set complex = @((intvalue10 + intvalue2) * 2)}}
+{{set complex := @((intvalue10 + intvalue2) * 2)}}
 complex = {{:complex}}
 
 String expression:
-{{set greeting = @("Hello " + value2)}}
+{{set greeting := @("Hello " + value2)}}
 greeting = {{:greeting}}
 

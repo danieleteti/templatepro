@@ -10,7 +10,7 @@ Field Index: {{:customers["Name"].Index}}
 
 Code field DataType: {{:customers["Code"].DataType}}
 
-{{set fieldvar = "Name"}}
+{{set fieldvar := "Name"}}
 Field via variable: {{:customers[fieldvar].FieldName}}
 
 Case insensitive test: {{:customers["name"].FIELDNAME}}

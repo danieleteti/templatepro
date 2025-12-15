@@ -2,6 +2,6 @@ Set Variable Reference Tests
 ============================
 
 Copy variable:
-{{set copied = :value2}}
+{{set copied := :value2}}
 copied = {{:copied}}
 

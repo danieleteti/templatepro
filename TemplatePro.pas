@@ -1573,8 +1573,8 @@ begin
           if not MatchVariable(lIdentifier) then
             Error('Expected variable name after "set"');
           MatchSpace;
-          if not MatchSymbol('=') then
-            Error('Expected "=" after variable name in "set"');
+          if not MatchSymbol(':=') then
+            Error('Expected ":=" after variable name in "set"');
           MatchSpace;
 
           // Check what follows: :var, @(expr), or literal
