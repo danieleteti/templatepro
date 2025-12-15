@@ -1,0 +1,7 @@
+Dynamic include with expression test
+=====================================
+
+Template name from expression:
+{{include @("included_" + template_type + ".tpro")}}
+
+After dynamic include

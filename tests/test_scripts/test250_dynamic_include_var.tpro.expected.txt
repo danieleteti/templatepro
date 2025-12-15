@@ -1,0 +1,7 @@
+Dynamic include with variable test
+===================================
+
+Template name from variable:
+Dynamic include content: Hello Dynamic
+
+After dynamic include

@@ -1,0 +1,6 @@
+Dynamic include in loop test
+============================
+Item 1: Dynamic include content: Hello Dynamic
+Item 2: Dynamic include content: Hello Dynamic
+Item 3: Dynamic include content: Hello Dynamic
+Done

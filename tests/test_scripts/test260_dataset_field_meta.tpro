@@ -1,0 +1,16 @@
+Dataset Field Metadata Test
+===========================
+
+Field DisplayLabel: {{:customers["Name"].DisplayLabel}}
+Field FieldName: {{:customers["Name"].FieldName}}
+Field Size: {{:customers["Name"].Size}}
+Field DataType: {{:customers["Name"].DataType}}
+Field Required: {{:customers["Name"].Required}}
+Field Index: {{:customers["Name"].Index}}
+
+Code field DataType: {{:customers["Code"].DataType}}
+
+{{set fieldvar = "Name"}}
+Field via variable: {{:customers[fieldvar].FieldName}}
+
+Case insensitive test: {{:customers["name"].FIELDNAME}}

@@ -1,0 +1,7 @@
+Dynamic include with expression test
+=====================================
+
+Template name from expression:
+Dynamic include content: Hello Dynamic
+
+After dynamic include

@@ -80,7 +80,7 @@ type
   PValue = ^TValue;
 {$ENDIF}
 
-  TFilterParameterType = (fptInteger, fptFloat, fptString, fptVariable);
+  TFilterParameterType = (fptInteger, fptFloat, fptString, fptVariable, fptExpression);
   TFilterParameterTypes = set of TFilterParameterType;
 
   TFilterParameter = record
@@ -219,6 +219,8 @@ type
     fLocaleFormatSettings: TFormatSettings;
     fTokens: TList<TToken>;
     fVariables: TTProVariables;
+    fEncoding: TEncoding;
+    fDynamicIncludeCache: TDictionary<string, ITProCompiledTemplate>;
     fTemplateFunctions: TDictionary<string, TTProTemplateFunction>;
     fTemplateAnonFunctions: TDictionary<string, TTProTemplateAnonFunction>;
     fMacros: TDictionary<string, TMacroDefinition>;
@@ -271,6 +273,8 @@ type
     function GetExprEvaluator: IExprEvaluator;
     function TValueToVariant(const Value: TValue): Variant;
     function VariantToTValue(const Value: Variant): TValue;
+    function GetFieldProperty(const AField: TField; const PropName: string): TValue;
+    function EvaluateDataSetFieldMeta(const DataSetVarName, FieldMetaInfo: string): TValue;
   public
     function EvaluateExpression(const Expression: string): TValue;
     destructor Destroy; override;
@@ -1153,6 +1157,12 @@ begin
       aParamValue.ParIntValue := lTmp.Trim.ToInteger
     end;
   end
+  else if MatchExpression(lTmp) then
+  begin
+    Result := True;
+    aParamValue.ParType := fptExpression;
+    aParamValue.ParStrText := lTmp;
+  end
   else if CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) then
   begin
     while CharInSet(fInputString.Chars[fCharIndex], ValueAllowedChars) do
@@ -1429,17 +1439,49 @@ begin
         MatchSpace;
         lRef2 := -1;
         SetLength(lFilters, 0);
+        var lDataSetFieldMeta := '';  // stores "fieldname|PropertyName" for dataset field metadata
         if MatchVariable(lVarName) then { variable }
         begin
           lFoundVar := True;
           if lVarName.IsEmpty then
             Error('Invalid variable name');
+
+          // Check for dataset field metadata syntax: [fieldname].Property or ["fieldname"].Property
+          if MatchSymbol('[') then
+          begin
+            var lFieldName: String;
+            var lFieldIsLiteral := False;
+            if MatchString(lFieldName) then
+              lFieldIsLiteral := True  // literal field name
+            else if MatchVariable(lFieldName) then
+              lFieldIsLiteral := False  // variable containing field name
+            else
+              Error('Expected field name or variable in brackets');
+
+            if not MatchSymbol(']') then
+              Error('Expected "]" after field name');
+            if not MatchSymbol('.') then
+              Error('Expected "." after "]" for field property access');
+
+            var lPropertyName: String;
+            if not MatchVariable(lPropertyName) then
+              Error('Expected property name after "."');
+
+            // Store as: "fieldname|PropertyName" (" prefix if literal)
+            if lFieldIsLiteral then
+              lDataSetFieldMeta := '"' + lFieldName + '|' + lPropertyName
+            else
+              lDataSetFieldMeta := lFieldName + '|' + lPropertyName;
+          end;
+
           lRef2 := IfThen(MatchSymbol('$'), 1, -1); // {{value$}} means no escaping
           MatchSpace;
         end;
 
         if MatchSymbol('|') then
         begin
+          if not lDataSetFieldMeta.IsEmpty then
+            Error('Filters are not supported with dataset field metadata syntax');
           lFoundFilter := True;
           MatchFilters(lVarName, lFilters);
         end;
@@ -1453,7 +1495,7 @@ begin
           lStartVerbatim := fCharIndex;
           lLastToken := ttValue;
           { Ref1 now stores number of filters (0 = no filter, >0 = filter count) }
-          aTokens.Add(TToken.Create(lLastToken, lVarName, '', Length(lFilters), lRef2));
+          aTokens.Add(TToken.Create(lLastToken, lVarName, lDataSetFieldMeta, Length(lFilters), lRef2));
           Inc(lContentOnThisLine);
 
           // add filter tokens
@@ -1716,13 +1758,27 @@ begin
           if not MatchSpace then
             Error('Expected "space" after "include"');
 
-          if not MatchString(lStringValue) then
-          begin
-            Error('Expected string after "include"');
-          end;
+          // Include can be: string literal or @(expression)
+          // For dynamic includes use @(expression) only - e.g., @(varname) or @("prefix" + varname + ".tpro")
+          var lIncludeFileName: String;
+          var lIsDynamicInclude := False;
 
-          // Save filename before it gets overwritten by mapping parsing
-          var lIncludeFileName := lStringValue;
+          if MatchExpression(lStringValue) then
+          begin
+            // Expression for dynamic include
+            lIncludeFileName := lStringValue;
+            lIsDynamicInclude := True;
+          end
+          else if MatchString(lStringValue) then
+          begin
+            // Static string literal - compile time include
+            lIncludeFileName := lStringValue;
+            lIsDynamicInclude := False;
+          end
+          else
+          begin
+            Error('Expected string or @(expression) after "include"');
+          end;
 
           MatchSpace;
 
@@ -1813,52 +1869,69 @@ begin
               until not MatchSymbol(',');
             end;
 
+            if lIsDynamicInclude and lHasMappings then
+              Error('Dynamic include does not support variable mappings');
+
             if not MatchEndTag then
               Error('Expected closing tag for "include"');
 
-            // Read the included file
-            try
-              if TDirectory.Exists(aFileNameRefPath) then
-              begin
-                lCurrentFileName := TPath.GetFullPath(TPath.Combine(aFileNameRefPath, lIncludeFileName));
-              end
-              else
-              begin
-                lCurrentFileName := TPath.GetFullPath(TPath.Combine(TPath.GetDirectoryName(aFileNameRefPath), lIncludeFileName));
-              end;
-              lTemplateSource := TFile.ReadAllText(lCurrentFileName, fEncoding);
-            except
-              on E: Exception do
-              begin
-                Error('Cannot read "' + lIncludeFileName + '"');
-              end;
-            end;
-            Inc(lContentOnThisLine);
-
-            // Generate tokens
-            if lHasMappings then
+            if lIsDynamicInclude then
             begin
-              // Add ttIncludeStart with target variable names
-              var lIncludeStartToken: TToken;
-              lIncludeStartToken.TokenType := ttIncludeStart;
-              lIncludeStartToken.Value1 := String.Join(',', lMappingTargets);
-              lIncludeStartToken.Ref1 := Length(lMappingTargets);
-              aTokens.Add(lIncludeStartToken);
-
-              // Add mapping tokens (ttSet)
-              for var lMapToken in lMappingTokens do
-                aTokens.Add(lMapToken);
-            end;
-
-            // Compile the included template
-            InternalCompileIncludedTemplate(lTemplateSource, aTokens, lCurrentFileName, [coIgnoreSysVersion, coParentTemplate]);
-
-            if lHasMappings then
+              // Dynamic include - emit ttInclude token for runtime evaluation
+              var lIncludeToken: TToken;
+              lIncludeToken.TokenType := ttInclude;
+              lIncludeToken.Value1 := lIncludeFileName; // expression to evaluate
+              lIncludeToken.Value2 := aFileNameRefPath; // base path for resolving relative paths
+              aTokens.Add(lIncludeToken);
+              Inc(lContentOnThisLine);
+            end
+            else
             begin
-              // Add ttIncludeEnd
-              var lIncludeEndToken: TToken;
-              lIncludeEndToken.TokenType := ttIncludeEnd;
-              aTokens.Add(lIncludeEndToken);
+              // Static include - compile at compile time
+              // Read the included file
+              try
+                if TDirectory.Exists(aFileNameRefPath) then
+                begin
+                  lCurrentFileName := TPath.GetFullPath(TPath.Combine(aFileNameRefPath, lIncludeFileName));
+                end
+                else
+                begin
+                  lCurrentFileName := TPath.GetFullPath(TPath.Combine(TPath.GetDirectoryName(aFileNameRefPath), lIncludeFileName));
+                end;
+                lTemplateSource := TFile.ReadAllText(lCurrentFileName, fEncoding);
+              except
+                on E: Exception do
+                begin
+                  Error('Cannot read "' + lIncludeFileName + '"');
+                end;
+              end;
+              Inc(lContentOnThisLine);
+
+              // Generate tokens
+              if lHasMappings then
+              begin
+                // Add ttIncludeStart with target variable names
+                var lIncludeStartToken: TToken;
+                lIncludeStartToken.TokenType := ttIncludeStart;
+                lIncludeStartToken.Value1 := String.Join(',', lMappingTargets);
+                lIncludeStartToken.Ref1 := Length(lMappingTargets);
+                aTokens.Add(lIncludeStartToken);
+
+                // Add mapping tokens (ttSet)
+                for var lMapToken in lMappingTokens do
+                  aTokens.Add(lMapToken);
+              end;
+
+              // Compile the included template
+              InternalCompileIncludedTemplate(lTemplateSource, aTokens, lCurrentFileName, [coIgnoreSysVersion, coParentTemplate]);
+
+              if lHasMappings then
+              begin
+                // Add ttIncludeEnd
+                var lIncludeEndToken: TToken;
+                lIncludeEndToken.TokenType := ttIncludeEnd;
+                aTokens.Add(lIncludeEndToken);
+              end;
             end;
           finally
             lMappingTokens.Free;
@@ -3128,6 +3201,8 @@ begin
   TTProConfiguration.RegisterHandlers(self);
   fLocaleFormatSettings := TFormatSettings.Invariant;
   fLocaleFormatSettings.ShortDateFormat := 'yyyy-mm-dd';
+  fEncoding := TEncoding.UTF8;
+  fDynamicIncludeCache := TDictionary<string, ITProCompiledTemplate>.Create;
 end;
 
 class function TTProCompiledTemplate.CreateFromFile(const FileName: String): ITProCompiledTemplate;
@@ -3175,6 +3250,7 @@ begin
   fMacros.Free;
   fTokens.Free;
   fVariables.Free;
+  fDynamicIncludeCache.Free;
   inherited;
 end;
 
@@ -3406,7 +3482,56 @@ begin
           end;
         ttInclude:
           begin
-            Error('Invalid token in RENDER phase: ttInclude');
+            // Dynamic include - evaluate filename and compile/execute at runtime
+            var lDynIncludeFileName: String;
+            var lDynBasePath: String;
+            var lDynFullPath: String;
+            var lDynIncludeSource: String;
+            var lDynIncludeCompiler: TTProCompiler;
+            var lDynIncludeTemplate: ITProCompiledTemplate;
+
+            // Get filename from expression
+            lDynIncludeFileName := EvaluateExpression(fTokens[lIdx].Value1).AsString;
+
+            // Build full path
+            lDynBasePath := fTokens[lIdx].Value2;
+            if TDirectory.Exists(lDynBasePath) then
+              lDynFullPath := TPath.GetFullPath(TPath.Combine(lDynBasePath, lDynIncludeFileName))
+            else
+              lDynFullPath := TPath.GetFullPath(TPath.Combine(TPath.GetDirectoryName(lDynBasePath), lDynIncludeFileName));
+
+            // Check cache first
+            if not fDynamicIncludeCache.TryGetValue(lDynFullPath, lDynIncludeTemplate) then
+            begin
+              // Load template source
+              try
+                lDynIncludeSource := TFile.ReadAllText(lDynFullPath, fEncoding);
+              except
+                on E: Exception do
+                  Error('Cannot read dynamic include "' + lDynIncludeFileName + '": ' + E.Message);
+              end;
+
+              // Compile the included template
+              lDynIncludeCompiler := TTProCompiler.Create(fEncoding);
+              try
+                lDynIncludeTemplate := lDynIncludeCompiler.Compile(lDynIncludeSource, lDynFullPath);
+              finally
+                lDynIncludeCompiler.Free;
+              end;
+
+              // Store in cache
+              fDynamicIncludeCache.Add(lDynFullPath, lDynIncludeTemplate);
+            end;
+
+            // Copy all variables to the included template
+            if fVariables <> nil then
+            begin
+              for var lVarPair in fVariables do
+                lDynIncludeTemplate.SetData(lVarPair.Key, lVarPair.Value.VarValue);
+            end;
+
+            // Execute and append output
+            lBuff.Append(lDynIncludeTemplate.Render);
           end;
         ttBoolExpression:
           begin
@@ -4045,6 +4170,16 @@ begin
   if lNegated then
   begin
     lVarName := lVarName.Substring(1);
+  end;
+
+  // Check for dataset field metadata syntax (Value2 not empty)
+  var lDataSetFieldMeta := fTokens[Idx].Value2;
+  if (lCurrTokenType = ttValue) and (not lDataSetFieldMeta.IsEmpty) then
+  begin
+    Result := EvaluateDataSetFieldMeta(lVarName, lDataSetFieldMeta);
+    if lNegated then
+      Result := not Result.AsBoolean;
+    Exit;
   end;
 
   if lFilterCount > 0 { has filters } then
@@ -4909,6 +5044,107 @@ begin
   else
     Result := TValue.From<string>(VarToStr(Value));
   end;
+end;
+
+function TTProCompiledTemplate.GetFieldProperty(const AField: TField; const PropName: string): TValue;
+begin
+  // Case-insensitive property access for TField
+  // Common properties
+  if SameText(PropName, 'FieldName') then Result := AField.FieldName
+  else if SameText(PropName, 'DisplayLabel') then Result := AField.DisplayLabel
+  else if SameText(PropName, 'DisplayName') then Result := AField.DisplayName
+  else if SameText(PropName, 'DisplayText') then Result := AField.DisplayText
+  else if SameText(PropName, 'DisplayWidth') then Result := AField.DisplayWidth
+  else if SameText(PropName, 'FieldNo') then Result := AField.FieldNo
+  else if SameText(PropName, 'Index') then Result := AField.Index
+  else if SameText(PropName, 'Size') then Result := AField.Size
+  else if SameText(PropName, 'DataSize') then Result := AField.DataSize
+  else if SameText(PropName, 'Offset') then Result := AField.Offset
+  else if SameText(PropName, 'Tag') then Result := AField.Tag
+  // Boolean properties
+  else if SameText(PropName, 'Required') then Result := AField.Required
+  else if SameText(PropName, 'ReadOnly') then Result := AField.ReadOnly
+  else if SameText(PropName, 'Visible') then Result := AField.Visible
+  else if SameText(PropName, 'IsNull') then Result := AField.IsNull
+  else if SameText(PropName, 'IsIndexField') then Result := AField.IsIndexField
+  else if SameText(PropName, 'CanModify') then Result := AField.CanModify
+  else if SameText(PropName, 'Lookup') then Result := AField.Lookup
+  else if SameText(PropName, 'LookupCache') then Result := AField.LookupCache
+  else if SameText(PropName, 'HasConstraints') then Result := AField.HasConstraints
+  // String properties
+  else if SameText(PropName, 'DefaultExpression') then Result := AField.DefaultExpression
+  else if SameText(PropName, 'Origin') then Result := AField.Origin
+  else if SameText(PropName, 'FullName') then Result := AField.FullName
+  else if SameText(PropName, 'EditMask') then Result := string(AField.EditMask)
+  else if SameText(PropName, 'KeyFields') then Result := AField.KeyFields
+  else if SameText(PropName, 'LookupKeyFields') then Result := AField.LookupKeyFields
+  else if SameText(PropName, 'LookupResultField') then Result := AField.LookupResultField
+  else if SameText(PropName, 'Text') then Result := AField.Text
+  // Enum/type properties as string
+  else if SameText(PropName, 'DataType') then Result := TRttiEnumerationType.GetName<TFieldType>(AField.DataType)
+  else if SameText(PropName, 'FieldKind') then Result := TRttiEnumerationType.GetName<TFieldKind>(AField.FieldKind)
+  else if SameText(PropName, 'Alignment') then Result := TRttiEnumerationType.GetName<TAlignment>(AField.Alignment)
+  // Value properties
+  else if SameText(PropName, 'Value') then Result := VariantToTValue(AField.Value)
+  else if SameText(PropName, 'OldValue') then Result := VariantToTValue(AField.OldValue)
+  else if SameText(PropName, 'NewValue') then Result := VariantToTValue(AField.NewValue)
+  else if SameText(PropName, 'CurValue') then Result := VariantToTValue(AField.CurValue)
+  // AsXxx methods
+  else if SameText(PropName, 'AsString') then Result := AField.AsString
+  else if SameText(PropName, 'AsInteger') then Result := AField.AsInteger
+  else if SameText(PropName, 'AsFloat') then Result := AField.AsFloat
+  else if SameText(PropName, 'AsBoolean') then Result := AField.AsBoolean
+  else if SameText(PropName, 'AsDateTime') then Result := AField.AsDateTime
+  else if SameText(PropName, 'AsCurrency') then Result := AField.AsCurrency
+  else if SameText(PropName, 'AsVariant') then Result := VariantToTValue(AField.AsVariant)
+  else
+    Error('Unknown TField property: %s', [PropName]);
+end;
+
+function TTProCompiledTemplate.EvaluateDataSetFieldMeta(const DataSetVarName, FieldMetaInfo: string): TValue;
+var
+  lFieldName, lPropName: string;
+  lIsLiteral: Boolean;
+  lPipePos: Integer;
+  lDataSet: TDataSet;
+  lField: TField;
+  lVarValue: TValue;
+begin
+  // FieldMetaInfo format: "fieldname|PropertyName (" prefix = literal) or fieldname|PropertyName (no prefix = variable)
+  lIsLiteral := FieldMetaInfo.StartsWith('"');
+  if lIsLiteral then
+    lPipePos := Pos('|', FieldMetaInfo) - 1
+  else
+    lPipePos := Pos('|', FieldMetaInfo);
+
+  if lIsLiteral then
+    lFieldName := Copy(FieldMetaInfo, 2, lPipePos - 1)
+  else
+    lFieldName := Copy(FieldMetaInfo, 1, lPipePos - 1);
+
+  lPropName := Copy(FieldMetaInfo, Pos('|', FieldMetaInfo) + 1, MaxInt);
+
+  // If field name is from a variable, resolve it
+  if not lIsLiteral then
+    lFieldName := GetVarAsTValue(lFieldName).AsString;
+
+  // Get the dataset
+  lVarValue := GetVarAsTValue(DataSetVarName);
+  if not lVarValue.IsObject then
+    Error('Variable "%s" is not an object', [DataSetVarName]);
+
+  if not (lVarValue.AsObject is TDataSet) then
+    Error('Variable "%s" is not a TDataSet', [DataSetVarName]);
+
+  lDataSet := TDataSet(lVarValue.AsObject);
+
+  // Get the field
+  lField := lDataSet.FindField(lFieldName);
+  if lField = nil then
+    Error('Field "%s" not found in dataset "%s"', [lFieldName, DataSetVarName]);
+
+  // Get the property
+  Result := GetFieldProperty(lField, lPropName);
 end;
 
 function TTProCompiledTemplate.GetExprEvaluator: IExprEvaluator;

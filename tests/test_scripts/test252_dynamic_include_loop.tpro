@@ -1,0 +1,6 @@
+Dynamic include in loop test
+============================
+{{for obj in objects}}
+Item {{:obj.PropInt}}: {{include @(template_name)}}
+{{endfor}}
+Done

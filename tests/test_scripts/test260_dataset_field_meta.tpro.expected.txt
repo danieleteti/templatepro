@@ -1,0 +1,15 @@
+﻿Dataset Field Metadata Test
+===========================
+
+Field DisplayLabel: Name
+Field FieldName: Name
+Field Size: 20
+Field DataType: ftString
+Field Required: False
+Field Index: 1
+
+Code field DataType: ftInteger
+
+Field via variable: Name
+
+Case insensitive test: Name

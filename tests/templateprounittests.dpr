@@ -480,6 +480,10 @@ begin
         lCompiledTemplate.SetData('valuetime', EncodeTime(10, 20, 30, 0));
         lCompiledTemplate.SetData('phrasewithquotes', 'This "and that" with ''this and that''');
         lCompiledTemplate.AddFilter('sayhello', SayHelloFilter);
+        // Variables for dynamic include tests
+        lCompiledTemplate.SetData('template_name', 'included_dynamic.tpro');
+        lCompiledTemplate.SetData('template_type', 'dynamic');
+        lCompiledTemplate.SetData('content', 'Hello Dynamic');
         var lJSONArr := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'people.json')) as TJsonArray;
         try
           var lJSONObj := TJsonObject.Create;
