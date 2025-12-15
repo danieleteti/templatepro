@@ -10,7 +10,6 @@ Field Index: 1
 
 Code field DataType: ftInteger
 
-
 Field via variable: Name
 
 Case insensitive test: Name

@@ -2,22 +2,17 @@
 ====================
 
 Simple expression:
-
 sum = 12
 
 Expression with multiplication:
-
 product = 20
 
 Expression with function:
-
 maxval = 10
 
 Complex expression:
-
 complex = 24
 
 String expression:
-
 greeting = Hello DANIELE2
 

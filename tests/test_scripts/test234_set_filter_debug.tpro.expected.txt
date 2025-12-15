@@ -1,2 +1,1 @@
-﻿
-x = DANIELE2
+﻿x = DANIELE2

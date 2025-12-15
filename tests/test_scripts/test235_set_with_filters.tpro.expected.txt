@@ -2,14 +2,11 @@
 ======================
 
 Simple filter:
-
 upper = DANIELE2
 
 Filter with param:
-
 padded =        DANIELE2
 
 Chained filters:
-
 chained =        DANIELE2
 

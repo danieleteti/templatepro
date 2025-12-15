@@ -56,6 +56,8 @@ type
 
   end;
 
+  TLineEndingStyle = (lesLF, lesCRLF, lesCR, lesNative);
+
   TIfThenElseIndex = record
     IfIndex, ElseIndex: Int64;
   end;
@@ -188,6 +190,9 @@ type
     /// Example: EvaluateExpression('price * qty * (1 - discount)')
     /// </summary>
     function EvaluateExpression(const Expression: string): TValue;
+    function GetOutputLineEnding: TLineEndingStyle;
+    procedure SetOutputLineEnding(const Value: TLineEndingStyle);
+    property OutputLineEnding: TLineEndingStyle read GetOutputLineEnding write SetOutputLineEnding;
   end;
 
   TTProCompiledTemplateEvent = reference to procedure(const TemplateProCompiledTemplate: ITProCompiledTemplate);
@@ -219,6 +224,7 @@ type
   TTProCompiledTemplate = class(TInterfacedObject, ITProCompiledTemplate)
   private
     fLocaleFormatSettings: TFormatSettings;
+    fOutputLineEnding: TLineEndingStyle;
     fTokens: TList<TToken>;
     fVariables: TTProVariables;
     fEncoding: TEncoding;
@@ -277,6 +283,9 @@ type
     function VariantToTValue(const Value: Variant): TValue;
     function GetFieldProperty(const AField: TField; const PropName: string): TValue;
     function EvaluateDataSetFieldMeta(const DataSetVarName, FieldMetaInfo: string): TValue;
+    function GetOutputLineEnding: TLineEndingStyle;
+    procedure SetOutputLineEnding(const Value: TLineEndingStyle);
+    function GetLineEndingString: string;
   public
     function EvaluateExpression(const Expression: string): TValue;
     destructor Destroy; override;
@@ -291,6 +300,7 @@ type
     procedure DumpToFile(const FileName: String);
     property FormatSettings: PTProFormatSettings read GetFormatSettings write SetFormatSettings;
     property OnGetValue: TTProCompiledTemplateGetValueEvent read GetOnGetValue write SetOnGetValue;
+    property OutputLineEnding: TLineEndingStyle read GetOutputLineEnding write SetOutputLineEnding;
   end;
 
   TTProCompiler = class
@@ -301,6 +311,8 @@ type
     fCurrentLine: Integer;
     fEncoding: TEncoding;
     fCurrentFileName: String;
+    fLastMatchedLineBreakLength: Integer;
+    function MatchLineBreak: Boolean;
     function MatchStartTag: Boolean;
     function MatchEndTag: Boolean;
     function MatchVariable(var aIdentifier: string): Boolean;
@@ -638,6 +650,28 @@ end;
 function TTProCompiledTemplate.GetFormatSettings: PTProFormatSettings;
 begin
   Result := @fLocaleFormatSettings;
+end;
+
+function TTProCompiledTemplate.GetOutputLineEnding: TLineEndingStyle;
+begin
+  Result := fOutputLineEnding;
+end;
+
+procedure TTProCompiledTemplate.SetOutputLineEnding(const Value: TLineEndingStyle);
+begin
+  fOutputLineEnding := Value;
+end;
+
+function TTProCompiledTemplate.GetLineEndingString: string;
+begin
+  case fOutputLineEnding of
+    lesLF: Result := #10;
+    lesCRLF: Result := #13#10;
+    lesCR: Result := #13;
+    lesNative: Result := sLineBreak;
+  else
+    Result := sLineBreak;
+  end;
 end;
 
 function TTProCompiledTemplate.GetNullableTValueAsTValue(const Value: PValue; const VarName: string): TValue;
@@ -1184,6 +1218,30 @@ begin
   while MatchSymbol(' ') do;
 end;
 
+function TTProCompiler.MatchLineBreak: Boolean;
+begin
+  // Handle CRLF (Windows), LF (Unix), and CR (old Mac)
+  fLastMatchedLineBreakLength := 0;
+  Result := False;
+  if CurrentChar = #13 then
+  begin
+    Step;
+    fLastMatchedLineBreakLength := 1;
+    if CurrentChar = #10 then
+    begin
+      Step;  // CRLF
+      fLastMatchedLineBreakLength := 2;
+    end;
+    Result := True;
+  end
+  else if CurrentChar = #10 then
+  begin
+    Step;  // LF only
+    fLastMatchedLineBreakLength := 1;
+    Result := True;
+  end;
+end;
+
 function TTProCompiler.MatchStartTag: Boolean;
 begin
   Result := MatchSymbol(START_TAG);
@@ -1373,9 +1431,9 @@ begin
       Break;
     end;
 
-    if MatchSymbol(sLineBreak) then { linebreak }
+    if MatchLineBreak then { linebreak - handles CRLF, LF, and CR }
     begin
-      lEndVerbatim := fCharIndex - Length(sLineBreak);
+      lEndVerbatim := fCharIndex - fLastMatchedLineBreakLength;
       if lEndVerbatim - lStartVerbatim > 0 then
       begin
         Inc(lContentOnThisLine);
@@ -3211,6 +3269,7 @@ begin
   fLocaleFormatSettings := TFormatSettings.Invariant;
   fLocaleFormatSettings.ShortDateFormat := 'yyyy-mm-dd';
   fEncoding := TEncoding.UTF8;
+  fOutputLineEnding := lesLF;
   fDynamicIncludeCache := TDictionary<string, ITProCompiledTemplate>.Create;
 end;
 
@@ -3627,7 +3686,7 @@ begin
           end;
         ttLineBreak:
           begin
-            lBuff.AppendLine;
+            lBuff.Append(GetLineEndingString);
           end;
         ttSystemVersion:
           begin
@@ -4992,7 +5051,7 @@ begin
             ttSet:
               ProcessSetToken(lIdx);
             ttLineBreak:
-              lBuff.AppendLine;
+              lBuff.Append(GetLineEndingString);
             ttCallMacro:
               begin
                 // Nested macro call

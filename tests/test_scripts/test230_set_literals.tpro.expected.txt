@@ -2,26 +2,18 @@
 ==================
 
 Integer literal:
-
 myint = 42
 
 String literal:
-
 mystr = Hello World
 
 Boolean true:
-
 mybool is true
-
 Boolean false:
-
 mybool2 is false
-
 Float literal:
-
 myfloat = 3.14
 
 Negative integer:
-
 myneg = -10
 

@@ -2,18 +2,12 @@
 ===============
 
 Set and use in condition:
-
-
 Value 10 exceeds threshold 5
 
 Set computed value and reuse:
-
-
 base = 20, doubled = 40
 
 Override existing value:
-
 counter = 1
-
 counter = 2
 
