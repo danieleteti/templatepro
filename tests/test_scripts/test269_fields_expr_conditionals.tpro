@@ -1,0 +1,24 @@
+Test: Expression Conditionals with Fields
+=========================================
+
+Size comparison:
+{{for f in customers.fields}}
+{{if @(f.Size > 0)}}{{:f.FieldName}} has size {{:f.Size}}
+{{else}}{{:f.FieldName}} has no size
+{{endif}}
+{{endfor}}
+
+Index comparison:
+{{for f in customers.fields}}
+{{if @(f.Index = 0)}}First field: {{:f.FieldName}}
+{{endif}}
+{{endfor}}
+
+String comparison:
+{{for f in customers.fields}}
+{{if @(f.DataType = "ftString")}}String: {{:f.FieldName}}
+{{endif}}{{if @(f.DataType = "ftInteger")}}Integer: {{:f.FieldName}}
+{{endif}}
+{{endfor}}
+
+Done.

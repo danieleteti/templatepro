@@ -1,0 +1,27 @@
+﻿Test: All TField Properties
+===========================
+
+--- Field: Code ---
+FieldName: Code
+DisplayLabel: Code
+DisplayName: Code
+DataType: ftInteger
+Size: 0
+Index: 0
+Required: False
+ReadOnly: False
+Visible: True
+IsNull: False
+AsString: 1
+--- Field: Name ---
+FieldName: Name
+DisplayLabel: Name
+DisplayName: Name
+DataType: ftString
+Size: 20
+Index: 1
+Required: False
+ReadOnly: False
+Visible: True
+IsNull: False
+AsString: Ford

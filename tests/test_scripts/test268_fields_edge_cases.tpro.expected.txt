@@ -1,0 +1,19 @@
+﻿Test: Edge Cases
+================
+
+Empty dataset fields:
+- Code
+- Name
+(should show Code and Name since fields exist even if dataset is empty)
+
+Multiple field loops:
+Loop 1:
+- Code
+- Name
+Loop 2:
+* Code
+* Name
+
+Case insensitive property:
+Code = Code = Code
+Name = Name = Name

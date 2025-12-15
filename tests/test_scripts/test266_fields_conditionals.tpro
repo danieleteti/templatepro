@@ -1,0 +1,29 @@
+Test: Conditionals with Field Properties
+========================================
+
+Visible fields:
+{{for f in customers.fields}}
+{{if f.Visible}}[VISIBLE] {{:f.FieldName}}
+{{endif}}
+{{endfor}}
+
+Required fields:
+{{for f in customers.fields}}
+{{if f.Required}}[REQUIRED] {{:f.FieldName}}
+{{else}}[OPTIONAL] {{:f.FieldName}}
+{{endif}}
+{{endfor}}
+
+ReadOnly check:
+{{for f in customers.fields}}
+{{if f.ReadOnly}}{{:f.FieldName}} is read-only
+{{else}}{{:f.FieldName}} is editable
+{{endif}}
+{{endfor}}
+
+Null check:
+{{for f in customers.fields}}
+{{if f.IsNull}}{{:f.FieldName}}: NULL
+{{else}}{{:f.FieldName}}: {{:f}}
+{{endif}}
+{{endfor}}

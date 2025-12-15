@@ -1,0 +1,36 @@
+﻿Test: Expression Edge Cases with Fields
+=======================================
+
+1. Arithmetic with field properties:
+Code: Size+1=1, Size*2=0
+Name: Size+1=21, Size*2=40
+
+2. Multiple comparisons in sequence:
+First: Code
+Second: Name
+
+3. Comparison with negative result:
+Normal: Code
+Normal: Name
+
+4. Boolean AND in expression:
+IntegerFirst: Code
+StringSecond: Name
+
+5. Boolean OR in expression:
+FirstTwo: Code
+FirstTwo: Name
+
+6. NOT operator:
+NoSize: Code
+HasSize: Name
+
+7. Nested property comparison:
+Valid: Code (Size=0)
+Valid: Name (Size=20)
+
+8. String comparison with quotes:
+Type=ftInteger, IsString=False, IsInt=True
+Type=ftString, IsString=True, IsInt=False
+
+Done.

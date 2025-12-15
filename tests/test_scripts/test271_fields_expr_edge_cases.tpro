@@ -1,0 +1,44 @@
+Test: Expression Edge Cases with Fields
+=======================================
+
+1. Arithmetic with field properties:
+{{for f in customers.fields}}
+{{:f.FieldName}}: Size+1={{@f.Size + 1}}, Size*2={{@f.Size * 2}}
+{{endfor}}
+
+2. Multiple comparisons in sequence:
+{{for f in customers.fields}}
+{{if @(f.Index = 0)}}First{{endif}}{{if @(f.Index = 1)}}Second{{endif}}: {{:f.FieldName}}
+{{endfor}}
+
+3. Comparison with negative result:
+{{for f in customers.fields}}
+{{if @(f.Size > 100)}}Big{{else}}Normal{{endif}}: {{:f.FieldName}}
+{{endfor}}
+
+4. Boolean AND in expression:
+{{for f in customers.fields}}
+{{if @(f.Index = 0 AND f.Size = 0)}}IntegerFirst{{endif}}{{if @(f.Index = 1 AND f.Size > 0)}}StringSecond{{endif}}: {{:f.FieldName}}
+{{endfor}}
+
+5. Boolean OR in expression:
+{{for f in customers.fields}}
+{{if @(f.Index = 0 OR f.Index = 1)}}FirstTwo{{else}}Other{{endif}}: {{:f.FieldName}}
+{{endfor}}
+
+6. NOT operator:
+{{for f in customers.fields}}
+{{if @(NOT (f.Size = 0))}}HasSize{{else}}NoSize{{endif}}: {{:f.FieldName}}
+{{endfor}}
+
+7. Nested property comparison:
+{{for f in customers.fields}}
+{{if @(f.Size >= 0)}}Valid{{endif}}: {{:f.FieldName}} (Size={{@f.Size}})
+{{endfor}}
+
+8. String comparison with quotes:
+{{for f in customers.fields}}
+Type={{@f.DataType}}, IsString={{@(f.DataType = "ftString")}}, IsInt={{@(f.DataType = "ftInteger")}}
+{{endfor}}
+
+Done.

@@ -1,0 +1,13 @@
+Test: HTML Form Generation
+==========================
+
+<form>
+{{for f in customers.fields}}
+{{if f.Visible}}
+  <div class="field">
+    <label for="{{:f.FieldName}}">{{:f.DisplayLabel}}{{if f.Required}} *{{endif}}</label>
+    <input type="text" id="{{:f.FieldName}}" name="{{:f.FieldName}}" value="{{:f}}"{{if f.ReadOnly}} readonly{{endif}}>
+  </div>
+{{endif}}
+{{endfor}}
+</form>

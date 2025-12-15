@@ -1,0 +1,17 @@
+Test: Pseudo-variables in Field Loops
+=====================================
+
+Index test:
+{{for f in customers.fields}}
+{{:f.@@index}}. {{:f.FieldName}}
+{{endfor}}
+
+Odd/Even test:
+{{for f in customers.fields}}
+{{:f.FieldName}}: {{if f.@@odd}}ODD{{endif}}{{if f.@@even}}EVEN{{endif}}
+{{endfor}}
+
+Combined:
+{{for f in customers.fields}}
+#{{:f.@@index}} {{:f.FieldName}} [{{if f.@@odd}}odd{{endif}}{{if f.@@even}}even{{endif}}]
+{{endfor}}

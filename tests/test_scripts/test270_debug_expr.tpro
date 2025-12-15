@@ -1,0 +1,9 @@
+Test: Debug Expression Values
+==============================
+
+Field values:
+{{for f in customers.fields}}
+Name={{:f.FieldName}}, Index={{@f.Index}}, Size={{@f.Size}}
+{{endfor}}
+
+Done.

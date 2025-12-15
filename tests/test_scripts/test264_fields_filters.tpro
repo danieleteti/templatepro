@@ -1,0 +1,14 @@
+Test: Filters on Field Properties
+==================================
+
+Uppercase field names:
+{{for f in customers.fields}}
+- {{:f.FieldName|uppercase}}
+{{endfor}}
+
+Lowercase field names:
+{{for f in customers.fields}}
+- {{:f.FieldName|lowercase}}
+{{endfor}}
+
+Done.

@@ -1,0 +1,16 @@
+Test: Expressions with Field Properties
+=======================================
+
+Simple property access in expression:
+Size=0 - Code
+Size=20 - Name
+
+Arithmetic with Size:
+Code: size*2=0
+Name: size*2=40
+
+String concatenation:
+Field: Code
+Field: Name
+
+Done.

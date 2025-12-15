@@ -1,0 +1,8 @@
+Test: Debug Expression Values
+==============================
+
+Field values:
+Name=Code, Index=0, Size=0
+Name=Name, Index=1, Size=20
+
+Done.

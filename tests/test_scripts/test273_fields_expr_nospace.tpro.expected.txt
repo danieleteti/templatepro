@@ -1,0 +1,16 @@
+﻿Test: Expressions without spaces
+================================
+
+1. No space around operators:
+Code: 1, 0, 0
+Name: 21, 40, 21
+
+2. Comparison without spaces:
+Zero: Code
+Positive: Name
+
+3. String comparison no space:
+OTHER: Code
+STR: Name
+
+Done.

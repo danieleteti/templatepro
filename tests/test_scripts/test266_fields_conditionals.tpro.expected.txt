@@ -1,0 +1,18 @@
+﻿Test: Conditionals with Field Properties
+========================================
+
+Visible fields:
+[VISIBLE] Code
+[VISIBLE] Name
+
+Required fields:
+[OPTIONAL] Code
+[OPTIONAL] Name
+
+ReadOnly check:
+Code is editable
+Name is editable
+
+Null check:
+Code: 1
+Name: Ford

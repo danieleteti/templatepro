@@ -1,0 +1,20 @@
+﻿Dataset Fields Loop Test
+========================
+
+Field list:
+- Code (ftInteger)
+- Name (ftString)
+
+Field with index:
+#1: Code
+#2: Name
+
+Field values:
+- Code: 1
+- Name: Ford
+
+Visible check:
+- Visible: Code
+- Visible: Name
+
+Done.

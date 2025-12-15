@@ -1,0 +1,19 @@
+Test: Expression Error Cases
+============================
+
+1. Complex nested expression:
+{{for f in customers.fields}}
+Result={{@((f.Size + 10) * 2)}}
+{{endfor}}
+
+2. Comparison chain:
+{{for f in customers.fields}}
+{{if @(f.Index >= 0 AND f.Index < 2)}}InRange{{else}}OutRange{{endif}}: {{:f.FieldName}}
+{{endfor}}
+
+3. String in arithmetic (should handle gracefully):
+{{for f in customers.fields}}
+FieldName={{@f.FieldName}}
+{{endfor}}
+
+Done.

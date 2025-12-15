@@ -1,0 +1,12 @@
+﻿Test: Filters on Field Properties
+==================================
+
+Uppercase field names:
+- CODE
+- NAME
+
+Lowercase field names:
+- code
+- name
+
+Done.

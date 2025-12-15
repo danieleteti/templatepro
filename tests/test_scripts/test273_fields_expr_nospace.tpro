@@ -1,0 +1,19 @@
+Test: Expressions without spaces
+================================
+
+1. No space around operators:
+{{for f in customers.fields}}
+{{:f.FieldName}}: {{@f.Size+1}}, {{@f.Size*2}}, {{@f.Index+f.Size}}
+{{endfor}}
+
+2. Comparison without spaces:
+{{for f in customers.fields}}
+{{if @(f.Index=0)}}Zero{{endif}}{{if @(f.Index>0)}}Positive{{endif}}: {{:f.FieldName}}
+{{endfor}}
+
+3. String comparison no space:
+{{for f in customers.fields}}
+{{if @(f.DataType="ftString")}}STR{{else}}OTHER{{endif}}: {{:f.FieldName}}
+{{endfor}}
+
+Done.

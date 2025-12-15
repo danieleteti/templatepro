@@ -1,0 +1,13 @@
+﻿Test: HTML Form Generation
+==========================
+
+<form>
+  <div class="field">
+    <label for="Code">Code</label>
+    <input type="text" id="Code" name="Code" value="1">
+  </div>
+  <div class="field">
+    <label for="Name">Name</label>
+    <input type="text" id="Name" name="Name" value="Ford">
+  </div>
+</form>

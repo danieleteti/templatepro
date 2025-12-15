@@ -1,0 +1,15 @@
+﻿Test: Expression Conditionals with Fields
+=========================================
+
+Size comparison:
+Code has no size
+Name has size 20
+
+Index comparison:
+First field: Code
+
+String comparison:
+Integer: Code
+String: Name
+
+Done.

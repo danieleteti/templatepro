@@ -1,4 +1,4 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 //
 // Copyright (c) 2016-2025 Daniele Teti
 //
@@ -200,8 +200,10 @@ type
     IteratorPosition: Integer;
     IteratorName: String;
     EOF: Boolean;
+    IsFieldIteration: Boolean;
+    FieldsCount: Integer;
     function IncrementIteratorPosition: Integer;
-    constructor Create(DataSourceName: String; LoopExpression: String; FullPath: String; IteratorName: String);
+    constructor Create(DataSourceName: String; LoopExpression: String; FullPath: String; IteratorName: String; AIsFieldIteration: Boolean = False);
   end;
 
   TTProTemplateSectionType = (stUnknown, stLayout, stPage);
@@ -1534,7 +1536,14 @@ begin
           begin
             Error('loop data source and its iterator cannot have the same name: ' + lIdentifier)
           end;
-          aTokens.Add(TToken.Create(lLastToken, lIdentifier, lIteratorName));
+          // Check for .fields suffix for dataset field iteration
+          var lIsFieldIteration: Integer := 0;
+          if lIdentifier.EndsWith('.fields', True) then
+          begin
+            lIdentifier := lIdentifier.Substring(0, lIdentifier.Length - 7); // Remove '.fields'
+            lIsFieldIteration := 1;
+          end;
+          aTokens.Add(TToken.Create(lLastToken, lIdentifier, lIteratorName, -1, lIsFieldIteration));
           lStartVerbatim := fCharIndex;
         end
         else if MatchSymbol('endfor') then { endfor }
@@ -3324,6 +3333,7 @@ begin
         ttFor:
           begin
             lForLoopItem := PeekLoop;
+            var lIsFieldIteration := fTokens[lIdx].Ref2 = 1;
             if LoopStackIsEmpty or (lForLoopItem.LoopExpression <> fTokens[lIdx].Value1) then
             begin // push a new loop stack item
               SplitVariableName(fTokens[lIdx].Value1, lVarName, lVarMember);
@@ -3331,11 +3341,11 @@ begin
               begin
                 if not lVarMember.IsEmpty then
                   lFullPath := lFullPath + '.' + lVarMember;
-                PushLoop(TLoopStackItem.Create(lBaseVarName, fTokens[lIdx].Value1, lFullPath, fTokens[lIdx].Value2));
+                PushLoop(TLoopStackItem.Create(lBaseVarName, fTokens[lIdx].Value1, lFullPath, fTokens[lIdx].Value2, lIsFieldIteration));
               end
               else
               begin
-                PushLoop(TLoopStackItem.Create(lVarName, fTokens[lIdx].Value1, lVarMember, fTokens[lIdx].Value2));
+                PushLoop(TLoopStackItem.Create(lVarName, fTokens[lIdx].Value1, lVarMember, fTokens[lIdx].Value2, lIsFieldIteration));
               end;
             end;
             lForLoopItem := PeekLoop;
@@ -3343,7 +3353,7 @@ begin
             // Now, work with the stack head
             if GetVariables.TryGetValue(PeekLoop.DataSourceName, lVariable) then
             begin
-              if lForLoopItem.FullPath.IsEmpty then
+              if lForLoopItem.FullPath.IsEmpty and (not lForLoopItem.IsFieldIteration) then
               begin
                 if not(viIterable in lVariable.VarOption) then
                 begin
@@ -3353,20 +3363,40 @@ begin
 
               if viDataSet in lVariable.VarOption then
               begin
-                if lForLoopItem.IteratorPosition = -1 then
+                // Check if this is a field iteration (dataset.fields)
+                if lForLoopItem.IsFieldIteration then
                 begin
-                  TDataSet(lVariable.VarValue.AsObject).First;
+                  var lDataSet := TDataSet(lVariable.VarValue.AsObject);
+                  if lForLoopItem.IteratorPosition = -1 then
+                  begin
+                    lForLoopItem.FieldsCount := lDataSet.Fields.Count;
+                  end;
+                  lForLoopItem.IncrementIteratorPosition;
+                  if lForLoopItem.IteratorPosition >= lForLoopItem.FieldsCount then
+                  begin
+                    lForLoopItem.EOF := True;
+                    lIdx := fTokens[lIdx].Ref1; // skip to endfor
+                    Continue;
+                  end;
                 end
                 else
                 begin
-                  TDataSet(lVariable.VarValue.AsObject).Next;
-                end;
-                lForLoopItem.IncrementIteratorPosition;
-                if TDataSet(lVariable.VarValue.AsObject).Eof then
-                begin
-                  lForLoopItem.EOF := True;
-                  lIdx := fTokens[lIdx].Ref1; // skip to endfor
-                  Continue;
+                  // Regular record iteration
+                  if lForLoopItem.IteratorPosition = -1 then
+                  begin
+                    TDataSet(lVariable.VarValue.AsObject).First;
+                  end
+                  else
+                  begin
+                    TDataSet(lVariable.VarValue.AsObject).Next;
+                  end;
+                  lForLoopItem.IncrementIteratorPosition;
+                  if TDataSet(lVariable.VarValue.AsObject).Eof then
+                  begin
+                    lForLoopItem.EOF := True;
+                    lIdx := fTokens[lIdx].Ref1; // skip to endfor
+                    Continue;
+                  end;
                 end;
               end
               else if [viObject, viListOfObject] * lVariable.VarOption <> [] then
@@ -3749,7 +3779,27 @@ begin
     begin
       if lIsAnIterator then
       begin
-        if lHasMember and lVarMembers.StartsWith('@@') then
+        // Check if this is a field iteration
+        if lCurrentIterator.IsFieldIteration then
+        begin
+          var lDataSet := TDataSet(lVariable.VarValue.AsObject);
+          var lField := lDataSet.Fields[lCurrentIterator.IteratorPosition];
+          if lHasMember and lVarMembers.StartsWith('@@') then
+          begin
+            Result := GetPseudoVariable(lCurrentIterator.IteratorPosition, lVarMembers);
+          end
+          else if lVarMembers.IsEmpty then
+          begin
+            // Return field value
+            Result := lField.AsString;
+          end
+          else
+          begin
+            // Return field property
+            Result := GetFieldProperty(lField, lVarMembers);
+          end;
+        end
+        else if lHasMember and lVarMembers.StartsWith('@@') then
         begin
           lCurrentIterator.IteratorPosition := TDataSet(lVariable.VarValue.AsObject).RecNo - 1;
           Result := GetPseudoVariable(lCurrentIterator.IteratorPosition, lVarMembers);
@@ -4561,7 +4611,7 @@ end;
 
 { TLoopStackItem }
 
-constructor TLoopStackItem.Create(DataSourceName, LoopExpression, FullPath: String; IteratorName: String);
+constructor TLoopStackItem.Create(DataSourceName, LoopExpression, FullPath: String; IteratorName: String; AIsFieldIteration: Boolean);
 begin
   Self.DataSourceName := DataSourceName;
   Self.LoopExpression := LoopExpression;
@@ -4569,6 +4619,8 @@ begin
   Self.IteratorName := IteratorName;
   Self.IteratorPosition := -1;
   Self.EOF := False;
+  Self.IsFieldIteration := AIsFieldIteration;
+  Self.FieldsCount := 0;
 end;
 
 function TLoopStackItem.IncrementIteratorPosition: Integer;

@@ -1,0 +1,25 @@
+Dataset Fields Loop Test
+========================
+
+Field list:
+{{for f in customers.fields}}
+- {{:f.FieldName}} ({{:f.DataType}})
+{{endfor}}
+
+Field with index:
+{{for f in customers.fields}}
+#{{:f.@@index}}: {{:f.FieldName}}
+{{endfor}}
+
+Field values:
+{{for f in customers.fields}}
+- {{:f.DisplayLabel}}: {{:f}}
+{{endfor}}
+
+Visible check:
+{{for f in customers.fields}}
+{{if f.Visible}}- Visible: {{:f.FieldName}}
+{{endif}}
+{{endfor}}
+
+Done.

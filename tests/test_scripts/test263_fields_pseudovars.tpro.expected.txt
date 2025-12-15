@@ -1,0 +1,14 @@
+﻿Test: Pseudo-variables in Field Loops
+=====================================
+
+Index test:
+1. Code
+2. Name
+
+Odd/Even test:
+Code: ODD
+Name: EVEN
+
+Combined:
+#1 Code [odd]
+#2 Name [even]

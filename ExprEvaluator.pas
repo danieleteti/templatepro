@@ -892,7 +892,8 @@ var
   Start: Integer;
 begin
   Start := FPos;
-  while (FPos <= Length(FInput)) and (IsAlpha(CurrentChar) or IsDigit(CurrentChar)) do
+  // Include dots to support member access (e.g., f.Index, obj.property.subprop)
+  while (FPos <= Length(FInput)) and (IsAlpha(CurrentChar) or IsDigit(CurrentChar) or (CurrentChar = '.')) do
     NextChar;
   Result := UpperCase(Copy(FInput, Start, FPos - Start));
 end;

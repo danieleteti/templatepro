@@ -1,0 +1,19 @@
+Test: Expressions with Field Properties
+=======================================
+
+Simple property access in expression:
+{{for f in customers.fields}}
+Size={{@f.Size}} - {{:f.FieldName}}
+{{endfor}}
+
+Arithmetic with Size:
+{{for f in customers.fields}}
+{{:f.FieldName}}: size*2={{@f.Size * 2}}
+{{endfor}}
+
+String concatenation:
+{{for f in customers.fields}}
+{{@"Field: " + f.FieldName}}
+{{endfor}}
+
+Done.

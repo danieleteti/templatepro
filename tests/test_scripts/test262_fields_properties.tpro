@@ -1,0 +1,17 @@
+Test: All TField Properties
+===========================
+
+{{for f in customers.fields}}
+--- Field: {{:f.FieldName}} ---
+FieldName: {{:f.FieldName}}
+DisplayLabel: {{:f.DisplayLabel}}
+DisplayName: {{:f.DisplayName}}
+DataType: {{:f.DataType}}
+Size: {{:f.Size}}
+Index: {{:f.Index}}
+Required: {{:f.Required}}
+ReadOnly: {{:f.ReadOnly}}
+Visible: {{:f.Visible}}
+IsNull: {{:f.IsNull}}
+AsString: {{:f.AsString}}
+{{endfor}}

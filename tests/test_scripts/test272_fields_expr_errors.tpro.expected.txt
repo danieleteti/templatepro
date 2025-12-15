@@ -1,0 +1,16 @@
+﻿Test: Expression Error Cases
+============================
+
+1. Complex nested expression:
+Result=20
+Result=60
+
+2. Comparison chain:
+InRange: Code
+InRange: Name
+
+3. String in arithmetic (should handle gracefully):
+FieldName=Code
+FieldName=Name
+
+Done.

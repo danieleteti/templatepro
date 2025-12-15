@@ -1,0 +1,23 @@
+Test: Edge Cases
+================
+
+Empty dataset fields:
+{{for f in emptydataset.fields}}
+- {{:f.FieldName}}
+{{endfor}}
+(should show Code and Name since fields exist even if dataset is empty)
+
+Multiple field loops:
+Loop 1:
+{{for f in customers.fields}}
+- {{:f.FieldName}}
+{{endfor}}
+Loop 2:
+{{for field in customers.fields}}
+* {{:field.FieldName}}
+{{endfor}}
+
+Case insensitive property:
+{{for f in customers.fields}}
+{{:f.fieldname}} = {{:f.FIELDNAME}} = {{:f.FieldName}}
+{{endfor}}
