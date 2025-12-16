@@ -1,0 +1,33 @@
+First and Last Pseudo-Variables Tests
+======================================
+
+Testing @@first and @@last:
+FIRST: Ford
+Ferrari
+Lotus
+FCA
+Hyundai
+De Tomaso
+Dodge
+Tesla
+Kia
+Tata
+Volkswagen
+Audi
+Skoda :LAST
+
+Testing with index:
+[1] Ford - first=True, last=False
+[2] Ferrari - first=False, last=False
+[3] Lotus - first=False, last=False
+[4] FCA - first=False, last=False
+[5] Hyundai - first=False, last=False
+[6] De Tomaso - first=False, last=False
+[7] Dodge - first=False, last=False
+[8] Tesla - first=False, last=False
+[9] Kia - first=False, last=False
+[10] Tata - first=False, last=False
+[11] Volkswagen - first=False, last=False
+[12] Audi - first=False, last=False
+[13] Skoda - first=False, last=True
+

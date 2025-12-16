@@ -207,6 +207,7 @@ type
     EOF: Boolean;
     IsFieldIteration: Boolean;
     FieldsCount: Integer;
+    TotalCount: Integer;
     function IncrementIteratorPosition: Integer;
     constructor Create(DataSourceName: String; LoopExpression: String; FullPath: String; IteratorName: String; AIsFieldIteration: Boolean = False);
   end;
@@ -787,6 +788,8 @@ begin
 end;
 
 function TTProCompiledTemplate.GetPseudoVariable(const VarIterator: Integer; const PseudoVarName: String): TValue;
+var
+  lLoopItem: TLoopStackItem;
 begin
   if PseudoVarName = '@@index' then
   begin
@@ -799,6 +802,18 @@ begin
   else if PseudoVarName = '@@even' then
   begin
     Result := (VarIterator + 1) mod 2 = 0;
+  end
+  else if PseudoVarName = '@@first' then
+  begin
+    Result := VarIterator = 0;
+  end
+  else if PseudoVarName = '@@last' then
+  begin
+    lLoopItem := PeekLoop;
+    if Assigned(lLoopItem) and (lLoopItem.TotalCount > 0) then
+      Result := VarIterator = lLoopItem.TotalCount - 1
+    else
+      Result := False;
   end
   else
   begin
@@ -1635,28 +1650,10 @@ begin
             Error('Expected ":=" after variable name in "set"');
           MatchSpace;
 
-          // Check what follows: :var, @(expr), or literal
-          if MatchSymbol(':') then
+          // Check what follows: @(expr), "string", number, true/false, or variable
+          if MatchExpression(lVarName) then
           begin
-            // Variable reference with optional filters
-            if not MatchVariable(lVarName) then
-              Error('Expected variable name after ":" in "set"');
-            // Parse filters
-            SetLength(lFilters, 0);
-            if MatchSymbol('|') then
-              MatchFilters(lVarName, lFilters);
-            MatchSpace;
-            if not MatchEndTag then
-              Error('Expected closing tag for "set"');
-            lStartVerbatim := fCharIndex;
-            lLastToken := ttSet;
-            // Ref2=0 for variable reference, Ref1=filter count
-            aTokens.Add(TToken.Create(lLastToken, lIdentifier, lVarName, Length(lFilters), 0));
-            AddFilterTokens(aTokens, lFilters);
-          end
-          else if MatchExpression(lVarName) then
-          begin
-            // Expression
+            // Expression @(...)
             MatchSpace;
             if not MatchEndTag then
               Error('Expected closing tag for "set"');
@@ -1667,7 +1664,7 @@ begin
           end
           else if MatchString(lVarName) then
           begin
-            // String literal
+            // String literal "..."
             MatchSpace;
             if not MatchEndTag then
               Error('Expected closing tag for "set"');
@@ -1675,26 +1672,6 @@ begin
             lLastToken := ttSet;
             // Ref2=2 for string literal
             aTokens.Add(TToken.Create(lLastToken, lIdentifier, lVarName, 0, 2));
-          end
-          else if MatchSymbol('true') then
-          begin
-            MatchSpace;
-            if not MatchEndTag then
-              Error('Expected closing tag for "set"');
-            lStartVerbatim := fCharIndex;
-            lLastToken := ttSet;
-            // Ref2=3 for boolean true
-            aTokens.Add(TToken.Create(lLastToken, lIdentifier, 'true', 0, 3));
-          end
-          else if MatchSymbol('false') then
-          begin
-            MatchSpace;
-            if not MatchEndTag then
-              Error('Expected closing tag for "set"');
-            lStartVerbatim := fCharIndex;
-            lLastToken := ttSet;
-            // Ref2=4 for boolean false
-            aTokens.Add(TToken.Create(lLastToken, lIdentifier, 'false', 0, 4));
           end
           else if CharInSet(fInputString.Chars[fCharIndex], SignAndNumbers) then
           begin
@@ -1735,8 +1712,47 @@ begin
               aTokens.Add(TToken.Create(lLastToken, lIdentifier, lVarName, 0, 5));
             end;
           end
+          else if MatchVariable(lVarName) then
+          begin
+            // Variable reference or boolean literal (case-insensitive)
+            if SameText(lVarName, 'true') then
+            begin
+              MatchSpace;
+              if not MatchEndTag then
+                Error('Expected closing tag for "set"');
+              lStartVerbatim := fCharIndex;
+              lLastToken := ttSet;
+              // Ref2=3 for boolean true
+              aTokens.Add(TToken.Create(lLastToken, lIdentifier, 'true', 0, 3));
+            end
+            else if SameText(lVarName, 'false') then
+            begin
+              MatchSpace;
+              if not MatchEndTag then
+                Error('Expected closing tag for "set"');
+              lStartVerbatim := fCharIndex;
+              lLastToken := ttSet;
+              // Ref2=4 for boolean false
+              aTokens.Add(TToken.Create(lLastToken, lIdentifier, 'false', 0, 4));
+            end
+            else
+            begin
+              // Variable reference with optional filters
+              SetLength(lFilters, 0);
+              if MatchSymbol('|') then
+                MatchFilters(lVarName, lFilters);
+              MatchSpace;
+              if not MatchEndTag then
+                Error('Expected closing tag for "set"');
+              lStartVerbatim := fCharIndex;
+              lLastToken := ttSet;
+              // Ref2=0 for variable reference, Ref1=filter count
+              aTokens.Add(TToken.Create(lLastToken, lIdentifier, lVarName, Length(lFilters), 0));
+              AddFilterTokens(aTokens, lFilters);
+            end;
+          end
           else
-            Error('Expected literal value, variable reference (:var), or expression (@(...)) in "set"');
+            Error('Expected literal value, variable reference, or expression (@(...)) in "set"');
         end
         else if MatchSymbol('endif') then { endif }
         begin
@@ -3429,6 +3445,7 @@ begin
                   if lForLoopItem.IteratorPosition = -1 then
                   begin
                     lForLoopItem.FieldsCount := lDataSet.Fields.Count;
+                    lForLoopItem.TotalCount := lDataSet.Fields.Count;
                   end;
                   lForLoopItem.IncrementIteratorPosition;
                   if lForLoopItem.IteratorPosition >= lForLoopItem.FieldsCount then
@@ -3444,6 +3461,7 @@ begin
                   if lForLoopItem.IteratorPosition = -1 then
                   begin
                     TDataSet(lVariable.VarValue.AsObject).First;
+                    lForLoopItem.TotalCount := TDataSet(lVariable.VarValue.AsObject).RecordCount;
                   end
                   else
                   begin
@@ -3464,6 +3482,8 @@ begin
                 lObj := GetTValueFromPath(lVariable.VarValue.AsObject, lForLoopItem.FullPath);
                 lWrapped := WrapAsList(lObj.AsObject);
                 lCount := lWrapped.Count;
+                if lForLoopItem.IteratorPosition = -1 then
+                  lForLoopItem.TotalCount := lCount;
                 if (lCount = 0) or (lForLoopItem.IteratorPosition = lCount - 1) then
                 begin
                   lForLoopItem.EOF := True;
@@ -3491,6 +3511,8 @@ begin
 
                   jdtArray:
                     begin
+                      if lForLoopItem.IteratorPosition = -1 then
+                        lForLoopItem.TotalCount := lJObj.Path[lForLoopItem.FullPath].ArrayValue.Count;
                       if lForLoopItem.IteratorPosition = lJObj.Path[lForLoopItem.FullPath].ArrayValue.Count - 1 then
                       begin
                         lForLoopItem.EOF := True;
@@ -4680,6 +4702,7 @@ begin
   Self.EOF := False;
   Self.IsFieldIteration := AIsFieldIteration;
   Self.FieldsCount := 0;
+  Self.TotalCount := 0;
 end;
 
 function TLoopStackItem.IncrementIteratorPosition: Integer;

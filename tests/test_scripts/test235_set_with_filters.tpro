@@ -2,14 +2,14 @@ Set With Filters Tests
 ======================
 
 Simple filter:
-{{set upper := :value2|uppercase}}
+{{set upper := value2|uppercase}}
 upper = {{:upper}}
 
 Filter with param:
-{{set padded := :value2|lpad,15}}
+{{set padded := value2|lpad,15}}
 padded = {{:padded}}
 
 Chained filters:
-{{set chained := :value2|uppercase|lpad,15}}
+{{set chained := value2|uppercase|lpad,15}}
 chained = {{:chained}}
 

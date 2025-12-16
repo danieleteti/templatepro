@@ -1,0 +1,13 @@
+First and Last Pseudo-Variables Tests
+======================================
+
+Testing @@first and @@last:
+{{for cust in customers}}
+{{if cust.@@first}}FIRST: {{endif}}{{:cust.Name}}{{if cust.@@last}} :LAST{{endif}}
+{{endfor}}
+
+Testing with index:
+{{for cust in customers}}
+[{{:cust.@@index}}] {{:cust.Name}} - first={{:cust.@@first}}, last={{:cust.@@last}}
+{{endfor}}
+
