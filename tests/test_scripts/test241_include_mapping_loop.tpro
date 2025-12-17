@@ -2,6 +2,6 @@ Include with mapping in loop
 ============================
 
 {{for item in objects}}
-{{include "included_loop_item.tpro", currentitem = :item}}
+{{include "included_loop_item.tpro", currentitem = item}}
 {{endfor}}
 Done!

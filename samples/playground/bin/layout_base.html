@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  {{block "title"}}<title>TemplatePro App</title>{{endblock}}
+  {{block "styles"}}
+  <style>
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+    header { background: #3498db; color: white; padding: 10px 20px; margin: -20px -20px 20px -20px; }
+    footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; }
+  </style>
+  {{endblock}}
+</head>
+<body>
+
+{{block "header"}}
+<header>
+  <h2>TemplatePro Demo</h2>
+</header>
+{{endblock}}
+
+{{block "content"}}
+<p>Default content - override this block in child templates.</p>
+{{endblock}}
+
+{{block "footer"}}
+<footer>
+  <p>&copy; 2025 TemplatePro - Template Inheritance Demo</p>
+</footer>
+{{endblock}}
+
+{{block "scripts"}}
+<script>console.log('Base template loaded');</script>
+{{endblock}}
+
+</body>
+</html>

@@ -1,0 +1,8 @@
+﻿<html>
+<head>
+<title>Base Title</title>
+</head>
+<body>
+Main Content<footer>Base Footer</footer>
+</body>
+</html>

@@ -3,7 +3,7 @@
 {{endmacro}}
 
 {{macro outer(text)}}
-[{{call inner(text)}}]
+[{{>inner(text)}}]
 {{endmacro}}
 
-{{call outer("nested")}}
+{{>outer("nested")}}

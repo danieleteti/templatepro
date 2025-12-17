@@ -1,0 +1,55 @@
+{{# Macros Demo #}}
+<!DOCTYPE html>
+<html>
+<head><title>Macros Demo</title></head>
+<body>
+<h1>TemplatePro Macros Demo</h1>
+
+{{# Define macros #}}
+{{macro greet(name)}}
+<p>Hello, <strong>{{:name}}</strong>!</p>
+{{endmacro}}
+
+{{macro badge(text, color)}}
+<span style="background:{{:color}};color:white;padding:2px 8px;border-radius:4px;">{{:text}}</span>
+{{endmacro}}
+
+{{macro card(title, content)}}
+<div style="border:1px solid #ddd;padding:15px;margin:10px 0;border-radius:8px;">
+  <h3 style="margin-top:0;">{{:title}}</h3>
+  <p>{{:content}}</p>
+</div>
+{{endmacro}}
+
+<h2>1. Simple Macro Calls</h2>
+{{>greet("World")}}
+{{>greet("TemplatePro")}}
+{{>greet(value2)}}
+
+<h2>2. Macro with Styling</h2>
+<p>
+  Status:
+  {{>badge("Active", "green")}}
+  {{>badge("Premium", "blue")}}
+  {{>badge("New", "orange")}}
+</p>
+
+<h2>3. Card Macros</h2>
+{{>card("Welcome!", "This is a simple card component created with a macro.")}}
+{{>card("Features", "Macros can have multiple parameters and complex content.")}}
+{{>card("Reusable", "Define once, use many times with different values.")}}
+
+<h2>4. Nested Macro Usage</h2>
+{{macro userCard(name, role)}}
+<div style="border:2px solid #3498db;padding:15px;margin:10px 0;border-radius:8px;background:#f0f8ff;">
+  <strong>{{:name}}</strong><br>
+  Role: {{>badge(role, "purple")}}
+</div>
+{{endmacro}}
+
+{{>userCard("John Doe", "Admin")}}
+{{>userCard("Jane Smith", "Editor")}}
+{{>userCard(value2, "Guest")}}
+
+</body>
+</html>

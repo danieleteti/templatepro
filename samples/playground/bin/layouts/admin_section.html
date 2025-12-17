@@ -1,0 +1,36 @@
+{{extends "base.html"}}
+
+{{block "meta"}}
+{{inherited}}
+<meta name="robots" content="noindex, nofollow">
+{{endblock}}
+
+{{block "title"}}<title>Admin - TemplatePro App</title>{{endblock}}
+
+{{block "styles"}}
+{{inherited}}
+<link rel="stylesheet" href="admin.css">
+{{endblock}}
+
+{{block "header"}}
+<header class="container admin-header">
+  <nav>
+    <strong>Admin Panel</strong>
+    <a href="/admin/dashboard">Dashboard</a>
+    <a href="/admin/users">Users</a>
+    <a href="/admin/settings">Settings</a>
+    <a href="/" class="logout">Exit Admin</a>
+  </nav>
+</header>
+{{endblock}}
+
+{{block "footer"}}
+<footer class="container admin-footer">
+  <p>Admin Panel v1.0 | &copy; 2025</p>
+</footer>
+{{endblock}}
+
+{{block "scripts"}}
+{{inherited}}
+<script src="admin.js"></script>
+{{endblock}}

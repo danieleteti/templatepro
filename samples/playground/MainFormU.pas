@@ -73,6 +73,8 @@ type
     ds1country: TStringField;
     MemoTemplate: TMemo;
     MemoOutput: TMemo;
+    Panel2: TPanel;
+    mmErrors: TMemo;
     procedure btnExecuteClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FileListBox1DblClick(Sender: TObject);
@@ -176,7 +178,18 @@ begin
   lTemplate := aTemplateString;
   lCompiler := TTProCompiler.Create;
   try
-    lCompiledTmpl := lCompiler.Compile(aTemplateString);
+    mmErrors.Lines.Clear;
+    try
+      lCompiledTmpl := lCompiler.Compile(aTemplateString);
+      mmErrors.Lines.Add('Compiled with no errors');
+    except
+      on E: Exception do
+      begin
+        mmErrors.Lines.Add('Error: ' + E.ClassName);
+        mmErrors.Lines.Add(E.Message);
+        raise;
+      end;
+    end;
     lItems := GetItems;
     try
       lCompiledTmpl.SetData('first_name', 'Daniele');
@@ -185,6 +198,13 @@ begin
       lCompiledTmpl.SetData('people', ds1);
       lCompiledTmpl.SetData('contacts', ds2);
       lCompiledTmpl.SetData('items', lItems);
+      // Standard variables for demos
+      lCompiledTmpl.SetData('value1', 'true');
+      lCompiledTmpl.SetData('value2', 'Hello World');
+      lCompiledTmpl.SetData('intvalue10', 10);
+      lCompiledTmpl.SetData('floatvalue', 1234.5678);
+      lCompiledTmpl.SetData('valuedate', Now);
+      lCompiledTmpl.SetData('myhtml', '<b>Bold</b> and <i>Italic</i>');
       lOutput := lCompiledTmpl.Render;
     finally
       lItems.Free;

@@ -1,7 +1,7 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'TemplatePro Sample - Copyright 2017-2024 Daniele Teti'
+  Caption = 'TemplatePro Sample - Copyright 2017-2025 Daniele Teti'
   ClientHeight = 515
   ClientWidth = 967
   Color = clBtnFace
@@ -48,7 +48,6 @@ object MainForm: TMainForm
     Ctl3D = True
     ParentCtl3D = False
     TabOrder = 1
-    ExplicitWidth = 838
     object btnExecute: TButton
       AlignWithMargins = True
       Left = 3
@@ -70,9 +69,6 @@ object MainForm: TMainForm
       Align = alLeft
       Caption = 'Open output file in browser'
       TabOrder = 1
-      ExplicitLeft = 209
-      ExplicitTop = 19
-      ExplicitHeight = 27
     end
   end
   object PageControl1: TPageControl
@@ -85,7 +81,6 @@ object MainForm: TMainForm
     TabHeight = 40
     TabOrder = 2
     TabWidth = 170
-    ExplicitWidth = 532
     object TabSheet2: TTabSheet
       Caption = 'TemplatePro Code'
       ImageIndex = 1
@@ -93,7 +88,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 653
-        Height = 408
+        Height = 344
         Align = alClient
         Font.Charset = ANSI_CHARSET
         Font.Color = clWindowText
@@ -102,8 +97,32 @@ object MainForm: TMainForm
         Font.Style = []
         ParentFont = False
         TabOrder = 0
-        ExplicitWidth = 524
-        ExplicitHeight = 425
+        ExplicitHeight = 408
+      end
+      object Panel2: TPanel
+        Left = 0
+        Top = 344
+        Width = 653
+        Height = 64
+        Align = alBottom
+        Caption = 'Panel2'
+        Font.Charset = ANSI_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -15
+        Font.Name = 'Consolas'
+        Font.Style = []
+        ParentFont = False
+        TabOrder = 1
+        object mmErrors: TMemo
+          Left = 1
+          Top = 1
+          Width = 651
+          Height = 62
+          Align = alClient
+          TabOrder = 0
+          ExplicitTop = 0
+          ExplicitHeight = 40
+        end
       end
     end
     object TabSheet1: TTabSheet
@@ -124,8 +143,6 @@ object MainForm: TMainForm
         ScrollBars = ssBoth
         TabOrder = 0
         WordWrap = False
-        ExplicitWidth = 524
-        ExplicitHeight = 425
       end
     end
     object TabSheet3: TTabSheet

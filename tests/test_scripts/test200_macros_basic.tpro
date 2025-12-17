@@ -2,5 +2,5 @@
 Hello, {{:name}}!
 {{endmacro}}
 
-{{call greeting("World")}}
-{{call greeting("TemplatePro")}}
+{{>greeting("World")}}
+{{>greeting("TemplatePro")}}

@@ -1,4 +1,4 @@
-﻿{&#34;foo&#34;:&#34;bar&#34;,&#34;bar&#34;:&#34;foo&#34;,&#34;array&#34;:[10,20,{&#34;value&#34;:12.3,&#34;subarray&#34;:[100,200]}]}
+﻿{&quot;foo&quot;:&quot;bar&quot;,&quot;bar&quot;:&quot;foo&quot;,&quot;array&quot;:[10,20,{&quot;value&quot;:12.3,&quot;subarray&quot;:[100,200]}]}
 
 OKKO
 

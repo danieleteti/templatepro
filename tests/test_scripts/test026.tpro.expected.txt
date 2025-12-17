@@ -1,1 +1,1 @@
-<input type="text" value="This &#34;and that&#34; with &#39;this and that&#39;">
+<input type="text" value="This &quot;and that&quot; with &#39;this and that&#39;">

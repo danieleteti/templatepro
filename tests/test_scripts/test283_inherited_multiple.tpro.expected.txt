@@ -1,0 +1,13 @@
+﻿<html>
+<head>
+START
+<title>Base Title</title>
+MIDDLE
+<title>Base Title</title>
+END
+</head>
+<body>
+Default Content
+<footer>Base Footer</footer>
+</body>
+</html>

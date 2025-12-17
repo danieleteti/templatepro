@@ -33,6 +33,7 @@ uses
   System.Classes,
   System.StrUtils,
   System.DateUtils,
+  Data.DB,
   UtilsU in 'UtilsU.pas',
   TemplatePro in '..\TemplatePro.pas',
   JsonDataObjects in '..\JsonDataObjects.pas',
@@ -75,7 +76,7 @@ begin
   Assert(lToken.Value2 = lToken2.Value2);
   Assert(lToken.Ref1 = lToken2.Ref1);
   Assert(lToken.Ref2 = lToken2.Ref2);
-  WriteLn('TestTokenWriteReadFromFile             : OK');
+  WriteLn('TestTokenWriteReadFromFile'.PadRight(45) + ' : OK');
 end;
 
 procedure TestHTMLEntities;
@@ -91,7 +92,20 @@ begin
   Assert(HTMLEncode('ab😀cd') = 'ab&#128512;cd', '1080'); // https://home.unicode.org/
   Assert(HTMLEncode('✌') = '&#9996;', HTMLEncode('✌')); // https://home.unicode.org/
   Assert(HTMLEncode('👍') = '&#128077;', HTMLEncode('👍')); // https://home.unicode.org/
-  WriteLn('TestHTMLEntities                       : OK');
+  // Test ampersand encoding (critical for XSS prevention)
+  Assert(HTMLEncode('&') = '&amp;', '1090');
+  Assert(HTMLEncode('Tom & Jerry') = 'Tom &amp; Jerry', '1091');
+  // Test quote encoding
+  Assert(HTMLEncode('"') = '&quot;', '1100');
+  Assert(HTMLEncode('say "hello"') = 'say &quot;hello&quot;', '1101');
+  Assert(HTMLEncode('''') = '&#39;', '1110');
+  // Test plus sign is NOT encoded (was incorrectly encoded as &quot; before fix)
+  Assert(HTMLEncode('+') = '+', '1120');
+  Assert(HTMLEncode('1+1=2') = '1+1=2', '1121');
+  // Test combined special chars
+  Assert(HTMLEncode('<script>alert("XSS")</script>') = '&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;', '1130');
+  Assert(HTMLEncode('a < b & c > d') = 'a &lt; b &amp; c &gt; d', '1131');
+  WriteLn('TestHTMLEntities'.PadRight(45) + ' : OK');
 end;
 
 procedure TestExpressionEvaluator;
@@ -154,7 +168,7 @@ begin
     lIntVal := lResult.AsVariant;
     Assert(lIntVal = 4, 'sqrt(16) should be 4');
 
-    WriteLn('TestExpressionEvaluator                : OK');
+    WriteLn('TestExpressionEvaluator'.PadRight(45) + ' : OK');
   finally
     lCompiler.Free;
   end;
@@ -209,8 +223,7 @@ begin
     lCompiledTmpl.SetData('qty', 4);
     lOutput := lCompiledTmpl.Render;
     Assert(lOutput = 'Item: Widget, Total: 100', 'Expected "Item: Widget, Total: 100", got: ' + lOutput);
-
-    WriteLn('TestExpressionInTemplate               : OK');
+    WriteLn('TestExpressionInTemplate'.PadRight(45) + ' : OK');
   finally
     lCompiler.Free;
   end;
@@ -270,8 +283,7 @@ begin
     lCompiledTmpl.SetData('qty', 10);
     lOutput := lCompiledTmpl.Render;
     Assert(lOutput = 'over budget', 'Expected "over budget", got: ' + lOutput);
-
-    WriteLn('TestExpressionInIf                     : OK');
+    WriteLn('TestExpressionInIf'.PadRight(45) + ' : OK');
   finally
     lCompiler.Free;
   end;
@@ -337,7 +349,7 @@ begin
   SimpleObject;
   ListOfObjects;
   ListOfListOfObjects;
-  WriteLn('TestGetTValueFromPath                  : OK');
+  WriteLn('TestGetTValueFromPath'.PadRight(45) + ' : OK');
 end;
 
 procedure TestWriteReadFromFile;
@@ -368,7 +380,7 @@ begin
   Assert('Daniele hello world Teti' = lOutput1, lOutput1);
   Assert('Bruce hello world Banner' = lOutput2, lOutput2);
 
-  WriteLn('TestWriteReadFromFile                  : OK');
+  WriteLn('TestWriteReadFromFile'.PadRight(45) + ' : OK');
 end;
 
 procedure Main;
@@ -377,12 +389,35 @@ var
   lInput: string;
   lItems, lItemsWithFalsy: TObjectList<TDataItem>;
   lItemsNullables: TObjectList<TDataItemNullables>;
+  lFailed: Boolean;
+  lActualOutput: String;
+  lInputFileNames: TArray<string>;
+  lFile: string;
+  lTestScriptsFolder: string;
+  lCompiledTemplate: ITProCompiledTemplate;
+  lExpectedExceptionMessage: string;
+  lExpectedOutput: string;
+  lJSONArr: TJsonArray;
+  lJSONObj: TJsonObject;
+  lJSONObj2: TJsonObject;
+  lCustomers: TDataSet;
+  lCustomer: TDataSet;
+  lEmptyDataSet: TDataSet;
+  lDataItemWithChild: TDataItemWithChild;
+  lDataItemWithChildList: TDataItemWithChildList;
+  lDataItemAsObjectsList: TObjectList<TDataItemWithChild>;
+  lUltraNestedList: TObjectList<TObjectList<TObjectList<TSimpleDataItem>>>;
+  lEmptyList: TObjectList<TObjectList<TObjectList<TSimpleDataItem>>>;
+  lTestDataSet: TDataSet;
+  lSimpleNested: TSimpleNested1;
+  lItemNullable: TDataItemNullables;
+  lItemNullableAllNull: TDataItemNullables;
 begin
-  var lFailed := False;
-  var lActualOutput: String := '';
+  lFailed := False;
+  lActualOutput := '';
   lTPro := TTProCompiler.Create;
   try
-    var lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro',
+    lInputFileNames := TDirectory.GetFiles('..\test_scripts\', '*.tpro',
       function(const Path: string; const SearchRec: TSearchRec): Boolean
       begin
         Result := (not String(SearchRec.Name).StartsWith('included')) and
@@ -390,7 +425,7 @@ begin
           .Contains(TestFileNameFilter));
         Result := Result and not(String(SearchRec.Name).StartsWith('_'));
       end);
-    for var lFile in lInputFileNames do
+    for lFile in lInputFileNames do
     begin
       try
         if TFile.Exists(lFile + '.failed.txt') then
@@ -399,10 +434,10 @@ begin
         end;
 
         lInput := TFile.ReadAllText(lFile, TEncoding.UTF8);
-        Write(TPath.GetFileName(lFile).PadRight(38));
-        var lTestScriptsFolder := TPath.Combine(GetModuleName(HInstance), '..', '..', 'test_scripts');
+        Write(TPath.GetFileName(lFile).PadRight(45));
+        lTestScriptsFolder := TPath.Combine(GetModuleName(HInstance), '..', '..', 'test_scripts');
         lActualOutput := '';
-        var lCompiledTemplate: ITProCompiledTemplate;
+        lCompiledTemplate := nil;
         try
           lCompiledTemplate := lTPro.Compile(lInput, lFile);
         except
@@ -415,7 +450,7 @@ begin
         if not lActualOutput.IsEmpty then
         begin
           // compilation failed, check the expected exception message
-          var lExpectedExceptionMessage := TFile.ReadAllText(lFile + '.expected.exception.txt', TEncoding.UTF8);
+          lExpectedExceptionMessage := TFile.ReadAllText(lFile + '.expected.exception.txt', TEncoding.UTF8);
           if lActualOutput <> lExpectedExceptionMessage then
           begin
             lFailed := True;
@@ -426,6 +461,7 @@ begin
           begin
             WriteLn(' : OK');
           end;
+          lCompiledTemplate := nil;  // Explicitly release before Continue
           Continue;
         end;
         // lCompiledTemplate.FormatSettings.DateSeparator := '-';
@@ -484,12 +520,12 @@ begin
         lCompiledTemplate.SetData('template_name', 'included_dynamic.tpro');
         lCompiledTemplate.SetData('template_type', 'dynamic');
         lCompiledTemplate.SetData('content', 'Hello Dynamic');
-        var lJSONArr := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'people.json')) as TJsonArray;
+        lJSONArr := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'people.json')) as TJsonArray;
         try
-          var lJSONObj := TJsonObject.Create;
+          lJSONObj := TJsonObject.Create;
           try
             lJSONObj.A['people'] := lJSONArr.Clone;
-            var lJSONObj2 := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'test.json')) as TJsonObject;
+            lJSONObj2 := TJsonBaseObject.ParseFromFile(TPath.Combine(lTestScriptsFolder, 'test.json')) as TJsonObject;
             try
               lItems := GetItems;
               try
@@ -498,23 +534,23 @@ begin
                   lItemsWithFalsy := GetItems(True);
                   try
                     lCompiledTemplate.SetData('obj', lItems[0]);
-                    var lCustomers := GetCustomersDataset;
+                    lCustomers := GetCustomersDataset;
                     try
-                      var lCustomer := GetSingleCustomerDataset;
+                      lCustomer := GetSingleCustomerDataset;
                       try
-                        var lEmptyDataSet := GetEmptyDataset;
+                        lEmptyDataSet := GetEmptyDataset;
                         try
-                          var lDataItemWithChild := TDataItemWithChild.Create('value1', 1);
+                          lDataItemWithChild := TDataItemWithChild.Create('value1', 1);
                           try
-                            var lDataItemWithChildList := TDataItemWithChildList.Create('value1','value2','value3',3);
+                            lDataItemWithChildList := TDataItemWithChildList.Create('value1','value2','value3',3);
                             try
-                              var lDataItemAsObjectsList := TObjectList<TDataItemWithChild>.Create(True);
+                              lDataItemAsObjectsList := TObjectList<TDataItemWithChild>.Create(True);
                               try
                                 lDataItemAsObjectsList.Add(TDataItemWithChild.Create('Str0', 0));
                                 lDataItemAsObjectsList.Add(TDataItemWithChild.Create('Str1', 1));
                                 lDataItemAsObjectsList.Add(TDataItemWithChild.Create('Str2', 2));
 
-                                var lUltraNestedList := TObjectList<TObjectList<TObjectList<TSimpleDataItem>>>.Create(True);
+                                lUltraNestedList := TObjectList<TObjectList<TObjectList<TSimpleDataItem>>>.Create(True);
                                 try
                                   lUltraNestedList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
                                   lUltraNestedList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
@@ -534,20 +570,20 @@ begin
                                   lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value3'));
                                   lUltraNestedList.Last.Last.Add(TSimpleDataItem.Create('Value3.1'));
 
-                                  var lEmptyList := TObjectList<TObjectList<TObjectList<TSimpleDataItem>>>.Create(True);
+                                  lEmptyList := TObjectList<TObjectList<TObjectList<TSimpleDataItem>>>.Create(True);
                                   try
                                     lEmptyList.Add(TObjectList<TObjectList<TSimpleDataItem>>.Create(True));
                                     lEmptyList.Last.Add(TObjectList<TSimpleDataItem>.Create(True));
-                                    var lTestDataSet := GetTestDataset;
+                                    lTestDataSet := GetTestDataset;
                                     try
-                                      var lSimpleNested := TSimpleNested1.Create('ValueNested');
+                                      lSimpleNested := TSimpleNested1.Create('ValueNested');
                                       try
-                                        var lItemNullable := TDataItemNullables.Create('Daniele', True, 123, 234,
+                                        lItemNullable := TDataItemNullables.Create('Daniele', True, 123, 234,
                                           EncodeDate(1979,11,04),
                                           EncodeDateTime(1979,11,04, 17, 18, 19, 0),
                                           EncodeTime(17, 18, 19, 0),
                                           1234.5678);
-                                        var lItemNullableAllNull := TDataItemNullables.Create(nil,nil,nil,nil,nil,nil,nil,nil);
+                                        lItemNullableAllNull := TDataItemNullables.Create(nil,nil,nil,nil,nil,nil,nil,nil);
                                         try
                                           lCompiledTemplate.SetData('emptydataset', lEmptyDataSet);
                                           lCompiledTemplate.SetData('customer', lCustomer);
@@ -575,7 +611,6 @@ begin
                                               lActualOutput := E.Message;
                                             end;
                                           end;
-                                          var
                                           lExpectedOutput := TFile.ReadAllText(lFile + '.expected.txt', TEncoding.UTF8);
                                           if lActualOutput <> lExpectedOutput then
                                           begin
@@ -648,11 +683,14 @@ begin
         finally
           lJSONArr.Free;
         end;
+        // Explicitly release interface to avoid memory leaks
+        lCompiledTemplate := nil;
       except
         on E: Exception do
         begin
           WriteLn(' : FAIL - ' + E.Message);
           lFailed := True;
+          lCompiledTemplate := nil;
         end;
       end;
     end;
@@ -710,7 +748,6 @@ begin
       if DebugHook <> 0 then
       begin
         Write(E.Message);
-        ReadLn;
       end;
       Halt(1);
     end;

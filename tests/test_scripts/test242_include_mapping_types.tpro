@@ -17,4 +17,4 @@ Expression:
 {{include "included_int.tpro", num = @(intvalue10 * 2)}}
 
 Multiple mappings:
-{{include "included_multi.tpro", a = "AAA", b = :value2, c = 123}}
+{{include "included_multi.tpro", a = "AAA", b = value2, c = 123}}

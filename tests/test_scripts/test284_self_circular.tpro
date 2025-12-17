@@ -1,0 +1,2 @@
+{{extends "test284_self_circular.tpro"}}
+{{block "content"}}Content{{endblock}}

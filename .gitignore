@@ -77,3 +77,4 @@ samples/playground/bin/output/last_output.html
 /tests/*.tpc
 /output.tpc
 /output.tp
+/tests/*.txt

@@ -3,7 +3,7 @@
 {{endmacro}}
 
 Start
-{{call separator()}}
+{{>separator()}}
 Middle
-{{call separator()}}
+{{>separator()}}
 End

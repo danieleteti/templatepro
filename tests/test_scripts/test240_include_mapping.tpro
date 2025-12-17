@@ -2,12 +2,12 @@ Include with variable mapping test
 ===================================
 
 Mapping string: value2 -> localvalue
-{{include "included_echo.tpro", localvalue = :value2}}
+{{include "included_echo.tpro", localvalue = value2}}
 
 Mapping with literal string:
 {{include "included_echo.tpro", localvalue = "Hello from mapping!"}}
 
 Mapping with integer:
-{{include "included_int.tpro", num = :intvalue10}}
+{{include "included_int.tpro", num = intvalue10}}
 
 Original value2 after include: {{:value2}}

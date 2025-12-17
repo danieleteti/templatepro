@@ -2,5 +2,5 @@
 Value: {{:text}}
 {{endmacro}}
 
-{{call display(value2)}}
-{{call display(value3)}}
+{{>display(value2)}}
+{{>display(value3)}}

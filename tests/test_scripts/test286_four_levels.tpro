@@ -1,0 +1,8 @@
+{{extends "multilevel_subsection.html"}}
+{{block "head"}}
+{{inherited}}
+<script src="page.js"></script>
+{{endblock}}
+{{block "content"}}
+<article>Page Article</article>
+{{endblock}}

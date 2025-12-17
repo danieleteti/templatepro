@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head><title>Filters Demo</title></head>
+<body>
+<h1>TemplatePro Filters Demo</h1>
+
+<h2>1. String Filters</h2>
+<p>value2 = "{{:value2}}"</p>
+<p>value2|lowercase = "{{:value2|lowercase}}"</p>
+<p>value2|uppercase = "{{:value2|uppercase}}"</p>
+<p>value2|capitalize = "{{:value2|capitalize}}"</p>
+
+<h2>2. Chained Filters (v0.8+)</h2>
+<p>value2|uppercase|lowercase = "{{:value2|uppercase|lowercase}}"</p>
+<p>value2|lowercase|uppercase = "{{:value2|lowercase|uppercase}}"</p>
+
+<h2>3. Padding Filters</h2>
+<p>intvalue10 = {{:intvalue10}}</p>
+<p>intvalue10|lpad,5 = [{{:intvalue10|lpad,5}}]</p>
+<p>intvalue10|rpad,5 = [{{:intvalue10|rpad,5}}]</p>
+
+<h2>4. Date Filters</h2>
+<p>valuedate|datetostr = {{:valuedate|datetostr}}</p>
+<p>valuedate|datetostr,"yyyy-mm-dd" = {{:valuedate|datetostr,"yyyy-mm-dd"}}</p>
+
+<h2>5. Number Format</h2>
+<p>floatvalue = {{:floatvalue}}</p>
+<p>floatvalue|round,-2 = {{:floatvalue|round,-2}}</p>
+<p>floatvalue|formatfloat,"0.00" = {{:floatvalue|formatfloat,"0.00"}}</p>
+
+<h2>6. Comparison Filters in Conditions</h2>
+{{if intvalue10|gt,5}}
+<p style="color:green;">intvalue10 ({{:intvalue10}}) is greater than 5</p>
+{{endif}}
+
+{{if intvalue10|lt,20}}
+<p style="color:blue;">intvalue10 is less than 20</p>
+{{endif}}
+
+{{if intvalue10|eq,10}}
+<p style="color:purple;">intvalue10 equals 10</p>
+{{endif}}
+
+</body>
+</html>

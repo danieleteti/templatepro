@@ -2,5 +2,5 @@
 [{{:text|uppercase}}]
 {{endmacro}}
 
-{{call format("hello")}}
-{{call format(value2)}}
+{{>format("hello")}}
+{{>format(value2)}}

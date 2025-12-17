@@ -63,12 +63,12 @@ type
   end;
 
   TTokenType = (ttContent, ttInclude, ttFor, ttEndFor, ttIfThen, ttBoolExpression, ttElse, ttEndIf, ttStartTag, ttComment, ttJump, ttBlock,
-    ttEndBlock, ttContinue, ttLiteralString, ttEndTag, ttValue, ttFilterName, ttFilterParameter, ttLineBreak, ttSystemVersion, ttExit,
+    ttEndBlock, ttInherited, ttContinue, ttLiteralString, ttEndTag, ttValue, ttFilterName, ttFilterParameter, ttLineBreak, ttSystemVersion, ttExit,
     ttEOF, ttInfo, ttMacro, ttEndMacro, ttCallMacro, ttMacroParam, ttExpression, ttSet, ttIncludeStart, ttIncludeEnd);
 
 const
   TOKEN_TYPE_DESCR: array [Low(TTokenType) .. High(TTokenType)] of string = ('ttContent', 'ttInclude', 'ttFor', 'ttEndFor', 'ttIfThen',
-    'ttBoolExpression', 'ttElse', 'ttEndIf', 'ttStartTag', 'ttComment', 'ttJump', 'ttBlock', 'ttEndBlock', 'ttContinue', 'ttLiteralString',
+    'ttBoolExpression', 'ttElse', 'ttEndIf', 'ttStartTag', 'ttComment', 'ttJump', 'ttBlock', 'ttEndBlock', 'ttInherited', 'ttContinue', 'ttLiteralString',
     'ttEndTag', 'ttValue', 'ttFilterName', 'ttFilterParameter', 'ttLineBreak', 'ttSystemVersion', 'ttExit', 'ttEOF', 'ttInfo', 'ttMacro',
     'ttEndMacro', 'ttCallMacro', 'ttMacroParam', 'ttExpression', 'ttSet', 'ttIncludeStart', 'ttIncludeEnd');
 
@@ -119,7 +119,15 @@ type
 
   TBlockAddress = record
     BeginBlockAddress, EndBlockAddress: Int64;
-    class function Create(BeginBlockAddress, EndBlockAddress: Int64): TBlockAddress; static;
+    Level: Integer; // 0 = page (most derived), 1+ = layouts (higher = base)
+    class function Create(BeginBlockAddress, EndBlockAddress: Int64; Level: Integer = 0): TBlockAddress; static;
+  end;
+
+  TBlockReturnInfo = record
+    ReturnAddress: Int64;
+    BlockName: string;
+    ParentBlockAddress: Int64; // For {{inherited}} - address of parent block, -1 if none
+    class function Create(ReturnAddr: Int64; const ABlockName: string; ParentAddr: Int64 = -1): TBlockReturnInfo; static;
   end;
 
   TMacroParameter = record
@@ -313,6 +321,7 @@ type
     fEncoding: TEncoding;
     fCurrentFileName: String;
     fLastMatchedLineBreakLength: Integer;
+    fInheritanceChain: TList<string>;
     function MatchLineBreak: Boolean;
     function MatchStartTag: Boolean;
     function MatchEndTag: Boolean;
@@ -339,6 +348,7 @@ type
     procedure MatchFilters(lVarName: string; var lFilters: TArray<TFilterInfo>);
     procedure AddFilterTokens(aTokens: TList<TToken>; const aFilters: TArray<TFilterInfo>);
   public
+    destructor Destroy; override;
     function Compile(const aTemplate: string; const aFileNameRefPath: String = ''): ITProCompiledTemplate; overload;
     constructor Create(aEncoding: TEncoding = nil); overload;
     class function CompileAndRender(const aTemplate: string; const VarNames: TArray<String>; const VarValues: TArray<TValue>): String;
@@ -988,9 +998,13 @@ procedure TTProCompiler.InternalCompileIncludedTemplate(const aTemplate: string;
   const aFileNameRefPath: String; const aCompilerOptions: TTProCompilerOptions);
 var
   lCompiler: TTProCompiler;
+  lFile: string;
 begin
   lCompiler := TTProCompiler.Create(fEncoding, aCompilerOptions);
   try
+    // Copy inheritance chain to sub-compiler for circular inheritance detection
+    for lFile in fInheritanceChain do
+      lCompiler.fInheritanceChain.Add(lFile);
     lCompiler.Compile(aTemplate, aTokens, aFileNameRefPath);
     if aTokens[aTokens.Count - 1].TokenType <> ttEOF then
     begin
@@ -1348,6 +1362,8 @@ begin
     lFileNameRefPath := TPath.GetFullPath(aFileNameRefPath);
   end;
   fCurrentFileName := lFileNameRefPath;
+  // Clear inheritance chain for each new top-level compilation
+  fInheritanceChain.Clear;
   lTokens := TList<TToken>.Create;
   try
     Compile(aTemplate, lTokens, fCurrentFileName);
@@ -1384,6 +1400,13 @@ begin
   inherited Create;
   fEncoding := aEncoding;
   fOptions := aOptions;
+  fInheritanceChain := TList<string>.Create;
+end;
+
+destructor TTProCompiler.Destroy;
+begin
+  fInheritanceChain.Free;
+  inherited;
 end;
 
 procedure TTProCompiler.Compile(const aTemplate: string; const aTokens: TList<TToken>; const aFileNameRefPath: String);
@@ -1410,6 +1433,28 @@ var
   lFoundVar: Boolean;
   lFoundFilter: Boolean;
   lFilters: TArray<TFilterInfo>;
+  // Variables for dataset field metadata (moved from inline declarations for Delphi 10 Seattle compatibility)
+  lDataSetFieldMeta: string;
+  lFieldName: string;
+  lFieldIsLiteral: Boolean;
+  lPropertyName: string;
+  // Variables for include handling
+  lIncludeFileName: string;
+  lIsDynamicInclude: Boolean;
+  lHasMappings: Boolean;
+  lMappingTargets: TArray<string>;
+  lMappingTokens: TList<TToken>;
+  lTargetVar: string;
+  lMappingToken: TToken;
+  lSourceVar: string;
+  lNumStr: string;
+  lIsFloat: Boolean;
+  lIsNeg: Boolean;
+  lMapToken: TToken;
+  lIncludeStartToken: TToken;
+  lIncludeEndToken: TToken;
+  lIsFieldIteration: Integer;
+  lIncludeToken: TToken;
 begin
   aTokens.Add(TToken.Create(ttSystemVersion, TEMPLATEPRO_VERSION, ''));
   lLastToken := ttEOF;
@@ -1514,7 +1559,7 @@ begin
         MatchSpace;
         lRef2 := -1;
         SetLength(lFilters, 0);
-        var lDataSetFieldMeta := '';  // stores "fieldname|PropertyName" for dataset field metadata
+        lDataSetFieldMeta := '';  // stores "fieldname|PropertyName" for dataset field metadata
         if MatchVariable(lVarName) then { variable }
         begin
           lFoundVar := True;
@@ -1524,8 +1569,7 @@ begin
           // Check for dataset field metadata syntax: [fieldname].Property or ["fieldname"].Property
           if MatchSymbol('[') then
           begin
-            var lFieldName: String;
-            var lFieldIsLiteral := False;
+            lFieldIsLiteral := False;
             if MatchString(lFieldName) then
               lFieldIsLiteral := True  // literal field name
             else if MatchVariable(lFieldName) then
@@ -1538,7 +1582,6 @@ begin
             if not MatchSymbol('.') then
               Error('Expected "." after "]" for field property access');
 
-            var lPropertyName: String;
             if not MatchVariable(lPropertyName) then
               Error('Expected property name after "."');
 
@@ -1610,7 +1653,7 @@ begin
             Error('loop data source and its iterator cannot have the same name: ' + lIdentifier)
           end;
           // Check for .fields suffix for dataset field iteration
-          var lIsFieldIteration: Integer := 0;
+          lIsFieldIteration := 0;
           if lIdentifier.EndsWith('.fields', True) then
           begin
             lIdentifier := lIdentifier.Substring(0, lIdentifier.Length - 7); // Remove '.fields'
@@ -1843,8 +1886,7 @@ begin
 
           // Include can be: string literal or @(expression)
           // For dynamic includes use @(expression) only - e.g., @(varname) or @("prefix" + varname + ".tpro")
-          var lIncludeFileName: String;
-          var lIsDynamicInclude := False;
+          lIsDynamicInclude := False;
 
           if MatchExpression(lStringValue) then
           begin
@@ -1865,10 +1907,9 @@ begin
 
           MatchSpace;
 
-          // Check for variable mappings: {{include "file", var1 = :source1, var2 = :source2}}
-          var lHasMappings := False;
-          var lMappingTargets: TArray<String>;
-          var lMappingTokens: TList<TToken>;
+          // Check for variable mappings: {{include "file", var1 = source1, var2 = source2}}
+          lHasMappings := False;
+          SetLength(lMappingTargets, 0); // Reset for each include
           lMappingTokens := TList<TToken>.Create;
           try
             if MatchSymbol(',') then
@@ -1877,7 +1918,6 @@ begin
               // Parse variable mappings
               repeat
                 MatchSpace;
-                var lTargetVar: String;
                 if not MatchVariable(lTargetVar) then
                   Error('Expected variable name in include mapping');
                 MatchSpace;
@@ -1886,21 +1926,12 @@ begin
                 MatchSpace;
 
                 // Parse source value (similar to set)
-                var lMappingToken: TToken;
+                // Order: string literal, expression, boolean, number, variable (identifier)
                 lMappingToken.TokenType := ttSet;
                 lMappingToken.Value1 := lTargetVar;
                 lMappingToken.Ref1 := 0; // filter count
 
-                if MatchSymbol(':') then
-                begin
-                  // Variable reference
-                  var lSourceVar: String;
-                  if not MatchVariable(lSourceVar) then
-                    Error('Expected variable name after ":" in include mapping');
-                  lMappingToken.Value2 := lSourceVar;
-                  lMappingToken.Ref2 := 0; // mode: variable
-                end
-                else if MatchString(lStringValue) then
+                if MatchString(lStringValue) then
                 begin
                   // String literal
                   lMappingToken.Value2 := lStringValue;
@@ -1920,12 +1951,12 @@ begin
                 begin
                   lMappingToken.Ref2 := 4; // mode: bool false
                 end
-                else
+                else if CharInSet(CurrentChar, ['0'..'9', '-']) then
                 begin
-                  // Try to match a number
-                  var lNumStr := '';
-                  var lIsFloat := False;
-                  var lIsNeg := MatchSymbol('-');
+                  // Try to match a number (starts with digit or minus sign)
+                  lNumStr := '';
+                  lIsFloat := False;
+                  lIsNeg := MatchSymbol('-');
                   while (fCharIndex <= Length(fInputString)) and (CharInSet(CurrentChar, ['0'..'9', '.'])) do
                   begin
                     if CurrentChar = '.' then
@@ -1934,7 +1965,7 @@ begin
                     Step;
                   end;
                   if lNumStr = '' then
-                    Error('Expected value in include mapping');
+                    Error('Expected number after "-" in include mapping');
                   if lIsNeg then
                     lNumStr := '-' + lNumStr;
                   lMappingToken.Value2 := lNumStr;
@@ -1942,6 +1973,21 @@ begin
                     lMappingToken.Ref2 := 6 // mode: float
                   else
                     lMappingToken.Ref2 := 5; // mode: integer
+                end
+                else if MatchVariable(lSourceVar) then
+                begin
+                  // Variable reference (identifier)
+                  lMappingToken.Value2 := lSourceVar;
+                  lMappingToken.Ref2 := 0; // mode: variable
+                end
+                else
+                  Error('Expected value in include mapping');
+
+                // Check for duplicate target variable
+                for I := 0 to High(lMappingTargets) do
+                begin
+                  if SameText(lMappingTargets[I], lTargetVar) then
+                    Error('Duplicate variable "' + lTargetVar + '" in include mapping');
                 end;
 
                 lMappingTokens.Add(lMappingToken);
@@ -1961,7 +2007,6 @@ begin
             if lIsDynamicInclude then
             begin
               // Dynamic include - emit ttInclude token for runtime evaluation
-              var lIncludeToken: TToken;
               lIncludeToken.TokenType := ttInclude;
               lIncludeToken.Value1 := lIncludeFileName; // expression to evaluate
               lIncludeToken.Value2 := aFileNameRefPath; // base path for resolving relative paths
@@ -1994,14 +2039,13 @@ begin
               if lHasMappings then
               begin
                 // Add ttIncludeStart with target variable names
-                var lIncludeStartToken: TToken;
                 lIncludeStartToken.TokenType := ttIncludeStart;
                 lIncludeStartToken.Value1 := String.Join(',', lMappingTargets);
                 lIncludeStartToken.Ref1 := Length(lMappingTargets);
                 aTokens.Add(lIncludeStartToken);
 
                 // Add mapping tokens (ttSet)
-                for var lMapToken in lMappingTokens do
+                for lMapToken in lMappingTokens do
                   aTokens.Add(lMapToken);
               end;
 
@@ -2011,7 +2055,6 @@ begin
               if lHasMappings then
               begin
                 // Add ttIncludeEnd
-                var lIncludeEndToken: TToken;
                 lIncludeEndToken.TokenType := ttIncludeEnd;
                 aTokens.Add(lIncludeEndToken);
               end;
@@ -2026,8 +2069,9 @@ begin
           if lLayoutFound then
             Error('Duplicated "extends"');
           lLayoutFound := True;
+          // An included file cannot use extends (only parent templates from extends can)
           if coParentTemplate in fOptions then
-            Error('A parent page cannot extends another page');
+            Error('An included file cannot use "extends"');
 
           if not MatchSpace then
             Error('Expected "space" after "extends"');
@@ -2039,15 +2083,19 @@ begin
           MatchSpace;
           if not MatchEndTag then
             Error('Expected closing tag for "extends"');
+          if TDirectory.Exists(aFileNameRefPath) then
+          begin
+            lCurrentFileName := TPath.GetFullPath(TPath.Combine(aFileNameRefPath, lStringValue));
+          end
+          else
+          begin
+            lCurrentFileName := TPath.GetFullPath(TPath.Combine(TPath.GetDirectoryName(aFileNameRefPath), lStringValue));
+          end;
+          // Check for circular inheritance before reading file
+          if fInheritanceChain.Contains(lCurrentFileName) then
+            raise ETProCompilerException.Create('Circular template inheritance detected');
+          fInheritanceChain.Add(lCurrentFileName);
           try
-            if TDirectory.Exists(aFileNameRefPath) then
-            begin
-              lCurrentFileName := TPath.GetFullPath(TPath.Combine(aFileNameRefPath, lStringValue));
-            end
-            else
-            begin
-              lCurrentFileName := TPath.GetFullPath(TPath.Combine(TPath.GetDirectoryName(aFileNameRefPath), lStringValue));
-            end;
             lTemplateSource := TFile.ReadAllText(lCurrentFileName, fEncoding);
           except
             on E: Exception do
@@ -2057,7 +2105,7 @@ begin
           end;
           Inc(lContentOnThisLine);
           aTokens.Add(TToken.Create(ttInfo, STR_BEGIN_OF_LAYOUT, ''));
-          InternalCompileIncludedTemplate(lTemplateSource, aTokens, lCurrentFileName, [coParentTemplate, coIgnoreSysVersion]);
+          InternalCompileIncludedTemplate(lTemplateSource, aTokens, lCurrentFileName, [coIgnoreSysVersion]);
           aTokens.Add(TToken.Create(ttInfo, STR_END_OF_LAYOUT, ''));
           lStartVerbatim := fCharIndex;
         end
@@ -2080,6 +2128,15 @@ begin
           if not MatchEndTag then
             Error('Expected closing tag for "endblock"');
           lLastToken := ttEndBlock;
+          aTokens.Add(TToken.Create(lLastToken, '', ''));
+          lStartVerbatim := fCharIndex;
+        end
+        else if MatchSymbol('inherited') then { inherited - render parent block content }
+        begin
+          MatchSpace;
+          if not MatchEndTag then
+            Error('Expected closing tag for "inherited"');
+          lLastToken := ttInherited;
           aTokens.Add(TToken.Create(lLastToken, '', ''));
           lStartVerbatim := fCharIndex;
         end
@@ -2118,19 +2175,18 @@ begin
           aTokens.Add(TToken.Create(lLastToken, '', ''));
           lStartVerbatim := fCharIndex;
         end
-        else if MatchSymbol('call') then { call macro }
+        else if MatchSymbol('>') then // macro call: {{>macroname(args)}}
         begin
-          if not MatchSpace then
-            Error('Expected "space" after "call"');
+          MatchSpace;
           if not MatchVariable(lIdentifier) then
-            Error('Expected macro name after "call"');
+            Error('Expected macro name after ">"');
 
           // Parse call parameters
           lFuncParams := GetMacroParameters;
 
           MatchSpace;
           if not MatchEndTag then
-            Error('Expected closing tag for "call"');
+            Error('Expected closing tag for macro call');
 
           lLastToken := ttCallMacro;
           Inc(lContentOnThisLine);
@@ -2221,238 +2277,306 @@ var
   lForInStack: TStack<Int64>;
   lContinueStack: TStack<Int64>;
   lIfStatementStack: TStack<TIfThenElseIndex>;
-  I: Int64;
+  I, J: Int64;
   lToken: TToken;
   lForAddress: Int64;
   lIfStackItem: TIfThenElseIndex;
   lCheckForUnbalancedPair: Boolean;
   lTmpContinueAddress: Int64;
-  lBlockDict: TDictionary<string, TBlockAddress>;
+  lBlockDict: TObjectDictionary<string, TList<TBlockAddress>>;
+  lBlockList: TList<TBlockAddress>;
   lBlockAddress: TBlockAddress;
-  lWithinBlock: Boolean;
-  lWithinBlockName: string;
-  lTemplateSectionType: TTProTemplateSectionType;
-  lErrorMessage: String;
+  lBlockStack: TStack<string>; // Stack for nested blocks
+  lCurrentLevel: Integer; // 0 = page, 1+ = layouts (higher = more base)
+  lBlockName: string;
+  // Variables for parent block lookup (moved from inline for Delphi 10 Seattle)
+  K: Integer;
+  lOtherLevel: Integer;
+  lParentBlockAddr: Int64;
+  lThisLevel: Integer;
+  lMinParentLevel: Integer;
+  lMostDerivedIdx: Integer;
+  lMostDerivedLevel: Integer;
 begin
-  lWithinBlock := False;
-  lTemplateSectionType := stUnknown;
+  lCurrentLevel := 0; // Start at page level
   lCheckForUnbalancedPair := True;
-  lBlockDict := TDictionary<string, TBlockAddress>.Create(TTProEqualityComparer.Create);
+  lBlockDict := TObjectDictionary<string, TList<TBlockAddress>>.Create([doOwnsValues], TTProEqualityComparer.Create);
   try
-    lForInStack := TStack<Int64>.Create;
+    lBlockStack := TStack<string>.Create;
     try
-      lContinueStack := TStack<Int64>.Create;
+      lForInStack := TStack<Int64>.Create;
       try
-        lIfStatementStack := TStack<TIfThenElseIndex>.Create;
+        lContinueStack := TStack<Int64>.Create;
         try
-          for I := 0 to aTokens.Count - 1 do
-          begin
-            case aTokens[I].TokenType of
-              ttInfo:
-                begin
-                  if not HandleTemplateSectionStateMachine(aTokens[I].Value1, lTemplateSectionType, lErrorMessage) then
-                    Error(lErrorMessage)
-                end;
-
-              ttFor:
-                begin
-                  if lContinueStack.Count > 0 then
+          lIfStatementStack := TStack<TIfThenElseIndex>.Create;
+          try
+            // First pass: collect all blocks with their levels
+            for I := 0 to aTokens.Count - 1 do
+            begin
+              case aTokens[I].TokenType of
+                ttInfo:
                   begin
-                    Error('Continue stack corrupted');
+                    if aTokens[I].Value1 = STR_BEGIN_OF_LAYOUT then
+                      Inc(lCurrentLevel)
+                    else if aTokens[I].Value1 = STR_END_OF_LAYOUT then
+                      Dec(lCurrentLevel);
                   end;
-                  lForInStack.Push(I);
-                end;
 
-              ttEndFor:
-                begin
-                  { ttFor.Ref1 --> endfor }
-                  lForAddress := lForInStack.Pop;
-                  lToken := aTokens[lForAddress];
-                  lToken.Ref1 := I;
-                  aTokens[lForAddress] := lToken;
-
-                  { ttEndFor.Ref1 --> for }
-                  lToken := aTokens[I];
-                  lToken.Ref1 := lForAddress;
-                  aTokens[I] := lToken;
-
-                  { if there's a ttContinue (or more than one), it must jump to endfor }
-                  while lContinueStack.Count > 0 do
+                ttFor:
                   begin
-                    lTmpContinueAddress := lContinueStack.Pop;
-                    lToken := aTokens[lTmpContinueAddress];
-                    lToken.Ref1 := I;
-                    aTokens[lTmpContinueAddress] := lToken;
-                  end;
-                end;
-
-              ttContinue:
-                begin
-                  lContinueStack.Push(I);
-                end;
-
-              ttBlock:
-                begin
-                  if lWithinBlock then
-                  begin
-                    Error('Block cannot be nested - nested block name is ' + aTokens[I].Value1);
-                  end;
-                  lToken := aTokens[I];
-                  lWithinBlock := True;
-                  lWithinBlockName := lToken.Value1;
-                  if lBlockDict.TryGetValue(lWithinBlockName, lBlockAddress) then
-                  begin
-                    if lTemplateSectionType = stPage then
+                    if lContinueStack.Count > 0 then
                     begin
-                      // this block is overwriting that from layout
-                      // so I've to put ttBlock.Ref1 to the current block begin
-                      // ttBlock.Ref1 -> where to jump
-                      // ttBlock.Ref2 -> where to return after jump (should be already there)
-                      lToken := aTokens[lBlockAddress.BeginBlockAddress];
-                      lToken.Ref1 := I; // current block address
-                      aTokens[lBlockAddress.BeginBlockAddress] := lToken;
-                    end
-                    else if lTemplateSectionType = stLayout then
-                      Error('Duplicated layout block: ' + lWithinBlockName)
-                    else
-                      Error('Unexpected ttBlock in stUnknown state');
-                  end
-                  else
-                  begin
-                    if lTemplateSectionType = stLayout then
-                    begin
-                      // this block is defining a placeholder for future blocks
-                      // so I've to save the current address in BlockDict
-                      lBlockDict.Add(lWithinBlockName, TBlockAddress.Create(I, 0));
-                    end
-                    else if lTemplateSectionType = stPage then
-                    begin
-                      // Error('Block "' + lWithinBlockName + '" doesn''t exist in current layout page')
-                      // do nothing - a page can define a block which is not available in the parent page
-                      // that's correct... the block will be just (compiled but) ignored
-                    end
-                    else
-                      Error('Unexpected ttBlock in stUnknown state');
-                  end;
-                end;
-
-              ttEndBlock:
-                begin
-                  if not lWithinBlock then
-                  begin
-                    Error('endblock without block');
-                  end;
-                  if lBlockDict.TryGetValue(lWithinBlockName, lBlockAddress) then
-                  begin
-                    if lTemplateSectionType = stPage then
-                    begin
-                      // do nothing
-                      // // this block is overwriting the one from layout page
-                      // // block.ref1 --> when overwritten points to the actual block to execute,
-                      // // block.ref2 --> current end block (in case of overwritten block, ref2 is the return address)
-                      // lToken := aTokens[lBlockAddress.BeginBlockAddress]; { block from layout page }
-                      // // this block has not been overwritten (yet) just continue
-                      // // but the beginblock must know where its endblock is
-                      // // the relative endblock is at ttBlock.Ref2
-                      // lToken.Ref1 := I;
-                      // aTokens[lBlockAddress.BeginBlockAddress] := lToken;
-                    end
-                    else if lTemplateSectionType = stLayout then
-                    begin
-                      // just set ttBlock.Ref2 to the current address (which is its endblock)
-                      lToken := aTokens[lBlockAddress.BeginBlockAddress]; { block from layout page }
-                      lToken.Ref2 := I;
-                      aTokens[lBlockAddress.BeginBlockAddress] := lToken;
+                      Error('Continue stack corrupted');
                     end;
-                  end
-                  else
-                  begin
-                    // if a block doesn't exist in parent but in child
-                    // it's ok, but will be just ignored
+                    lForInStack.Push(I);
                   end;
-                  lWithinBlock := False;
-                  lWithinBlockName := '';
-                end;
 
-              { ttIfThen.Ref1 points always to relative else (if present otherwise -1) }
-              { ttIfThen.Ref2 points always to relative endif }
-
-              ttIfThen:
-                begin
-                  lIfStackItem.IfIndex := I;
-                  lIfStackItem.ElseIndex := -1;
-                  { -1 means: "there isn't ttElse" }
-                  lIfStatementStack.Push(lIfStackItem);
-                end;
-              ttElse:
-                begin
-                  lIfStackItem := lIfStatementStack.Pop;
-                  lIfStackItem.ElseIndex := I;
-                  lIfStatementStack.Push(lIfStackItem);
-                end;
-              ttEndIf:
-                begin
-                  lIfStackItem := lIfStatementStack.Pop;
-
-                  { fixup ifthen }
-                  lToken := aTokens[lIfStackItem.IfIndex];
-                  lToken.Ref2 := I;
-                  { ttIfThen.Ref2 points always to relative endif }
-                  lToken.Ref1 := lIfStackItem.ElseIndex;
-                  { ttIfThen.Ref1 points always to relative else (if present, otherwise -1) }
-                  aTokens[lIfStackItem.IfIndex] := lToken;
-
-                  { fixup else }
-                  if lIfStackItem.ElseIndex > -1 then
+                ttEndFor:
                   begin
-                    lToken := aTokens[lIfStackItem.ElseIndex];
+                    { ttFor.Ref1 --> endfor }
+                    lForAddress := lForInStack.Pop;
+                    lToken := aTokens[lForAddress];
+                    lToken.Ref1 := I;
+                    aTokens[lForAddress] := lToken;
+
+                    { ttEndFor.Ref1 --> for }
+                    lToken := aTokens[I];
+                    lToken.Ref1 := lForAddress;
+                    aTokens[I] := lToken;
+
+                    { if there's a ttContinue (or more than one), it must jump to endfor }
+                    while lContinueStack.Count > 0 do
+                    begin
+                      lTmpContinueAddress := lContinueStack.Pop;
+                      lToken := aTokens[lTmpContinueAddress];
+                      lToken.Ref1 := I;
+                      aTokens[lTmpContinueAddress] := lToken;
+                    end;
+                  end;
+
+                ttContinue:
+                  begin
+                    lContinueStack.Push(I);
+                  end;
+
+                ttBlock:
+                  begin
+                    lBlockName := aTokens[I].Value1;
+                    lBlockStack.Push(lBlockName);
+
+                    // Get or create list for this block name
+                    if not lBlockDict.TryGetValue(lBlockName, lBlockList) then
+                    begin
+                      lBlockList := TList<TBlockAddress>.Create;
+                      lBlockDict.Add(lBlockName, lBlockList);
+                    end;
+
+                    // Check for duplicate block at same level
+                    for J := 0 to lBlockList.Count - 1 do
+                    begin
+                      if lBlockList[J].Level = lCurrentLevel then
+                        Error('Duplicated block "' + lBlockName + '" at level ' + IntToStr(lCurrentLevel));
+                    end;
+
+                    // Add this block to the list
+                    lBlockList.Add(TBlockAddress.Create(I, 0, lCurrentLevel));
+                  end;
+
+                ttEndBlock:
+                  begin
+                    if lBlockStack.Count = 0 then
+                    begin
+                      Error('endblock without block');
+                    end;
+                    lBlockName := lBlockStack.Pop;
+
+                    // Update EndBlockAddress for this block
+                    if lBlockDict.TryGetValue(lBlockName, lBlockList) then
+                    begin
+                      for J := 0 to lBlockList.Count - 1 do
+                      begin
+                        lBlockAddress := lBlockList[J];
+                        if (lBlockAddress.Level = lCurrentLevel) and (lBlockAddress.EndBlockAddress = 0) then
+                        begin
+                          lBlockAddress.EndBlockAddress := I;
+                          lBlockList[J] := lBlockAddress;
+                          // Also update ttBlock.Ref2 to point to endblock
+                          lToken := aTokens[lBlockAddress.BeginBlockAddress];
+                          lToken.Ref2 := I;
+                          aTokens[lBlockAddress.BeginBlockAddress] := lToken;
+                          Break;
+                        end;
+                      end;
+                    end;
+                  end;
+
+                { ttIfThen.Ref1 points always to relative else (if present otherwise -1) }
+                { ttIfThen.Ref2 points always to relative endif }
+
+                ttIfThen:
+                  begin
+                    lIfStackItem.IfIndex := I;
+                    lIfStackItem.ElseIndex := -1;
+                    { -1 means: "there isn't ttElse" }
+                    lIfStatementStack.Push(lIfStackItem);
+                  end;
+                ttElse:
+                  begin
+                    lIfStackItem := lIfStatementStack.Pop;
+                    lIfStackItem.ElseIndex := I;
+                    lIfStatementStack.Push(lIfStackItem);
+                  end;
+                ttEndIf:
+                  begin
+                    lIfStackItem := lIfStatementStack.Pop;
+
+                    { fixup ifthen }
+                    lToken := aTokens[lIfStackItem.IfIndex];
                     lToken.Ref2 := I;
-                    { ttElse.Ref2 points always to relative endif }
-                    aTokens[lIfStackItem.ElseIndex] := lToken;
+                    { ttIfThen.Ref2 points always to relative endif }
+                    lToken.Ref1 := lIfStackItem.ElseIndex;
+                    { ttIfThen.Ref1 points always to relative else (if present, otherwise -1) }
+                    aTokens[lIfStackItem.IfIndex] := lToken;
+
+                    { fixup else }
+                    if lIfStackItem.ElseIndex > -1 then
+                    begin
+                      lToken := aTokens[lIfStackItem.ElseIndex];
+                      lToken.Ref2 := I;
+                      { ttElse.Ref2 points always to relative endif }
+                      aTokens[lIfStackItem.ElseIndex] := lToken;
+                    end;
+                  end;
+                ttMacro:
+                  begin
+                    // Store macro start position, will be linked to ttEndMacro later
+                    lForInStack.Push(I); // Reuse the same stack for simplicity
+                  end;
+
+                ttEndMacro:
+                  begin
+                    // Link ttMacro to ttEndMacro
+                    lForAddress := lForInStack.Pop;
+                    lToken := aTokens[lForAddress];
+                    lToken.Ref2 := I; // ttMacro.Ref2 -> ttEndMacro
+                    aTokens[lForAddress] := lToken;
+
+                    lToken := aTokens[I];
+                    lToken.Ref1 := lForAddress; // ttEndMacro.Ref1 -> ttMacro
+                    aTokens[I] := lToken;
+                  end;
+
+                ttExit:
+                  begin
+                    lCheckForUnbalancedPair := False;
+                  end;
+              end;
+            end; // for
+
+            // Second pass: link blocks across levels
+            // For each block name, find the most derived override (lowest level)
+            // and set Ref1 of all ancestor blocks to point to it
+            // Also set Value2 to store parent block address for {{inherited}}
+            for lBlockName in lBlockDict.Keys do
+            begin
+              lBlockList := lBlockDict[lBlockName];
+
+              // For blocks with no overrides (single instance), set Ref1 = -1
+              if lBlockList.Count = 1 then
+              begin
+                lBlockAddress := lBlockList[0];
+                lToken := aTokens[lBlockAddress.BeginBlockAddress];
+                lToken.Ref1 := -1;  // No override
+                aTokens[lBlockAddress.BeginBlockAddress] := lToken;
+              end
+              else if lBlockList.Count > 1 then
+              begin
+                // Sort by level (we need to process from highest to lowest)
+                // Find the most derived block (lowest level)
+                lMostDerivedIdx := 0;
+                lMostDerivedLevel := lBlockList[0].Level;
+                for J := 1 to lBlockList.Count - 1 do
+                begin
+                  if lBlockList[J].Level < lMostDerivedLevel then
+                  begin
+                    lMostDerivedLevel := lBlockList[J].Level;
+                    lMostDerivedIdx := J;
                   end;
                 end;
-              ttMacro:
+
+                // For all blocks that are not the most derived, set Ref1 to jump to most derived
+                for J := 0 to lBlockList.Count - 1 do
                 begin
-                  // Store macro start position, will be linked to ttEndMacro later
-                  lForInStack.Push(I); // Reuse the same stack for simplicity
+                  if J <> lMostDerivedIdx then
+                  begin
+                    lBlockAddress := lBlockList[J];
+                    lToken := aTokens[lBlockAddress.BeginBlockAddress];
+                    lToken.Ref1 := lBlockList[lMostDerivedIdx].BeginBlockAddress;
+
+                    // Find parent block (next level UP from this one) for {{inherited}}
+                    // Higher level = more ancestral (base template)
+                    lParentBlockAddr := -1;
+                    lThisLevel := lBlockAddress.Level;
+                    lMinParentLevel := MaxInt;
+                    for K := 0 to lBlockList.Count - 1 do
+                    begin
+                      lOtherLevel := lBlockList[K].Level;
+                      if (lOtherLevel > lThisLevel) and (lOtherLevel < lMinParentLevel) then
+                      begin
+                        lMinParentLevel := lOtherLevel;
+                        lParentBlockAddr := lBlockList[K].BeginBlockAddress;
+                      end;
+                    end;
+                    // Store parent block address in Value2 for {{inherited}}
+                    lToken.Value2 := IntToStr(lParentBlockAddr);
+                    aTokens[lBlockAddress.BeginBlockAddress] := lToken;
+                  end;
                 end;
 
-              ttEndMacro:
+                // Also set Ref1 = -1 and Value2 for the most derived block (no further override)
+                lBlockAddress := lBlockList[lMostDerivedIdx];
+                lToken := aTokens[lBlockAddress.BeginBlockAddress];
+                lToken.Ref1 := -1;  // No further override
+                lParentBlockAddr := -1;
+                lThisLevel := lBlockAddress.Level;
+                lMinParentLevel := MaxInt;
+                for J := 0 to lBlockList.Count - 1 do
                 begin
-                  // Link ttMacro to ttEndMacro
-                  lForAddress := lForInStack.Pop;
-                  lToken := aTokens[lForAddress];
-                  lToken.Ref2 := I; // ttMacro.Ref2 -> ttEndMacro
-                  aTokens[lForAddress] := lToken;
-
-                  lToken := aTokens[I];
-                  lToken.Ref1 := lForAddress; // ttEndMacro.Ref1 -> ttMacro
-                  aTokens[I] := lToken;
+                  lOtherLevel := lBlockList[J].Level;
+                  if (lOtherLevel > lThisLevel) and (lOtherLevel < lMinParentLevel) then
+                  begin
+                    lMinParentLevel := lOtherLevel;
+                    lParentBlockAddr := lBlockList[J].BeginBlockAddress;
+                  end;
                 end;
-
-              ttExit:
-                begin
-                  lCheckForUnbalancedPair := False;
-                end;
+                lToken.Value2 := IntToStr(lParentBlockAddr);
+                aTokens[lBlockAddress.BeginBlockAddress] := lToken;
+              end;
             end;
-          end; // for
 
-          if lCheckForUnbalancedPair and (lIfStatementStack.Count > 0) then
-          begin
-            Error('Unbalanced "if" - expected "endif"');
-          end;
-          if lCheckForUnbalancedPair and (lForInStack.Count > 0) then
-          begin
-            Error('Unbalanced "for" - expected "endfor"');
+            if lCheckForUnbalancedPair and (lIfStatementStack.Count > 0) then
+            begin
+              Error('Unbalanced "if" - expected "endif"');
+            end;
+            if lCheckForUnbalancedPair and (lForInStack.Count > 0) then
+            begin
+              Error('Unbalanced "for" - expected "endfor"');
+            end;
+            if lBlockStack.Count > 0 then
+            begin
+              Error('Unbalanced "block" - expected "endblock" for block "' + lBlockStack.Peek + '"');
+            end;
+          finally
+            lIfStatementStack.Free;
           end;
         finally
-          lIfStatementStack.Free;
+          lContinueStack.Free;
         end;
       finally
-        lContinueStack.Free;
+        lForInStack.Free;
       end;
     finally
-      lForInStack.Free;
+      lBlockStack.Free;
     end;
   finally
     lBlockDict.Free;
@@ -2959,16 +3083,16 @@ begin
       begin
 {$REGION 'entities'}
       case b of
+        Ord('&'):
+          r := 'amp';
         Ord('>'):
           r := 'gt';
         Ord('<'):
           r := 'lt';
-        34:
-          r := '#' + IntToStr(b);
-        39:
-          r := '#' + IntToStr(b);
-        43:
+        Ord('"'):
           r := 'quot';
+        Ord(''''):
+          r := '#39';
         160:
           r := 'nbsp';
         161:
@@ -3168,10 +3292,10 @@ begin
 
     if r <> '' then
     begin
-      s := s.Replace(s[I], '&' + r + ';', []);
+      s := s.Substring(0, I-1) + '&' + r + ';' + s.Substring(I);
       Inc(I, Length(r) + 1);
     end;
-    Inc(I)
+    Inc(I);
   end;
   Result := s;
 end;
@@ -3384,16 +3508,36 @@ var
   lJValue: TJsonDataValueHelper;
   lMustBeEncoded: Boolean;
   lSavedIdx: Int64;
-  lTemplateSectionType: TTProTemplateSectionType;
-  lErrorMessage: String;
-  lBlockReturnAddress: Int64;
+  lCurrentLevel: Integer; // 0 = page level, 1+ = layout levels
+  lBlockStack: TStack<TBlockReturnInfo>;
+  lBlockReturnInfo: TBlockReturnInfo;
   lCurrentBlockName: string;
   lObj: TValue;
   lCount: Integer;
-
+  lParentBlockAddr: Int64;
+  // Variables moved from inline declarations for Delphi 10 Seattle compatibility
+  lIsFieldIteration: Boolean;
+  lDataSet: TDataSet;
+  lVarPair: TPair<string, TVarDataSource>;
+  lSavedVars: TIncludeSavedVars;
+  lVarNames: TArray<string>;
+  lVarNameItem: string;
+  lVarDataSource: TVarDataSource;
+  lSavedVar: TIncludeSavedVar;
+  lPair: TPair<string, TIncludeSavedVar>;
+  lParentBlockName: string;
+  lInheritedReturn: TBlockReturnInfo;
+  // Variables for dynamic include
+  lDynIncludeFileName: String;
+  lDynBasePath: String;
+  lDynFullPath: String;
+  lDynIncludeSource: String;
+  lDynIncludeCompiler: TTProCompiler;
+  lDynIncludeTemplate: ITProCompiledTemplate;
 begin
-  lBlockReturnAddress := -1;
-  lTemplateSectionType := stUnknown;
+  lCurrentLevel := 0;
+  lBlockStack := TStack<TBlockReturnInfo>.Create;
+  try
   lBuff := TStringBuilder.Create;
   try
     lIdx := 0;
@@ -3408,7 +3552,7 @@ begin
         ttFor:
           begin
             lForLoopItem := PeekLoop;
-            var lIsFieldIteration := fTokens[lIdx].Ref2 = 1;
+            lIsFieldIteration := fTokens[lIdx].Ref2 = 1;
             if LoopStackIsEmpty or (lForLoopItem.LoopExpression <> fTokens[lIdx].Value1) then
             begin // push a new loop stack item
               SplitVariableName(fTokens[lIdx].Value1, lVarName, lVarMember);
@@ -3441,7 +3585,7 @@ begin
                 // Check if this is a field iteration (dataset.fields)
                 if lForLoopItem.IsFieldIteration then
                 begin
-                  var lDataSet := TDataSet(lVariable.VarValue.AsObject);
+                  lDataSet := TDataSet(lVariable.VarValue.AsObject);
                   if lForLoopItem.IteratorPosition = -1 then
                   begin
                     lForLoopItem.FieldsCount := lDataSet.Fields.Count;
@@ -3594,13 +3738,6 @@ begin
         ttInclude:
           begin
             // Dynamic include - evaluate filename and compile/execute at runtime
-            var lDynIncludeFileName: String;
-            var lDynBasePath: String;
-            var lDynFullPath: String;
-            var lDynIncludeSource: String;
-            var lDynIncludeCompiler: TTProCompiler;
-            var lDynIncludeTemplate: ITProCompiledTemplate;
-
             // Get filename from expression
             lDynIncludeFileName := EvaluateExpression(fTokens[lIdx].Value1).AsString;
 
@@ -3637,7 +3774,7 @@ begin
             // Copy all variables to the included template
             if fVariables <> nil then
             begin
-              for var lVarPair in fVariables do
+              for lVarPair in fVariables do
                 lDynIncludeTemplate.SetData(lVarPair.Key, lVarPair.Value.VarValue);
             end;
 
@@ -3670,11 +3807,9 @@ begin
         ttIncludeStart:
           begin
             // Save current values of variables that will be mapped
-            var lSavedVars := TIncludeSavedVars.Create;
-            var lVarNames := fTokens[lIdx].Value1.Split([',']);
-            var lVarDataSource: TVarDataSource;
-            var lSavedVar: TIncludeSavedVar;
-            for var lVarNameItem in lVarNames do
+            lSavedVars := TIncludeSavedVars.Create;
+            lVarNames := fTokens[lIdx].Value1.Split([',']);
+            for lVarNameItem in lVarNames do
             begin
               if GetVariables.TryGetValue(lVarNameItem, lVarDataSource) and (lVarDataSource <> nil) then
               begin
@@ -3695,8 +3830,8 @@ begin
             // Restore saved variables
             if fIncludeSavedVarsStack.Count > 0 then
             begin
-              var lSavedVars := fIncludeSavedVarsStack[fIncludeSavedVarsStack.Count - 1];
-              for var lPair in lSavedVars do
+              lSavedVars := fIncludeSavedVarsStack[fIncludeSavedVarsStack.Count - 1];
+              for lPair in lSavedVars do
               begin
                 if not lPair.Value.Existed then
                   GetVariables.Remove(lPair.Key)
@@ -3729,57 +3864,83 @@ begin
           end;
         ttInfo:
           begin
-            if not HandleTemplateSectionStateMachine(fTokens[lIdx].Value1, lTemplateSectionType, lErrorMessage) then
-              Error(lErrorMessage);
-            if fTokens[lIdx].Value1 = STR_END_OF_LAYOUT then
+            if fTokens[lIdx].Value1 = STR_BEGIN_OF_LAYOUT then
+              Inc(lCurrentLevel)
+            else if fTokens[lIdx].Value1 = STR_END_OF_LAYOUT then
             begin
-              lIdx := fTokens.Count - 1; // clean break
+              Dec(lCurrentLevel);
+              // After ANY end_of_layout, skip to EOF
+              // Intermediate templates (between base and page) should only be accessed via {{inherited}}
+              // They should NOT be rendered linearly
+              lIdx := fTokens.Count - 1;
               Continue;
             end;
           end;
         ttBlock:
           begin
             lCurrentBlockName := fTokens[lIdx].Value1;
-            if lTemplateSectionType = stLayout then
+            if lCurrentLevel > 0 then  // We're in a layout
             begin
-              lBlockReturnAddress := -1;
               if fTokens[lIdx].Ref1 > -1 then
               begin
-                { block has been overwritten, let's jump to the Ref1 and set the return address }
-                lBlockReturnAddress := fTokens[lIdx].Ref2 + 1; { after its endblock }
-                lIdx := fTokens[lIdx].Ref1;
-                lTemplateSectionType := stPage;
+                // Block has been overridden, jump to the override
+                // Parse parent block address from DESTINATION block's Value2 for {{inherited}}
+                lParentBlockAddr := StrToInt64Def(fTokens[fTokens[lIdx].Ref1].Value2, -1);
+                lBlockReturnInfo := TBlockReturnInfo.Create(
+                  fTokens[lIdx].Ref2 + 1,  // Return address (after its endblock)
+                  lCurrentBlockName,
+                  lParentBlockAddr
+                );
+                lBlockStack.Push(lBlockReturnInfo);
+                lIdx := fTokens[lIdx].Ref1;  // Jump to override
                 Continue;
               end;
-            end
-            else if lTemplateSectionType = stPage then
-            begin
-              // do nothing
-            end
-            else
-              Error('Internal Error: [17BAE02C]');
+              // Block not overridden, render default content
+            end;
+            // At page level or not overridden, just continue rendering
           end;
         ttEndBlock:
           begin
-            if lTemplateSectionType = stLayout then
+            if (lBlockStack.Count > 0) and SameText(lBlockStack.Peek.BlockName, lCurrentBlockName) then
             begin
-              // do nothing
-              lCurrentBlockName := '';
-            end
-            else if lTemplateSectionType = stPage then
-            begin
-              if lBlockReturnAddress = -1 then
-              begin
-                Error('ReturnAddress not set for block "' + lCurrentBlockName + '"')
-              end;
-              lIdx := lBlockReturnAddress;
-              lBlockReturnAddress := -1;
-              lTemplateSectionType := stLayout;
-              lCurrentBlockName := '';
+              // Return from override block or inherited call
+              lBlockReturnInfo := lBlockStack.Pop;
+              lIdx := lBlockReturnInfo.ReturnAddress;
+              // Only clear block name if stack is empty (returning to layout)
+              // Otherwise we're returning from an inherited call, still in a block
+              if lBlockStack.Count = 0 then
+                lCurrentBlockName := '';
               Continue;
-            end
-            else
-              Error('Internal Error: [E35E98FB]');
+            end;
+            // In layout with no override, or nested block, just continue
+            lCurrentBlockName := '';
+          end;
+        ttInherited:
+          begin
+            // Render the parent block content
+            if lBlockStack.Count > 0 then
+            begin
+              lBlockReturnInfo := lBlockStack.Peek;
+              lParentBlockAddr := lBlockReturnInfo.ParentBlockAddress;
+              if lParentBlockAddr >= 0 then
+              begin
+                // Push return context for after inherited
+                // Use the parent block's name so endblock matching works
+                lParentBlockName := fTokens[lParentBlockAddr].Value1;
+                lInheritedReturn := TBlockReturnInfo.Create(
+                  lIdx + 1,  // Return to next token
+                  lParentBlockName,
+                  StrToInt64Def(fTokens[lParentBlockAddr].Value2, -1)  // Grandparent block
+                );
+                lBlockStack.Push(lInheritedReturn);
+                // Set current block name so endblock matching works
+                lCurrentBlockName := lParentBlockName;
+                // Jump to parent block content (skip the ttBlock token itself)
+                lIdx := lParentBlockAddr + 1;
+                Continue;
+              end;
+            end;
+            // No parent block, {{inherited}} produces no output
           end;
         ttMacro:
           begin
@@ -3810,6 +3971,9 @@ begin
   finally
     lBuff.Free;
   end;
+  finally
+    lBlockStack.Free;
+  end;
 end;
 
 function TTProCompiledTemplate.GetVarAsString(const Name: string): string;
@@ -3839,6 +4003,8 @@ var
   lFullPath: string;
   lValue: TValue;
   lTmpList: ITProWrappedList;
+  lDataSet: TDataSet;
+  lField: TField;
 begin
   lCurrentIterator := nil;
   SplitVariableName(aName, lVarName, lVarMembers);
@@ -3863,8 +4029,8 @@ begin
         // Check if this is a field iteration
         if lCurrentIterator.IsFieldIteration then
         begin
-          var lDataSet := TDataSet(lVariable.VarValue.AsObject);
-          var lField := lDataSet.Fields[lCurrentIterator.IteratorPosition];
+          lDataSet := TDataSet(lVariable.VarValue.AsObject);
+          lField := lDataSet.Fields[lCurrentIterator.IteratorPosition];
           if lHasMember and lVarMembers.StartsWith('@@') then
           begin
             Result := GetPseudoVariable(lCurrentIterator.IteratorPosition, lVarMembers);
@@ -4290,6 +4456,7 @@ var
   I, J: Integer;
   lNegated: Boolean;
   lCurrentValue: TValue;
+  lDataSetFieldMeta: string;
 begin
   // Ref1 contains the number of filters (0 if there isn't any filter)
   // Ref2 is -1 if the variable must be HTMLEncoded, while contains 1 is the value must not be HTMLEncoded
@@ -4304,7 +4471,7 @@ begin
   end;
 
   // Check for dataset field metadata syntax (Value2 not empty)
-  var lDataSetFieldMeta := fTokens[Idx].Value2;
+  lDataSetFieldMeta := fTokens[Idx].Value2;
   if (lCurrTokenType = ttValue) and (not lDataSetFieldMeta.IsEmpty) then
   begin
     Result := EvaluateDataSetFieldMeta(lVarName, lDataSetFieldMeta);
@@ -4721,10 +4888,18 @@ begin
   end;
 end;
 
-class function TBlockAddress.Create(BeginBlockAddress, EndBlockAddress: Int64): TBlockAddress;
+class function TBlockAddress.Create(BeginBlockAddress, EndBlockAddress: Int64; Level: Integer): TBlockAddress;
 begin
   Result.BeginBlockAddress := BeginBlockAddress;
   Result.EndBlockAddress := EndBlockAddress;
+  Result.Level := Level;
+end;
+
+class function TBlockReturnInfo.Create(ReturnAddr: Int64; const ABlockName: string; ParentAddr: Int64): TBlockReturnInfo;
+begin
+  Result.ReturnAddress := ReturnAddr;
+  Result.BlockName := ABlockName;
+  Result.ParentBlockAddress := ParentAddr;
 end;
 
 class function TMacroParameter.Create(const Name: String; const DefaultValue: String; HasDefault: Boolean): TMacroParameter;

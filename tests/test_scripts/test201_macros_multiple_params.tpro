@@ -5,5 +5,5 @@
 </div>
 {{endmacro}}
 
-{{call card("Welcome", "This is the content")}}
-{{call card("Second Card", "More content here")}}
+{{>card("Welcome", "This is the content")}}
+{{>card("Second Card", "More content here")}}

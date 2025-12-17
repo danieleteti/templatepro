@@ -1,1 +1,1 @@
-﻿Expected variable name in include mapping - (got: "= :value2") at line 1 in file C:\DEV\templatepro\tests\test_scripts\test245_include_mapping_error_novar.tpro
+﻿Expected variable name in include mapping - (got: "= value2") at line 1 in file C:\DEV\templatepro\tests\test_scripts\test245_include_mapping_error_novar.tpro

@@ -199,6 +199,8 @@ end;
 function GetTestDataset: TDataSet;
 var
   lMT: TFDMemTable;
+  lBaseDate: TDate;
+  lTimeStamp: TTimeStamp;
 begin
   lMT := TFDMemTable.Create(nil);
   try
@@ -210,8 +212,8 @@ begin
     lMT.FieldDefs.Add('field_ftFMTBcd', ftFMTBcd);
     lMT.FieldDefs.Add('field_ftTimeStamp', ftTimeStamp);
     lMT.Active := True;
-    var lBaseDate: TDate := EncodeDate(1979, 11, 4);
-    var lTimeStamp := DateTimeToTimeStamp(lBaseDate + 1.1);
+    lBaseDate := EncodeDate(1979, 11, 4);
+    lTimeStamp := DateTimeToTimeStamp(lBaseDate + 1.1);
 
     lMT.Append;
     lMT.FieldByName('field_ftString').AsString := 'Daniele Teti';
@@ -278,12 +280,14 @@ end;
 { TDataItemWithChild }
 
 constructor TDataItemWithChild.Create(const Str: String; const Int: Integer);
+var
+  I: Integer;
 begin
   inherited Create;
   fPropStr := Str;
   fPropInt := Int;
   FDataItemList := TObjectList<TSimpleDataItem>.Create(True);
-  for var I := 0 to 2 do
+  for I := 0 to 2 do
   begin
     FDataItemList.Add(TSimpleDataItem.Create('SimpleDataItem' + I.ToString, nil));
   end;
@@ -298,9 +302,11 @@ end;
 { TDataItemsWithChild }
 
 constructor TDataItemWithChildList.Create(const Value1, Value2, Value3: string; const IntValue: Integer);
+var
+  I: Integer;
 begin
   inherited Create(True);
-  for var I := 0 to 2 do
+  for I := 0 to 2 do
   begin
     Add(TDataItemWithChild.Create('Str' + I.ToString, I));
   end;

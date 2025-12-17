@@ -1,1 +1,1 @@
-{{include "included_echo.tpro", = :value2}}
+{{include "included_echo.tpro", = value2}}

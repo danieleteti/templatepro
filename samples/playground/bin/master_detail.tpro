@@ -1,12 +1,138 @@
-{{:first_name}} {{:last_name}} {{:today}}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Personal Agenda</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 30px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    .header {
+      background: white;
+      border-radius: 16px;
+      padding: 24px 32px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .header h1 {
+      color: #333;
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+    .header .subtitle { color: #888; font-size: 14px; }
+    .header .date {
+      float: right;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+    .person-card {
+      background: white;
+      border-radius: 16px;
+      margin-bottom: 20px;
+      overflow: hidden;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    }
+    .person-header {
+      background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+      color: white;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+    }
+    .person-avatar {
+      width: 50px;
+      height: 50px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: bold;
+      margin-right: 16px;
+    }
+    .person-info h2 { font-size: 20px; margin-bottom: 4px; }
+    .person-info .country { opacity: 0.9; font-size: 14px; }
+    .contacts-section { padding: 20px 24px; }
+    .contacts-title {
+      color: #666;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #eee;
+    }
+    .contact-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      background: #f8f9fa;
+      border-radius: 10px;
+    }
+    .contact-icon {
+      width: 36px;
+      height: 36px;
+      background: #e3f2fd;
+      color: #2196f3;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 14px;
+      font-size: 16px;
+    }
+    .contact-details .type {
+      font-size: 11px;
+      color: #999;
+      text-transform: uppercase;
+    }
+    .contact-details .value {
+      color: #333;
+      font-size: 15px;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span class="date">📅 {{:today}}</span>
+      <h1>📇 Personal Agenda</h1>
+      <p class="subtitle">👋 Welcome, {{:first_name}} {{:last_name}}</p>
+    </div>
 
-
---- Personal Agenda ---
-
-{{for p in people}}
-AGENDA FOR: {{:p.name}} (from {{:p.country}})
-  Contacts
-{{for c in contacts}}
-    {{:c.contact_type}}: {{:c.contact}}
-{{endfor}}
-{{endfor}}
+    {{for p in people}}
+    <div class="person-card">
+      <div class="person-header" style="{{if p.@@odd}}background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);{{else}}background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);{{endif}}">
+        <div class="person-avatar">👤</div>
+        <div class="person-info">
+          <h2>{{:p.name}}</h2>
+          <div class="country">🌍 {{:p.country}}</div>
+        </div>
+      </div>
+      <div class="contacts-section">
+        <div class="contacts-title">📞 Contacts</div>
+        {{for c in contacts}}
+        <div class="contact-item">
+          <div class="contact-icon">📧</div>
+          <div class="contact-details">
+            <div class="type">{{:c.contact_type}}</div>
+            <div class="value">{{:c.contact}}</div>
+          </div>
+        </div>
+        {{endfor}}
+      </div>
+    </div>
+    {{endfor}}
+  </div>
+</body>
+</html>

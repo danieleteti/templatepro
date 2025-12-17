@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  {{block "meta"}}
+  <meta name="description" content="TemplatePro Demo">
+  {{endblock}}
+  {{block "title"}}<title>TemplatePro App</title>{{endblock}}
+  {{block "styles"}}
+  <link rel="stylesheet" href="milligram.min.css">
+  {{endblock}}
+</head>
+<body>
+  {{block "header"}}
+  <header class="container">
+    <nav>
+      <a href="/">Home</a>
+      <a href="/about">About</a>
+      <a href="/contact">Contact</a>
+    </nav>
+  </header>
+  {{endblock}}
+
+  <main class="container">
+    {{block "content"}}
+    <p>Welcome to TemplatePro!</p>
+    {{endblock}}
+  </main>
+
+  {{block "footer"}}
+  <footer class="container">
+    <p>&copy; 2025 TemplatePro Demo</p>
+  </footer>
+  {{endblock}}
+
+  {{block "scripts"}}
+  <script src="app.js"></script>
+  {{endblock}}
+</body>
+</html>

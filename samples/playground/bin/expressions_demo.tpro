@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head><title>Expressions Demo</title></head>
+<body>
+<h1>TemplatePro Expressions Demo</h1>
+
+<h2>1. Playground Variables</h2>
+<p>intvalue10 = {{:intvalue10}}</p>
+<p>floatvalue = {{:floatvalue}}</p>
+<p>value2 = "{{:value2}}"</p>
+<p>first_name = {{:first_name}}</p>
+<p>last_name = {{:last_name}}</p>
+
+<h2>2. Basic Expressions</h2>
+<p>intvalue10 * 2 = {{@intvalue10 * 2}}</p>
+<p>intvalue10 + 5 = {{@intvalue10 + 5}}</p>
+<p>(intvalue10 + 5) * 2 = {{@(intvalue10 + 5) * 2}}</p>
+
+<h2>3. Math Functions</h2>
+<p>sqrt(16) = {{@sqrt(16)}}</p>
+<p>abs(-5) = {{@abs(-5)}}</p>
+<p>floor(3.7) = {{@floor(3.7)}}</p>
+<p>ceil(3.2) = {{@ceil(3.2)}}</p>
+<p>power(2, 8) = {{@power(2, 8)}}</p>
+<p>Min(intvalue10, 5) = {{@Min(intvalue10, 5)}}</p>
+<p>Max(intvalue10, 5) = {{@Max(intvalue10, 5)}}</p>
+
+<h2>4. String Functions</h2>
+<p>Upper(value2) = {{@Upper(value2)}}</p>
+<p>Lower(value2) = {{@Lower(value2)}}</p>
+<p>Length(value2) = {{@Length(value2)}}</p>
+<p>Left(value2, 5) = {{@Left(value2, 5)}}</p>
+<p>Right(value2, 5) = {{@Right(value2, 5)}}</p>
+{{set fullName := @(first_name + " " + last_name)}}
+<p>fullName = {{:fullName}}</p>
+
+<h2>5. Set Variables with Expressions</h2>
+{{set myTotal := @(intvalue10 * 3)}}
+{{set greeting := "Hello"}}
+{{set discount := 0.15}}
+<p>myTotal (intvalue10 * 3) = {{:myTotal}}</p>
+<p>greeting = {{:greeting}}</p>
+<p>discount = {{:discount}}</p>
+
+<h2>6. Calculations</h2>
+{{set price := 100}}
+{{set quantity := 5}}
+{{set subtotal := @(price * quantity)}}
+{{set discountAmount := @(subtotal * discount)}}
+{{set total := @(subtotal - discountAmount)}}
+<table border="1" cellpadding="8">
+  <tr><td>Price</td><td>${{:price}}</td></tr>
+  <tr><td>Quantity</td><td>{{:quantity}}</td></tr>
+  <tr><td>Subtotal</td><td>${{:subtotal}}</td></tr>
+  <tr><td>Discount (15%)</td><td>-${{:discountAmount}}</td></tr>
+  <tr><td><strong>Total</strong></td><td><strong>${{:total}}</strong></td></tr>
+</table>
+
+<h2>7. Expressions in Conditions</h2>
+{{if @(intvalue10 > 5)}}
+<p style="color:green;">intvalue10 ({{:intvalue10}}) is greater than 5</p>
+{{else}}
+<p style="color:red;">intvalue10 is 5 or less</p>
+{{endif}}
+
+{{if @(total > 400)}}
+<p style="color:green;">Order qualifies for free shipping!</p>
+{{else}}
+<p>Add more items for free shipping.</p>
+{{endif}}
+
+<h2>8. Float Operations</h2>
+<p>floatvalue = {{:floatvalue}}</p>
+<p>floatvalue * 2 = {{@floatvalue * 2}}</p>
+<p>Round(floatvalue, 2) = {{@Round(floatvalue, 2)}}</p>
+
+</body>
+</html>

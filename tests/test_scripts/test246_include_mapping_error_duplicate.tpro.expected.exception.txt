@@ -1,0 +1,1 @@
+﻿Duplicate variable "localvalue" in include mapping - (got: "}") at line 1 in file C:\DEV\templatepro\tests\test_scripts\test246_include_mapping_error_duplicate.tpro

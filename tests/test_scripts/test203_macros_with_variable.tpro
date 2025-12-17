@@ -2,5 +2,5 @@
 {{:label}}: {{:value}}
 {{endmacro}}
 
-{{call showValue("Name", "John")}}
-{{call showValue("Title", "Developer")}}
+{{>showValue("Name", "John")}}
+{{>showValue("Title", "Developer")}}

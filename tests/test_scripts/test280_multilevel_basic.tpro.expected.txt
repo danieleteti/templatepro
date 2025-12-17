@@ -1,0 +1,11 @@
+﻿<html>
+<head>
+<title>Base Title</title>
+<link rel="stylesheet" href="section.css">
+<script src="page.js"></script>
+</head>
+<body>
+Page Content Here
+<footer>Base Footer</footer>
+</body>
+</html>

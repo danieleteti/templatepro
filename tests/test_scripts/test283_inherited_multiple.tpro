@@ -1,0 +1,8 @@
+{{extends "multilevel_base.html"}}
+{{block "head"}}
+START
+{{inherited}}
+MIDDLE
+{{inherited}}
+END
+{{endblock}}

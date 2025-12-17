@@ -1,0 +1,46 @@
+{{# Inheritance Demo - Extends layout_base.html #}}
+{{extends "layout_base.html"}}
+
+{{block "title"}}<title>Inheritance Demo - Custom Page</title>{{endblock}}
+
+{{block "styles"}}
+{{inherited}}
+<style>
+  .demo-content { background: #f0f8ff; padding: 20px; border-radius: 8px; }
+  .highlight { color: #2980b9; font-weight: bold; }
+  .feature-list { background: #e8f5e9; padding: 15px; border-radius: 4px; }
+</style>
+{{endblock}}
+
+{{block "content"}}
+<div class="demo-content">
+  <h1>Template Inheritance Demo</h1>
+
+  <p>This page demonstrates <span class="highlight">multi-level template inheritance</span> in TemplatePro v0.9.0.</p>
+
+  <h2>How it works:</h2>
+  <div class="feature-list">
+    <ul>
+      <li>This template extends <code>layout_base.html</code></li>
+      <li>It overrides the "title", "styles", and "content" blocks</li>
+      <li>It uses <code>inherited</code> in the styles block to keep parent styles AND add new ones</li>
+      <li>The header and footer blocks are NOT overridden, so they use the parent's content</li>
+    </ul>
+  </div>
+
+  <h2>Key Features:</h2>
+  <ul>
+    <li><strong>extends</strong> - Inherit from a parent template</li>
+    <li><strong>block</strong> - Define overridable sections</li>
+    <li><strong>inherited</strong> - Include parent block content (like super() in Jinja2)</li>
+    <li><strong>Multi-level</strong> - A can extend B which extends C</li>
+  </ul>
+
+  <p>Value from playground: <strong>{{:value2}}</strong></p>
+</div>
+{{endblock}}
+
+{{block "scripts"}}
+{{inherited}}
+<script>console.log('Inheritance demo page loaded!');</script>
+{{endblock}}

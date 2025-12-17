@@ -1,0 +1,5 @@
+{{extends "multilevel_base.html"}}
+{{block "newblock"}}
+Before{{inherited}}After
+{{endblock}}
+{{block "content"}}Main Content{{endblock}}
