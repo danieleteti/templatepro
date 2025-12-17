@@ -1121,7 +1121,10 @@ end;
 
 function TTProCompiler.CurrentChar: Char;
 begin
-  Result := fInputString.Chars[fCharIndex]
+  if fCharIndex < fInputString.Length then
+    Result := fInputString.Chars[fCharIndex]
+  else
+    Result := #0;
 end;
 
 function TTProCompiler.MatchEndTag: Boolean;
@@ -1136,11 +1139,12 @@ begin
   aIdentifier := '';
   lTmp := '';
   Result := False;
-  if CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedFirstChars) then
+  if (fCharIndex < fInputString.Length) and
+     CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedFirstChars) then
   begin
     lTmp := fInputString.Chars[fCharIndex];
     Inc(fCharIndex);
-    if lTmp = '@' then
+    if (lTmp = '@') and (fCharIndex < fInputString.Length) then
     begin
       if fInputString.Chars[fCharIndex] = '@' then
       begin
@@ -1149,7 +1153,8 @@ begin
       end;
     end;
 
-    while CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) do
+    while (fCharIndex < fInputString.Length) and
+          CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) do
     begin
       lTmp := lTmp + fInputString.Chars[fCharIndex];
       Inc(fCharIndex);
@@ -1186,11 +1191,13 @@ begin
     aParamValue.ParStrText := lTmp;
     Result := True;
   end
-  else if CharInSet(fInputString.Chars[fCharIndex], SignAndNumbers) then
+  else if (fCharIndex < fInputString.Length) and
+          CharInSet(fInputString.Chars[fCharIndex], SignAndNumbers) then
   begin
     lTmp := fInputString.Chars[fCharIndex];
     Inc(fCharIndex);
-    while CharInSet(fInputString.Chars[fCharIndex], Numbers) do
+    while (fCharIndex < fInputString.Length) and
+          CharInSet(fInputString.Chars[fCharIndex], Numbers) do
     begin
       lTmp := lTmp + fInputString.Chars[fCharIndex];
       Inc(fCharIndex);
@@ -1199,7 +1206,8 @@ begin
     if MatchSymbol('.') then
     begin
       lTmp := '';
-      while CharInSet(fInputString.Chars[fCharIndex], Numbers) do
+      while (fCharIndex < fInputString.Length) and
+            CharInSet(fInputString.Chars[fCharIndex], Numbers) do
       begin
         lTmp := lTmp + fInputString.Chars[fCharIndex];
         Inc(fCharIndex);
@@ -1228,9 +1236,11 @@ begin
     aParamValue.ParType := fptExpression;
     aParamValue.ParStrText := lTmp;
   end
-  else if CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) then
+  else if (fCharIndex < fInputString.Length) and
+          CharInSet(fInputString.Chars[fCharIndex], IdenfierAllowedChars) then
   begin
-    while CharInSet(fInputString.Chars[fCharIndex], ValueAllowedChars) do
+    while (fCharIndex < fInputString.Length) and
+          CharInSet(fInputString.Chars[fCharIndex], ValueAllowedChars) do
     begin
       lTmp := lTmp + fInputString.Chars[fCharIndex];
       Inc(fCharIndex);
@@ -1305,7 +1315,9 @@ begin
   lSavedCharIndex := fCharIndex;
   lSymbolIndex := 0;
   lSymbolLength := Length(aSymbol);
-  while (fInputString.Chars[fCharIndex].ToLower = aSymbol.Chars[lSymbolIndex].ToLower) and (lSymbolIndex < lSymbolLength) do
+  while (fCharIndex < fInputString.Length) and
+        (lSymbolIndex < lSymbolLength) and
+        (fInputString.Chars[fCharIndex].ToLower = aSymbol.Chars[lSymbolIndex].ToLower) do
   begin
     Inc(fCharIndex);
     Inc(lSymbolIndex);
@@ -1716,12 +1728,14 @@ begin
             // Ref2=2 for string literal
             aTokens.Add(TToken.Create(lLastToken, lIdentifier, lVarName, 0, 2));
           end
-          else if CharInSet(fInputString.Chars[fCharIndex], SignAndNumbers) then
+          else if (fCharIndex < fInputString.Length) and
+                  CharInSet(fInputString.Chars[fCharIndex], SignAndNumbers) then
           begin
             // Number literal (integer or float)
             lVarName := fInputString.Chars[fCharIndex];
             Inc(fCharIndex);
-            while CharInSet(fInputString.Chars[fCharIndex], Numbers) do
+            while (fCharIndex < fInputString.Length) and
+                  CharInSet(fInputString.Chars[fCharIndex], Numbers) do
             begin
               lVarName := lVarName + fInputString.Chars[fCharIndex];
               Inc(fCharIndex);
@@ -1730,7 +1744,8 @@ begin
             begin
               // Float
               lVarName := lVarName + '.';
-              while CharInSet(fInputString.Chars[fCharIndex], Numbers) do
+              while (fCharIndex < fInputString.Length) and
+                    CharInSet(fInputString.Chars[fCharIndex], Numbers) do
               begin
                 lVarName := lVarName + fInputString.Chars[fCharIndex];
                 Inc(fCharIndex);

@@ -36,22 +36,15 @@ TemplatePro is a template engine library for Embarcadero Delphi and RAD Studio. 
 ```pascal
 var lCompiler := TTProCompiler.Create;
 try
-  var lTemplate := lCompiler.Compile('''
-    <h1>{{:title}}</h1>
-    <p>Hello {{:username}}!</p>
-    ''');
+  var lTemplate := lCompiler.Compile(
+    '<h1>{{:title}}</h1><p>Hello {{:username}}!</p>');
   lTemplate.SetData('title', 'Welcome');
   lTemplate.SetData('username', 'Daniele');
   ShowMessage(lTemplate.Render);
+  // Output: <h1>Welcome</h1><p>Hello Daniele!</p>
 finally
   lCompiler.Free;
 end;
-```
-
-Output:
-```html
-<h1>Welcome</h1>
-<p>Hello Daniele!</p>
 ```
 
 ## Documentation
