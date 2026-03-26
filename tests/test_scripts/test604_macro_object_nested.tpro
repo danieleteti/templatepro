@@ -1,0 +1,6 @@
+{{macro card(item, idx)}}
+#{{:idx}}: {{:item.Prop1}} ({{:item.PropInt}})
+{{endmacro}}
+{{for obj in objects}}
+{{>card(obj, obj.@@index)}}
+{{endfor}}

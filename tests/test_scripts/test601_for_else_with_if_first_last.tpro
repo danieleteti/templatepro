@@ -1,0 +1,13 @@
+{{for obj in objects}}
+{{if obj.@@first}}
+<table>
+<tbody>
+{{endif}}
+<tr><td>{{:obj.Prop1}}</td></tr>
+{{if obj.@@last}}
+</tbody>
+</table>
+{{endif}}
+{{else}}
+<p>No items.</p>
+{{endfor}}

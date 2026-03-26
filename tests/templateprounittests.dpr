@@ -716,6 +716,264 @@ begin
   WriteLn('TestCompiledFileBinaryEquality'.PadRight(45) + ' : OK');
 end;
 
+procedure TestOnGetIncludedTemplate_StaticInclude;
+// Tests OnGetIncludedTemplate callback for static includes at compile time
+var
+  lCompiler: TTProCompiler;
+  lCompiledTmpl: ITProCompiledTemplate;
+  lOutput: string;
+  lCallbackCalled: Boolean;
+  lRequestedTemplate: string;
+begin
+  lCallbackCalled := False;
+  lRequestedTemplate := '';
+
+  lCompiler := TTProCompiler.Create();
+  try
+    // Set up callback to provide template content from memory
+    lCompiler.OnGetIncludedTemplate :=
+      procedure(const TemplateName: string; var TemplateContent: string; var Handled: Boolean)
+      begin
+        lCallbackCalled := True;
+        lRequestedTemplate := TemplateName;
+        if TemplateName = 'header.tpro' then
+        begin
+          TemplateContent := '<header>{{:title}}</header>';
+          Handled := True;
+        end
+        else
+          Handled := False;
+      end;
+
+    // Template with static include
+    lCompiledTmpl := lCompiler.Compile('{{include "header.tpro"}}<body>Content</body>');
+    lCompiledTmpl.SetData('title', 'My Page');
+    lOutput := lCompiledTmpl.Render;
+
+    Assert(lCallbackCalled, 'Callback should have been called');
+    Assert(lRequestedTemplate = 'header.tpro', 'Wrong template name requested: ' + lRequestedTemplate);
+    Assert(lOutput = '<header>My Page</header><body>Content</body>',
+      'Unexpected output: ' + lOutput);
+  finally
+    lCompiler.Free;
+  end;
+
+  WriteLn('TestOnGetIncludedTemplate_StaticInclude'.PadRight(45) + ' : OK');
+end;
+
+procedure TestOnGetIncludedTemplate_NestedIncludes;
+// Tests that callback is propagated to nested includes
+var
+  lCompiler: TTProCompiler;
+  lCompiledTmpl: ITProCompiledTemplate;
+  lOutput: string;
+  lTemplatesRequested: TArray<string>;
+begin
+  SetLength(lTemplatesRequested, 0);
+
+  lCompiler := TTProCompiler.Create();
+  try
+    lCompiler.OnGetIncludedTemplate :=
+      procedure(const TemplateName: string; var TemplateContent: string; var Handled: Boolean)
+      begin
+        SetLength(lTemplatesRequested, Length(lTemplatesRequested) + 1);
+        lTemplatesRequested[High(lTemplatesRequested)] := TemplateName;
+
+        if TemplateName = 'outer.tpro' then
+        begin
+          // This template includes another template
+          TemplateContent := 'OUTER[{{include "inner.tpro"}}]OUTER';
+          Handled := True;
+        end
+        else if TemplateName = 'inner.tpro' then
+        begin
+          TemplateContent := 'INNER';
+          Handled := True;
+        end
+        else
+          Handled := False;
+      end;
+
+    lCompiledTmpl := lCompiler.Compile('START{{include "outer.tpro"}}END');
+    lOutput := lCompiledTmpl.Render;
+
+    Assert(Length(lTemplatesRequested) = 2, 'Expected 2 template requests, got: ' + Length(lTemplatesRequested).ToString);
+    Assert(lTemplatesRequested[0] = 'outer.tpro', 'First request should be outer.tpro');
+    Assert(lTemplatesRequested[1] = 'inner.tpro', 'Second request should be inner.tpro');
+    Assert(lOutput = 'STARTOUTER[INNER]OUTEREND', 'Unexpected output: ' + lOutput);
+  finally
+    lCompiler.Free;
+  end;
+
+  WriteLn('TestOnGetIncludedTemplate_NestedIncludes'.PadRight(45) + ' : OK');
+end;
+
+procedure TestOnGetIncludedTemplate_NotHandled;
+// Tests that when callback sets Handled=False, the system falls back to file loading
+// This test will fail gracefully since we don't have the file, but it verifies the callback behavior
+var
+  lCompiler: TTProCompiler;
+  lCallbackCalled: Boolean;
+  lHandledValue: Boolean;
+begin
+  lCallbackCalled := False;
+  lHandledValue := False;
+
+  lCompiler := TTProCompiler.Create();
+  try
+    lCompiler.OnGetIncludedTemplate :=
+      procedure(const TemplateName: string; var TemplateContent: string; var Handled: Boolean)
+      begin
+        lCallbackCalled := True;
+        // Don't handle - let it fall back to file system
+        Handled := False;
+        lHandledValue := Handled;
+      end;
+
+    // This should call the callback, then try to load from file (which will fail)
+    try
+      lCompiler.Compile('{{include "nonexistent.tpro"}}');
+      Assert(False, 'Should have raised an exception for missing file');
+    except
+      on E: Exception do
+      begin
+        Assert(lCallbackCalled, 'Callback should have been called before file fallback');
+        Assert(not lHandledValue, 'Handled should be False');
+        Assert(Pos('nonexistent.tpro', E.Message) > 0, 'Error should mention the file name');
+      end;
+    end;
+  finally
+    lCompiler.Free;
+  end;
+
+  WriteLn('TestOnGetIncludedTemplate_NotHandled'.PadRight(45) + ' : OK');
+end;
+
+procedure TestOnGetDynamicallyIncludedTemplate;
+// Tests OnGetDynamicallyIncludedTemplate callback for dynamic includes at runtime
+var
+  lCompiler: TTProCompiler;
+  lCompiledTmpl: ITProCompiledTemplate;
+  lOutput: string;
+  lCallbackCalled: Boolean;
+  lRequestedTemplate: string;
+begin
+  lCallbackCalled := False;
+  lRequestedTemplate := '';
+
+  lCompiler := TTProCompiler.Create();
+  try
+    // Compile template with dynamic include
+    lCompiledTmpl := lCompiler.Compile('Before{{include @(templateName)}}After');
+
+    // Set up runtime callback for dynamic includes
+    lCompiledTmpl.OnGetDynamicallyIncludedTemplate :=
+      procedure(const TemplateName: string; var TemplateContent: string; var Handled: Boolean)
+      begin
+        lCallbackCalled := True;
+        lRequestedTemplate := TemplateName;
+        if TemplateName = 'dynamic_content.tpro' then
+        begin
+          TemplateContent := '[DYNAMIC:{{:value}}]';
+          Handled := True;
+        end
+        else
+          Handled := False;
+      end;
+
+    lCompiledTmpl.SetData('templateName', 'dynamic_content.tpro');
+    lCompiledTmpl.SetData('value', 'Hello');
+    lOutput := lCompiledTmpl.Render;
+
+    Assert(lCallbackCalled, 'Dynamic callback should have been called');
+    Assert(lRequestedTemplate = 'dynamic_content.tpro', 'Wrong template name: ' + lRequestedTemplate);
+    Assert(lOutput = 'Before[DYNAMIC:Hello]After', 'Unexpected output: ' + lOutput);
+  finally
+    lCompiler.Free;
+  end;
+
+  WriteLn('TestOnGetDynamicallyIncludedTemplate'.PadRight(45) + ' : OK');
+end;
+
+procedure TestOnGetIncludedTemplate_WithExtends;
+// Tests OnGetIncludedTemplate callback with extends directive
+var
+  lCompiler: TTProCompiler;
+  lCompiledTmpl: ITProCompiledTemplate;
+  lOutput: string;
+  lTemplatesRequested: TArray<string>;
+begin
+  SetLength(lTemplatesRequested, 0);
+
+  lCompiler := TTProCompiler.Create();
+  try
+    lCompiler.OnGetIncludedTemplate :=
+      procedure(const TemplateName: string; var TemplateContent: string; var Handled: Boolean)
+      begin
+        SetLength(lTemplatesRequested, Length(lTemplatesRequested) + 1);
+        lTemplatesRequested[High(lTemplatesRequested)] := TemplateName;
+
+        if TemplateName = 'layout.tpro' then
+        begin
+          TemplateContent := '<html>{{block "content"}}DEFAULT{{endblock}}</html>';
+          Handled := True;
+        end
+        else
+          Handled := False;
+      end;
+
+    // Child template that extends a layout
+    lCompiledTmpl := lCompiler.Compile('{{extends "layout.tpro"}}{{block "content"}}CHILD CONTENT{{endblock}}');
+    lOutput := lCompiledTmpl.Render;
+
+    Assert(Length(lTemplatesRequested) = 1, 'Expected 1 template request for extends');
+    Assert(lTemplatesRequested[0] = 'layout.tpro', 'Should request layout.tpro');
+    Assert(lOutput = '<html>CHILD CONTENT</html>', 'Unexpected output: ' + lOutput);
+  finally
+    lCompiler.Free;
+  end;
+
+  WriteLn('TestOnGetIncludedTemplate_WithExtends'.PadRight(45) + ' : OK');
+end;
+
+procedure TestOnGetIncludedTemplate_MultipleTemplates;
+// Tests callback with multiple different templates
+var
+  lCompiler: TTProCompiler;
+  lCompiledTmpl: ITProCompiledTemplate;
+  lOutput: string;
+begin
+  lCompiler := TTProCompiler.Create();
+  try
+    lCompiler.OnGetIncludedTemplate :=
+      procedure(const TemplateName: string; var TemplateContent: string; var Handled: Boolean)
+      begin
+        Handled := True;
+        if TemplateName = 'header.tpro' then
+          TemplateContent := '<header/>'
+        else if TemplateName = 'footer.tpro' then
+          TemplateContent := '<footer/>'
+        else if TemplateName = 'sidebar.tpro' then
+          TemplateContent := '<sidebar/>'
+        else
+          Handled := False;
+      end;
+
+    lCompiledTmpl := lCompiler.Compile(
+      '{{include "header.tpro"}}' +
+      '<main>{{include "sidebar.tpro"}}Content</main>' +
+      '{{include "footer.tpro"}}');
+    lOutput := lCompiledTmpl.Render;
+
+    Assert(lOutput = '<header/><main><sidebar/>Content</main><footer/>',
+      'Unexpected output: ' + lOutput);
+  finally
+    lCompiler.Free;
+  end;
+
+  WriteLn('TestOnGetIncludedTemplate_MultipleTemplates'.PadRight(45) + ' : OK');
+end;
+
 procedure Main;
 var
   lTPro: TTProCompiler;
@@ -1100,6 +1358,13 @@ begin
       TestExpressionInTemplate;
       TestExpressionWithFilters;
       TestExpressionInIf;
+      // Tests for OnGetIncludedTemplate callback
+      TestOnGetIncludedTemplate_StaticInclude;
+      TestOnGetIncludedTemplate_NestedIncludes;
+      TestOnGetIncludedTemplate_NotHandled;
+      TestOnGetDynamicallyIncludedTemplate;
+      TestOnGetIncludedTemplate_WithExtends;
+      TestOnGetIncludedTemplate_MultipleTemplates;
     end;
     Main;
   except

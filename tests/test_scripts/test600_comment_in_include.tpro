@@ -1,0 +1,5 @@
+Comment in include test:
+{{for obj in objects}}
+{{include "included_with_comment.tpro"}}
+{{endfor}}
+Done

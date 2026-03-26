@@ -1,0 +1,7 @@
+﻿No space: DANIELE2
+Space before pipe: DANIELE2
+Space after pipe: DANIELE2
+Spaces both: DANIELE2
+Chained with spaces:        DANIELE2
+Set with space: X=DANIELE2
+If with space: YES

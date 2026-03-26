@@ -1,0 +1,6 @@
+{{macro row(item)}}
+[{{:item.Prop1}} | {{:item.Prop2}}]
+{{endmacro}}
+{{for obj in objects}}
+{{>row(obj)}}
+{{endfor}}

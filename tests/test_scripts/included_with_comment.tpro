@@ -1,0 +1,2 @@
+{{# This comment should not appear in output }}
+- {{:obj.Prop1}} / {{:obj.Prop2}}

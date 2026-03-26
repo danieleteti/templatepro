@@ -1,0 +1,7 @@
+No space: {{:value2|uppercase}}
+Space before pipe: {{:value2 |uppercase}}
+Space after pipe: {{:value2| uppercase}}
+Spaces both: {{:value2 | uppercase}}
+Chained with spaces: {{:value2 | uppercase | lpad,15}}
+Set with space: {{set x := value2 | uppercase}}X={{:x}}
+If with space: {{if value2 | uppercase}}YES{{endif}}
