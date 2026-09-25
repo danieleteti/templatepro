@@ -33,6 +33,7 @@ uses
   System.Classes,
   System.StrUtils,
   System.DateUtils,
+  System.Diagnostics,
   Data.DB,
   UtilsU in 'UtilsU.pas',
   TemplatePro in '..\TemplatePro.pas',
@@ -974,6 +975,488 @@ begin
   WriteLn('TestOnGetIncludedTemplate_MultipleTemplates'.PadRight(45) + ' : OK');
 end;
 
+var
+  gCallerObjectDestroyed: Boolean = False;
+
+type
+  TCallerOwnedObject = class
+  public
+    destructor Destroy; override;
+  end;
+
+destructor TCallerOwnedObject.Destroy;
+begin
+  gCallerObjectDestroyed := True;
+  inherited;
+end;
+
+procedure TestRenderDoesNotFreeCallerObjects;
+// The object passed with SetData belongs to the caller: rendering it through a filter
+// that returns it unchanged (e.g. "default") must not destroy it.
+var
+  lCompiler: TTProCompiler;
+  lTemplate: ITProCompiledTemplate;
+  lObj: TCallerOwnedObject;
+begin
+  gCallerObjectDestroyed := False;
+  lObj := TCallerOwnedObject.Create;
+  try
+    lCompiler := TTProCompiler.Create;
+    try
+      lTemplate := lCompiler.Compile('{{:obj|default,"none"}}');
+      lTemplate.SetData('obj', lObj);
+      lTemplate.Render;
+      lTemplate := nil;
+    finally
+      lCompiler.Free;
+    end;
+    Assert(not gCallerObjectDestroyed, 'Render destroyed an object owned by the caller');
+  finally
+    if not gCallerObjectDestroyed then
+      lObj.Free;
+  end;
+  WriteLn('TestRenderDoesNotFreeCallerObjects'.PadRight(45) + ' : OK');
+end;
+
+type
+  TFilterCreatedObject = class
+  public
+    class var LiveCount: Integer;
+    constructor Create;
+    destructor Destroy; override;
+    function ToString: string; override;
+  end;
+
+constructor TFilterCreatedObject.Create;
+begin
+  inherited;
+  Inc(LiveCount);
+end;
+
+destructor TFilterCreatedObject.Destroy;
+begin
+  Dec(LiveCount);
+  inherited;
+end;
+
+function TFilterCreatedObject.ToString: string;
+begin
+  Result := 'NEWOBJ';
+end;
+
+procedure TestFilterObjectOwnership;
+// Objects created by a custom filter belong to the engine and must be freed (no leaks in long-running
+// processes); objects coming from SetData belong to the caller and must never be freed.
+var
+  lCompiler: TTProCompiler;
+  lObj: TCallerOwnedObject;
+
+  procedure Check(const aTemplate, aExpected: string);
+  var
+    lTemplate: ITProCompiledTemplate;
+    lOutput: string;
+  begin
+    TFilterCreatedObject.LiveCount := 0;
+    gCallerObjectDestroyed := False;
+    lTemplate := lCompiler.Compile(aTemplate);
+    lTemplate.AddFilter('newobj',
+      function(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue
+      begin
+        Result := TFilterCreatedObject.Create;
+      end);
+    lTemplate.AddFilter('same',
+      function(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue
+      begin
+        Result := aValue;
+      end);
+    lTemplate.AddFilter('describe',
+      function(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue
+      begin
+        Result := 'described:' + aValue.AsObject.ToString;
+      end);
+    lTemplate.AddFilter('boom',
+      function(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue
+      begin
+        raise Exception.Create('boom');
+      end);
+    lTemplate.SetData('obj', lObj);
+    lTemplate.SetData('n', 1);
+    lTemplate.SetData('empty', '');
+    try
+      lOutput := lTemplate.Render;
+    except
+      on E: ETProRenderException do
+        lOutput := 'ERROR';
+    end;
+    Assert(StartsStr(aExpected, lOutput), aTemplate + ' - expected "' + aExpected + '...", got "' + lOutput + '"');
+    Assert(TFilterCreatedObject.LiveCount = 0,
+      Format('%s - %d filter-created object(s) leaked after Render', [aTemplate, TFilterCreatedObject.LiveCount]));
+    lTemplate := nil;
+    Assert(not gCallerObjectDestroyed, aTemplate + ' - caller-owned object destroyed');
+  end;
+
+begin
+  lObj := TCallerOwnedObject.Create;
+  try
+    lCompiler := TTProCompiler.Create;
+    try
+      // an object is rendered as "(TClassName @ address)", hence the prefix match
+      Check('{{:n|newobj}}', '(TFilterCreatedObject @');                  // output
+      Check('{{@n + 1|newobj}}', '(TFilterCreatedObject @');              // expression output
+      Check('{{:n|newobj|describe}}', 'described:NEWOBJ');                // intermediate value in a chain
+      Check('{{:n|newobj|same|describe}}', 'described:NEWOBJ');           // passed through, then consumed
+      Check('{{if n|newobj}}yes{{endif}}', 'yes');                        // condition
+      Check('{{set x := n|newobj}}{{:x|describe}}', 'described:NEWOBJ');  // set variable
+      Check('{{macro m(p)}}{{:p|newobj}}{{endmacro}}{{>m(n)}}', '(TFilterCreatedObject @'); // macro body
+      Check('{{:obj|same|describe}}', 'described:' + lObj.ToString);      // caller object through custom filter
+      Check('{{:empty|default,obj|describe}}', 'described:' + lObj.ToString); // caller object from "default"
+      Check('{{:n|newobj|boom}}', 'ERROR');                               // filter fails on an engine-owned value
+      Check('{{set x := n|newobj}}{{:x|boom}}', 'ERROR');                 // render fails after a set
+    finally
+      lCompiler.Free;
+    end;
+  finally
+    if not gCallerObjectDestroyed then
+      lObj.Free;
+  end;
+  WriteLn('TestFilterObjectOwnership'.PadRight(45) + ' : OK');
+end;
+
+procedure TestRenderStateResetAfterFailure;
+// A compiled template is reused across renders (caches, ViewCache): a render that fails inside
+// {{autoescape false}} and inside a {{for}} must not leak that state into the next render.
+var
+  lCompiler: TTProCompiler;
+  lTemplate: ITProCompiledTemplate;
+  lItems: TObjectList<TObject>;
+  lRaised: Boolean;
+  lOutput: string;
+begin
+  lItems := TObjectList<TObject>.Create(True);
+  try
+    lItems.Add(TObject.Create);
+    lCompiler := TTProCompiler.Create;
+    try
+      lTemplate := lCompiler.Compile(
+        '[{{:v}}]{{autoescape false}}{{for c in items}}{{if fail}}{{:c|boom}}{{endif}}{{endfor}}{{endautoescape}}[{{:c}}]');
+    finally
+      lCompiler.Free;
+    end;
+    lTemplate.AddFilter('boom',
+      function(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue
+      begin
+        raise Exception.Create('boom');
+      end);
+    lTemplate.SetData('v', '<b>');
+    lTemplate.SetData('items', lItems);
+
+    lTemplate.SetData('fail', True);
+    lRaised := False;
+    try
+      lTemplate.Render;
+    except
+      on E: ETProRenderException do
+        lRaised := True;
+    end;
+    Assert(lRaised, 'First render should fail');
+
+    lTemplate.SetData('fail', False);
+    lOutput := lTemplate.Render;
+    Assert(lOutput = '[&lt;b&gt;][]', 'State leaked from the failed render: "' + lOutput + '"');
+    lTemplate := nil;
+  finally
+    lItems.Free;
+  end;
+  WriteLn('TestRenderStateResetAfterFailure'.PadRight(45) + ' : OK');
+end;
+
+procedure TestExpressionNestingLimit;
+// Deeply nested expressions must fail with a normal exception instead of overflowing the stack
+var
+  lCompiler: TTProCompiler;
+  lTemplate: ITProCompiledTemplate;
+  lRaised: Boolean;
+
+  function Nested(const aDepth: Integer; const aOpen, aInner, aClose: string): string;
+  begin
+    Result := DupeString(aOpen, aDepth) + aInner + DupeString(aClose, aDepth);
+  end;
+
+begin
+  lCompiler := TTProCompiler.Create;
+  try
+    // reasonable nesting keeps working
+    lTemplate := lCompiler.Compile('{{@' + Nested(50, '(', '1', ')') + '}}');
+    Assert(lTemplate.Render = '1', 'Nesting of 50 must work');
+
+    for var lExpr in [Nested(100000, '(', '1', ')'), Nested(100000, '-', '1', ''),
+      Nested(100000, 'IF true THEN ', '1', ' ELSE 0')] do
+    begin
+      lTemplate := lCompiler.Compile('{{@' + lExpr + '}}');
+      lRaised := False;
+      try
+        lTemplate.Render;
+      except
+        on E: Exception do
+        begin
+          lRaised := True;
+          Assert(ContainsText(E.Message, 'nesting'), 'Unexpected message: ' + E.Message);
+        end;
+      end;
+      Assert(lRaised, 'Deep nesting not rejected: ' + Copy(lExpr, 1, 20));
+    end;
+    lTemplate := nil;
+  finally
+    lCompiler.Free;
+  end;
+  WriteLn('TestExpressionNestingLimit'.PadRight(45) + ' : OK');
+end;
+
+procedure TestRenderNestingLimit;
+// Unbounded recursion through macros or dynamic includes must fail with ETProRenderException,
+// while legitimate recursion (e.g. rendering a tree) keeps working
+var
+  lCompiler: TTProCompiler;
+  lTemplate: ITProCompiledTemplate;
+  lRoot, lNode: TJDOJsonObject;
+  I: Integer;
+  lExpected: string;
+
+  procedure AssertTooDeep(const aTemplate: ITProCompiledTemplate; const aCase: string);
+  var
+    lRaised: Boolean;
+  begin
+    lRaised := False;
+    try
+      aTemplate.Render;
+    except
+      on E: ETProRenderException do
+      begin
+        lRaised := True;
+        Assert(ContainsText(E.Message, 'nesting'), aCase + ' - unexpected message: ' + E.Message);
+      end;
+    end;
+    Assert(lRaised, aCase + ' - unbounded recursion not stopped');
+  end;
+
+begin
+  lCompiler := TTProCompiler.Create;
+  lRoot := TJDOJsonObject.Create;
+  try
+    // legitimate: a 50-level tree rendered by a recursive macro
+    lNode := lRoot;
+    lExpected := '';
+    for I := 1 to 50 do
+    begin
+      lNode.S['name'] := I.ToString;
+      lExpected := lExpected + I.ToString + ';';
+      if I < 50 then
+        lNode := lNode.O['child'];
+    end;
+    lTemplate := lCompiler.Compile(
+      '{{macro node(n)}}{{:n.name}};{{if n.child}}{{>node(n.child)}}{{endif}}{{endmacro}}{{>node(root)}}');
+    lTemplate.SetData('root', lRoot);
+    Assert(lTemplate.Render = lExpected, 'A 50-level recursive macro must render');
+
+    // a macro calling itself forever
+    lTemplate := lCompiler.Compile('{{macro m()}}x{{>m()}}{{endmacro}}{{>m()}}');
+    AssertTooDeep(lTemplate, 'Recursive macro');
+
+    // a dynamic include including itself forever
+    lTemplate := lCompiler.Compile('x{{include @(page)}}');
+    lTemplate.OnGetDynamicallyIncludedTemplate :=
+      procedure(const TemplateName: string; var TemplateContent: string; var Handled: Boolean)
+      begin
+        TemplateContent := 'x{{include @(page)}}';
+        Handled := True;
+      end;
+    lTemplate.SetData('page', 'self.tpro');
+    AssertTooDeep(lTemplate, 'Recursive dynamic include');
+    lTemplate := nil;
+  finally
+    lRoot.Free;
+    lCompiler.Free;
+  end;
+  WriteLn('TestRenderNestingLimit'.PadRight(45) + ' : OK');
+end;
+
+procedure TestHTMLEncodeLinearTime;
+// HTML-encoding must be linear: 40,000 escapable chars took ~2s (and 80,000 ~60s) with the old implementation
+const
+  CHAR_COUNT = 40000;
+var
+  lStopWatch: TStopwatch;
+  lEncoded: string;
+begin
+  lStopWatch := TStopwatch.StartNew;
+  lEncoded := HTMLEncode(StringOfChar('<', CHAR_COUNT));
+  lStopWatch.Stop;
+  Assert(lEncoded = DupeString('&lt;', CHAR_COUNT), 'HTMLEncode produced a wrong result');
+  Assert(lStopWatch.ElapsedMilliseconds < 500,
+    Format('HTMLEncode of %d chars took %d ms', [CHAR_COUNT, lStopWatch.ElapsedMilliseconds]));
+  WriteLn('TestHTMLEncodeLinearTime'.PadRight(45) + ' : OK');
+end;
+
+procedure TestIncludeCycleDetected;
+// A template that (directly or indirectly) includes itself must raise a compiler error, not overflow the stack
+var
+  lCompiler: TTProCompiler;
+  lRaised: Boolean;
+begin
+  lCompiler := TTProCompiler.Create;
+  try
+    lCompiler.OnGetIncludedTemplate :=
+      procedure(const TemplateName: string; var TemplateContent: string; var Handled: Boolean)
+      begin
+        if SameText(TemplateName, 'a.tpro') then
+          TemplateContent := 'A{{include "b.tpro"}}'
+        else
+          TemplateContent := 'B{{include "a.tpro"}}';
+        Handled := True;
+      end;
+    lRaised := False;
+    try
+      lCompiler.Compile('{{include "a.tpro"}}');
+    except
+      on E: ETProCompilerException do
+      begin
+        lRaised := True;
+        Assert(ContainsText(E.Message, 'Circular include'), 'Unexpected message: ' + E.Message);
+      end;
+    end;
+    Assert(lRaised, 'Circular include not detected');
+  finally
+    lCompiler.Free;
+  end;
+  WriteLn('TestIncludeCycleDetected'.PadRight(45) + ' : OK');
+end;
+
+procedure TestDynamicIncludeRootPath;
+// IncludeRootPath (opt-in) confines file-system dynamic includes to a folder.
+// When empty (default) the v1.1 behaviour is unchanged.
+var
+  lRoot, lTemplatesDir: string;
+  lCompiler: TTProCompiler;
+  lTemplate: ITProCompiledTemplate;
+  lRaised: Boolean;
+
+  function NewTemplate: ITProCompiledTemplate;
+  begin
+    Result := lCompiler.Compile('[{{include @(page)}}]', TPath.Combine(lTemplatesDir, 'main.tpro'));
+  end;
+
+begin
+  lRoot := TPath.GetFullPath(TPath.Combine('output', 'includeroot'));
+  lTemplatesDir := TPath.Combine(lRoot, 'templates');
+  TDirectory.CreateDirectory(lTemplatesDir);
+  TFile.WriteAllText(TPath.Combine(lRoot, 'secret.txt'), 'SECRET');
+  TFile.WriteAllText(TPath.Combine(lTemplatesDir, 'allowed.tpro'), 'ALLOWED');
+  lCompiler := TTProCompiler.Create;
+  try
+    // default: no restriction (v1.1 compatible)
+    lTemplate := NewTemplate;
+    lTemplate.SetData('page', '..\secret.txt');
+    Assert(lTemplate.Render = '[SECRET]', 'Default behaviour must stay unrestricted');
+
+    // restricted: a file inside the root is allowed
+    lTemplate := NewTemplate;
+    lTemplate.IncludeRootPath := lTemplatesDir;
+    lTemplate.SetData('page', 'allowed.tpro');
+    Assert(lTemplate.Render = '[ALLOWED]', 'Include inside root must work');
+
+    // restricted: traversal and absolute paths outside the root are rejected
+    for var lPage in ['..\secret.txt', TPath.Combine(lRoot, 'secret.txt'), '..\templates2\x.tpro'] do
+    begin
+      lTemplate := NewTemplate;
+      lTemplate.IncludeRootPath := lTemplatesDir;
+      lTemplate.SetData('page', lPage);
+      lRaised := False;
+      try
+        lTemplate.Render;
+      except
+        on E: ETProRenderException do
+        begin
+          lRaised := True;
+          Assert(ContainsText(E.Message, 'outside'), 'Unexpected message: ' + E.Message);
+        end;
+      end;
+      Assert(lRaised, 'Dynamic include outside IncludeRootPath was not rejected: ' + lPage);
+    end;
+    lTemplate := nil;
+  finally
+    lCompiler.Free;
+    TDirectory.Delete(lRoot, True);
+  end;
+  WriteLn('TestDynamicIncludeRootPath'.PadRight(45) + ' : OK');
+end;
+
+procedure TestLoadCorruptedCompiledTemplate;
+// A corrupted/tampered .tpc must be rejected at load time with a TemplatePro exception
+const
+  CORRUPTED_FILE = 'output\corrupted.tpc';
+var
+  lCompiler: TTProCompiler;
+  lOriginal: TBytes;
+
+  procedure AssertRejected(const aBytes: TBytes; const aCase: string);
+  var
+    lRaised: Boolean;
+  begin
+    TFile.WriteAllBytes(CORRUPTED_FILE, aBytes);
+    lRaised := False;
+    try
+      TTProCompiledTemplate.CreateFromFile(CORRUPTED_FILE);
+    except
+      on E: ETProException do
+      begin
+        lRaised := True;
+        Assert(ContainsText(E.Message, 'invalid'), aCase + ' - unexpected message: ' + E.Message);
+      end;
+    end;
+    Assert(lRaised, aCase + ' - corrupted compiled template was loaded');
+  end;
+
+var
+  lBytes: TBytes;
+begin
+  lCompiler := TTProCompiler.Create;
+  try
+    lCompiler.Compile('Hello {{:name}}').SaveToFile(CORRUPTED_FILE);
+  finally
+    lCompiler.Free;
+  end;
+  lOriginal := TFile.ReadAllBytes(CORRUPTED_FILE);
+
+  // token type out of the TTokenType range
+  lBytes := Copy(lOriginal);
+  lBytes[0] := 255;
+  AssertRejected(lBytes, 'Token type');
+
+  // Value1 length far beyond the file size
+  lBytes := Copy(lOriginal);
+  PUInt32(@lBytes[1])^ := $7FFFFFF0;
+  AssertRejected(lBytes, 'Value length');
+  TFile.Delete(CORRUPTED_FILE);
+
+  WriteLn('TestLoadCorruptedCompiledTemplate'.PadRight(45) + ' : OK');
+end;
+
+var
+  gRegressionFailed: Boolean = False;
+
+procedure RunRegressionTest(const aName: string; const aTest: TProc);
+begin
+  try
+    aTest();
+  except
+    on E: Exception do
+    begin
+      WriteLn(aName.PadRight(45) + ' : FAIL - ' + E.ClassName + ': ' + E.Message);
+      gRegressionFailed := True;
+    end;
+  end;
+end;
+
 procedure Main;
 var
   lTPro: TTProCompiler;
@@ -1365,6 +1848,18 @@ begin
       TestOnGetDynamicallyIncludedTemplate;
       TestOnGetIncludedTemplate_WithExtends;
       TestOnGetIncludedTemplate_MultipleTemplates;
+      // Regression tests for critical issues found in the v1.1 review
+      RunRegressionTest('TestRenderDoesNotFreeCallerObjects', TestRenderDoesNotFreeCallerObjects);
+      RunRegressionTest('TestFilterObjectOwnership', TestFilterObjectOwnership);
+      RunRegressionTest('TestRenderStateResetAfterFailure', TestRenderStateResetAfterFailure);
+      RunRegressionTest('TestExpressionNestingLimit', TestExpressionNestingLimit);
+      RunRegressionTest('TestRenderNestingLimit', TestRenderNestingLimit);
+      RunRegressionTest('TestHTMLEncodeLinearTime', TestHTMLEncodeLinearTime);
+      RunRegressionTest('TestIncludeCycleDetected', TestIncludeCycleDetected);
+      RunRegressionTest('TestDynamicIncludeRootPath', TestDynamicIncludeRootPath);
+      RunRegressionTest('TestLoadCorruptedCompiledTemplate', TestLoadCorruptedCompiledTemplate);
+      if gRegressionFailed then
+        Halt(1);
     end;
     Main;
   except
