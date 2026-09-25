@@ -120,6 +120,7 @@ function GetTestDataset: TDataSet;
 function GetSingleCustomerDataset: TDataSet;
 function GetEmptyDataset: TDataSet;
 function GetDatasetWithNulls: TDataSet;
+function GetFieldTypesDataset: TDataSet;
 
 implementation
 
@@ -435,6 +436,45 @@ begin
   fNullDateTime := NullDateTime;
   fNullTime := NullTime;
   fNullCurrency := NullCurrency;
+end;
+
+
+function GetFieldTypesDataset: TDataSet;
+// one record with the less common field types a template may read
+var
+  lMT: TFDMemTable;
+begin
+  lMT := TFDMemTable.Create(nil);
+  try
+    lMT.FieldDefs.Add('SI', ftShortint);
+    lMT.FieldDefs.Add('BY', ftByte);
+    lMT.FieldDefs.Add('LW', ftLongWord);
+    lMT.FieldDefs.Add('EX', ftExtended);
+    lMT.FieldDefs.Add('GU', ftGuid, 38);
+    lMT.FieldDefs.Add('FC', ftFixedChar, 3);
+    lMT.FieldDefs.Add('FW', ftFixedWideChar, 3);
+{$IF CompilerVersion >= 37} // ftLargeUint exists since Delphi 13
+    lMT.FieldDefs.Add('LU', ftLargeUint);
+{$ENDIF}
+    lMT.Active := True;
+    lMT.Append;
+    lMT.FieldByName('SI').AsInteger := -5;
+    lMT.FieldByName('BY').AsInteger := 200;
+    lMT.FieldByName('LW').AsLongWord := 4000000000;
+    lMT.FieldByName('EX').AsExtended := 1.5;
+    lMT.FieldByName('GU').AsString := '{11111111-2222-3333-4444-555555555555}';
+    lMT.FieldByName('FC').AsString := 'abc';
+    lMT.FieldByName('FW').AsString := 'xyz';
+{$IF CompilerVersion >= 37}
+    lMT.FieldByName('LU').AsLargeUInt := 18000000000000000000;
+{$ENDIF}
+    lMT.Post;
+    lMT.First;
+    Result := lMT;
+  except
+    lMT.Free;
+    raise;
+  end;
 end;
 
 end.

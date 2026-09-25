@@ -1376,6 +1376,32 @@ begin
   WriteLn('TestExpressionErrorsAreRenderExceptions'.PadRight(45) + ' : OK');
 end;
 
+procedure TestDataSetFieldTypes;
+// dataset fields of the less common types render with their value
+var
+  lTemplate: ITProCompiledTemplate;
+  lDS: TDataSet;
+  lExpected: string;
+begin
+  lDS := GetFieldTypesDataset;
+  try
+    lTemplate := CompileStr('{{for r in ds}}{{:r.SI}}|{{:r.BY}}|{{:r.LW}}|{{:r.EX}}|{{:r.GU}}|{{:r.FC}}|{{:r.FW}}' +
+      {$IF CompilerVersion >= 37}'|{{:r.LU}}' +{$ENDIF} '{{endfor}}');
+    lTemplate.SetData('ds', lDS);
+    lExpected := '-5|200|4000000000|1.5|{11111111-2222-3333-4444-555555555555}|abc|xyz'
+      {$IF CompilerVersion >= 37} + '|18000000000000000000'{$ENDIF};
+    Assert(lTemplate.Render = lExpected, 'Unexpected: ' + lTemplate.Render);
+  finally
+    lDS.Free;
+  end;
+  // unsigned values above the signed maximum, in output and in expressions
+  lTemplate := CompileStr('{{:c}}|{{:u}}|{{@c + 1}}|{{if @(c > 3000000000)}}big{{endif}}');
+  lTemplate.SetData('c', TValue.From<Cardinal>(4000000000));
+  lTemplate.SetData('u', TValue.From<UInt64>(18000000000000000000));
+  Assert(lTemplate.Render = '4000000000|18000000000000000000|4000000001|big', 'Unsigned: ' + lTemplate.Render);
+  WriteLn('TestDataSetFieldTypes'.PadRight(45) + ' : OK');
+end;
+
 procedure TestRoundUsesTemplateFormatSettings;
 // 1.2: "round" formats with the template FormatSettings, not with the process-wide ones
 var
@@ -3220,6 +3246,7 @@ begin
       RunRegressionTest('TestFormLibraries', TestFormLibraries);
       RunRegressionTest('TestExpressionOutputUsesTemplateFormatSettings', TestExpressionOutputUsesTemplateFormatSettings);
       RunRegressionTest('TestMacroArgumentsWithFilters', TestMacroArgumentsWithFilters);
+      RunRegressionTest('TestDataSetFieldTypes', TestDataSetFieldTypes);
       if gRegressionFailed then
         Halt(1);
     end;
