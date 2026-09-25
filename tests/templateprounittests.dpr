@@ -2741,6 +2741,45 @@ end;
 var
   gRegressionFailed: Boolean = False;
 
+procedure TestCompiledTemplateBytes;
+// SaveToBytes/CreateFromBytes: an in-memory compiled template, no files involved
+const
+  UI_LIB = '{{macro panel(t)}}<{{:t}}:{{slot}}>{{endmacro}}';
+  SRC = '{{import "lib/ui.tpro" as ui}}{{stack "s"}}{{call ui.panel(v)}}{{push "s"}}P{{endpush}}X{{endcall}}';
+var
+  lTemplate, lA, lB: ITProCompiledTemplate;
+  lBytes, lBad: TBytes;
+  lExpected: string;
+  lRaised: Boolean;
+begin
+  lTemplate := CompileWith(MapResolver(['lib/ui.tpro', UI_LIB]), SRC);
+  lTemplate.SetData('v', 'V');
+  lExpected := lTemplate.Render;
+  Assert(lExpected = 'P<V:X>', 'Unexpected source render: ' + lExpected);
+  lBytes := lTemplate.SaveToBytes;
+  Assert(Length(lBytes) > 0, 'Empty bytes');
+
+  lA := TTProCompiledTemplate.CreateFromBytes(lBytes);
+  lB := TTProCompiledTemplate.CreateFromBytes(lBytes);
+  lA.SetData('v', 'V');
+  lB.SetData('v', 'W');
+  AssertRendersAs(lA, lExpected, 'Bytes round-trip');
+  AssertRendersAs(lB, 'P<W:X>', 'Second instance from the same bytes');
+  AssertRendersAs(lA, lExpected, 'First instance not affected by the second');
+
+  lBad := Copy(lBytes);
+  lBad[0] := 255;
+  lRaised := False;
+  try
+    TTProCompiledTemplate.CreateFromBytes(lBad);
+  except
+    on E: ETProException do
+      lRaised := ContainsText(E.Message, 'invalid');
+  end;
+  Assert(lRaised, 'Corrupted bytes were loaded');
+  WriteLn('TestCompiledTemplateBytes'.PadRight(45) + ' : OK');
+end;
+
 procedure RunRegressionTest(const aName: string; const aTest: TProc);
 begin
   try
@@ -3175,6 +3214,7 @@ begin
       RunRegressionTest('TestFieldsMetadata', TestFieldsMetadata);
       RunRegressionTest('TestJsonItemsAsObjects', TestJsonItemsAsObjects);
       RunRegressionTest('TestFilteredValueOutput', TestFilteredValueOutput);
+      RunRegressionTest('TestCompiledTemplateBytes', TestCompiledTemplateBytes);
       RunRegressionTest('TestContainsFilters', TestContainsFilters);
       RunRegressionTest('TestListOfSimpleValues', TestListOfSimpleValues);
       RunRegressionTest('TestFormLibraries', TestFormLibraries);

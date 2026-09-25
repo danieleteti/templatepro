@@ -98,6 +98,10 @@ type
     /// The main template source is NOT a dependency: checking it is up to the caller.
     /// </summary>
     function IsStale: Boolean;
+    /// <summary>
+    /// The compiled form (the same format written by SaveToFile), to be loaded with TTProCompiledTemplate.CreateFromBytes.
+    /// </summary>
+    function SaveToBytes: TBytes;
   end;
 
   /// <summary>
@@ -281,7 +285,12 @@ type
     procedure ForEachToken(const TokenProc: TTokenWalkProc);
     procedure ClearData;
     procedure SaveToFile(const FileName: String);
+    function SaveToBytes: TBytes;
     class function CreateFromFile(const FileName: String): ITProCompiledTemplate;
+    /// <summary>
+    /// A new, independent instance from the output of SaveToBytes. No file system access.
+    /// </summary>
+    class function CreateFromBytes(const aBytes: TBytes): ITProCompiledTemplate;
     procedure SetData(const Name: String; Value: TValue); overload;
     procedure AddFilter(const FunctionName: string; const FunctionImpl: TTProTemplateFunction); overload;
     procedure AddFilter(const FunctionName: string; const AnonFunctionImpl: TTProTemplateAnonFunction); overload;
@@ -4654,46 +4663,64 @@ begin
   fCurrentSlotFrame := -1;
 end;
 
-class function TTProCompiledTemplate.CreateFromFile(const FileName: String): ITProCompiledTemplate;
+function LoadCompiledTemplate(const aStream: TStream; const aSource: string): ITProCompiledTemplate;
 var
   lBR: TBinaryReader;
   lTokens: TList<TToken>;
+begin
+  lBR := TBinaryReader.Create(aStream, nil, False); // False = don't own stream
+  try
+    lTokens := TList<TToken>.Create;
+    try
+      try
+        while True do
+        begin
+          lTokens.Add(TToken.CreateFromBytes(lBR));
+          if lTokens.Last.TokenType = ttEOF then
+          begin
+            Break;
+          end;
+        end;
+      except
+        on E: Exception do
+        begin
+          raise ETProRenderException.CreateFmt
+            ('Cannot load compiled template from [%s][CLASS: %s][MSG: %s] - consider to delete templates cache.',
+            [aSource, E.ClassName, E.Message])
+        end;
+      end;
+      Result := TTProCompiledTemplate.Create(lTokens);
+    except
+      lTokens.Free;
+      raise;
+    end;
+  finally
+    lBR.Free;
+  end;
+end;
+
+class function TTProCompiledTemplate.CreateFromFile(const FileName: String): ITProCompiledTemplate;
+var
   lBufferedStream: TBufferedFileStream;
 begin
   // Use TBufferedFileStream for ~50% faster loading compared to TFile.ReadAllBytes + TBytesStream
   lBufferedStream := TBufferedFileStream.Create(FileName, fmOpenRead or fmShareDenyNone, 65536);
   try
-    lBR := TBinaryReader.Create(lBufferedStream, nil, False); // False = don't own stream
-    try
-      lTokens := TList<TToken>.Create;
-      try
-        try
-          while True do
-          begin
-            lTokens.Add(TToken.CreateFromBytes(lBR));
-            if lTokens.Last.TokenType = ttEOF then
-            begin
-              Break;
-            end;
-          end;
-        except
-          on E: Exception do
-          begin
-            raise ETProRenderException.CreateFmt
-              ('Cannot load compiled template from [FILE: %s][CLASS: %s][MSG: %s] - consider to delete templates cache.',
-              [FileName, E.ClassName, E.Message])
-          end;
-        end;
-        Result := TTProCompiledTemplate.Create(lTokens);
-      except
-        lTokens.Free;
-        raise;
-      end;
-    finally
-      lBR.Free;
-    end;
+    Result := LoadCompiledTemplate(lBufferedStream, 'FILE: ' + FileName);
   finally
     lBufferedStream.Free;
+  end;
+end;
+
+class function TTProCompiledTemplate.CreateFromBytes(const aBytes: TBytes): ITProCompiledTemplate;
+var
+  lStream: TBytesStream;
+begin
+  lStream := TBytesStream.Create(aBytes);
+  try
+    Result := LoadCompiledTemplate(lStream, 'BYTES');
+  finally
+    lStream.Free;
   end;
 end;
 
@@ -6874,19 +6901,44 @@ begin
   fOwnedObjects.Clear;
 end;
 
-procedure TTProCompiledTemplate.SaveToFile(const FileName: String);
+procedure SaveCompiledTemplate(const aTokens: TList<TToken>; const aStream: TStream);
 var
   lToken: TToken;
   lBW: TBinaryWriter;
 begin
-  lBW := TBinaryWriter.Create(TFileStream.Create(FileName, fmCreate or fmOpenWrite or fmShareDenyNone), nil, True);
+  lBW := TBinaryWriter.Create(aStream, nil, False);
   try
-    for lToken in fTokens do
+    for lToken in aTokens do
     begin
       lToken.SaveToBytes(lBW);
     end;
   finally
     lBW.Free;
+  end;
+end;
+
+procedure TTProCompiledTemplate.SaveToFile(const FileName: String);
+var
+  lStream: TFileStream;
+begin
+  lStream := TFileStream.Create(FileName, fmCreate or fmOpenWrite or fmShareDenyNone);
+  try
+    SaveCompiledTemplate(fTokens, lStream);
+  finally
+    lStream.Free;
+  end;
+end;
+
+function TTProCompiledTemplate.SaveToBytes: TBytes;
+var
+  lStream: TBytesStream;
+begin
+  lStream := TBytesStream.Create;
+  try
+    SaveCompiledTemplate(fTokens, lStream);
+    Result := Copy(lStream.Bytes, 0, lStream.Size);
+  finally
+    lStream.Free;
   end;
 end;
 
