@@ -1,0 +1,13 @@
+<head><link href="/dyn.css"><link href="/m.css"></head>
+<body>
+Page body
+
+
+
+
+
+<script src="/a.js"></script>
+<script src="/chart.js"></script><script>value1.1</script><script>value1.2</script><script>value1.3</script><script src="/once.js"></script>
+<var>
+[]
+</body>

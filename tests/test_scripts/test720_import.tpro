@@ -1,0 +1,9 @@
+{{import "lib/ui.tpro" as ui}}
+{{import "lib/ui.tpro" as other}}
+{{>ui.badge(value2)}}
+{{>other.badge("second alias")}}
+{{>ui.card("Title", intvalue10)}}
+{{for obj in objects}}
+{{>ui.badge(obj.Prop1)}}
+{{endfor}}
+end

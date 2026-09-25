@@ -1,0 +1,14 @@
+{{macro card(title)}}<div class="card"><h5>{{:title}}</h5><div class="body">{{slot}}</div>{{if slots.footer}}<div class="footer">{{slot "footer"}}</div>{{endif}}{{slot "note"}}no note{{endslot}}</div>{{endmacro}}
+{{macro list()}}<ul>{{slot}}</ul>{{endmacro}}
+{{call card(title=value2)}}<p>Total {{:intvalue10}}</p>{{fill "footer"}}Created {{:valuedate|datetostr}}{{endfill}}{{endcall}}
+{{>card("empty")}}
+{{call card("with note")}}{{fill "note"}}a note{{endfill}}{{endcall}}
+{{call list()}}{{for obj in objects}}<li>{{:obj.@@index}} {{:obj.Prop1|uppercase}}</li>{{endfor}}{{endcall}}
+{{for obj in objects}}
+{{call card(obj.Prop1)}}#{{:obj.@@index}}{{call list()}}<li>{{:obj.Prop2}}</li>{{endcall}}{{endcall}}
+{{endfor}}
+{{call card(title="multi")}}
+  <p>{{:value2}}</p>
+  {{fill "footer"}}F{{endfill}}
+{{endcall}}
+end

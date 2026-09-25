@@ -1,0 +1,12 @@
+
+
+<div class="card"><h5>DANIELE2</h5><div class="body"><p>Total 10</p></div><div class="footer">Created 2024-08-20</div>no note</div>
+<div class="card"><h5>empty</h5><div class="body"></div>no note</div>
+<div class="card"><h5>with note</h5><div class="body"></div>a note</div>
+<ul><li>1 VALUE1.1</li><li>2 VALUE1.2</li><li>3 VALUE1.3</li></ul>
+<div class="card"><h5>value1.1</h5><div class="body">#1<ul><li>value2.1</li></ul></div>no note</div>
+<div class="card"><h5>value1.2</h5><div class="body">#2<ul><li>value2.2</li></ul></div>no note</div>
+<div class="card"><h5>value1.3</h5><div class="body">#3<ul><li>value2.3</li></ul></div>no note</div>
+<div class="card"><h5>multi</h5><div class="body">  <p>DANIELE2</p>
+  </div><div class="footer">F</div>no note</div>
+end

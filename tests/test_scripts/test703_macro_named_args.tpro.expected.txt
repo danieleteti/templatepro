@@ -1,0 +1,14 @@
+
+<button class="primary md">Salva</button>
+<button class="danger md">Elimina</button>
+<button class="primary lg">Invia</button>
+<button class="secondary md" disabled>Attendi</button>
+<button class="primary DANIELE3">DANIELE2</button>
+<button class="primary 10">Spaces</button>
+
+x|DANIELE2|1|1.5|20
+x|DANIELE2|C|1.5|3
+value1.1|value2.1|1|1.5|20;value1.2|value2.2|1|1.5|20;value1.3|value2.3|1|1.5|20;
+
+
+i-fromouter

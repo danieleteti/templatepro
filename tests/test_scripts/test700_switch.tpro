@@ -1,0 +1,33 @@
+{{switch value2}}
+  {{case "X"}}wrong
+  {{case "DANIELE2", "Y"}}second
+  {{default}}default
+{{endswitch}}
+[{{switch intvalue1}}{{case 0}}zero{{case 1}}one{{case 2}}two{{endswitch}}]
+[{{switch intvalue10}}{{case 1, 2}}small{{default}}other:{{:intvalue10}}{{endswitch}}]
+[{{switch value2|lowercase}}{{case "daniele2"}}lower{{default}}no{{endswitch}}]
+[{{switch value3}}{{case value2}}var-wrong{{case value3}}var-ok{{endswitch}}]
+[{{switch notexists}}{{case "a"}}a{{default}}null-default{{endswitch}}]
+[{{switch notexists}}{{case "a"}}a{{endswitch}}]
+[{{switch floatvalue}}{{case 1.5}}no{{case 1234.5678}}float{{endswitch}}]
+[{{switch intvalue2}}{{case @(1+1)}}expr{{endswitch}}]
+[{{switch external.proptrue}}{{case false}}F{{case true}}T{{endswitch}}]
+[{{switch @(intvalue1 + 1)}}{{case 2}}switch-expr{{endswitch}}]
+{{for obj in objects}}
+{{switch obj.PropInt}}
+  {{case 1}}one:{{switch obj.Prop1}}{{case "value1.1"}}nested{{endswitch}}!
+  {{case 2}}two
+  {{default}}{{:obj.PropInt}}
+{{endswitch}}
+{{endfor}}
+[{{- switch intvalue1 -}}
+  {{- case 1 -}}  ws  {{- endswitch -}}  ]
+{{macro m(v)}}{{switch v}}{{case 1}}M1{{default}}Mx{{endswitch}}{{endmacro}}
+[{{>m(1)}}{{>m(5)}}]
+{{if value1}}
+{{switch intvalue2}}
+{{# comment before the first case #}}
+{{case 2}}in-if
+{{endswitch}}
+{{endif}}
+end

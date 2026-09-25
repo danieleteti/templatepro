@@ -1,0 +1,80 @@
+﻿<form action="/save" method="post" data-x=1 hx-target=#out>
+<p>
+<label for="Prop1">Prop 1</label>
+<input type="text" id="Prop1" name="Prop1" value="value1.1" required maxlength="20">
+</p>
+<p>
+<label for="PropInt">Int</label>
+<input type="number" id="PropInt" name="PropInt" value="1" class="w-25" readonly>
+</p>
+<p>
+<label for="Prop3">Notes</label>
+<textarea id="Prop3" name="Prop3" rows="2" class="big" data-a=1>value3.1</textarea>
+</p>
+<p>
+<label for="Prop2">Choose</label>
+<select id="Prop2" name="Prop2">
+<option value="">-- none --</option>
+<option value="value2.1" selected>value1.1</option>
+<option value="value2.2">value1.2</option>
+<option value="value2.3">value1.3</option>
+</select>
+</p>
+<p>
+<select id="first_name" name="first_name">
+<option value="Bruce" selected>Banner</option>
+<option value="Reed">Richards</option>
+<option value="Scott">Summers</option>
+<option value="Daniele">Teti</option>
+</select>
+</p>
+<p>
+<input type="hidden" name="PropInt" value="false">
+<label for="PropInt"><input type="checkbox" id="PropInt" name="PropInt" value="true" checked> Flag</label>
+</p>
+<p>
+<input type="date" id="NullDate" name="NullDate" value="1979-11-04">
+</p>
+<p>
+<input type="time" id="NullTime" name="NullTime" value="17:18">
+</p>
+<p>
+<input type="text" id="Missing" name="Missing" value="">
+</p>
+<p>
+<button type="submit">Save</button>
+<button type="submit" class="btn-secondary" formnovalidate>Submit</button>
+</p>
+</form>
+<p>
+<label for="Code">Code</label>
+<input type="number" id="Code" name="Code" value="1">
+</p>
+<p>
+<label for="Name">Name</label>
+<input type="text" id="Name" name="Name" value="Ford" maxlength="20">
+</p>
+<p>
+<label for="NullString">Null string</label>
+<input type="text" id="NullString" name="NullString" value="Daniele">
+</p>
+<p>
+<input type="hidden" name="NullBoolean" value="false">
+<label for="NullBoolean"><input type="checkbox" id="NullBoolean" name="NullBoolean" value="true" checked> Null boolean</label>
+</p>
+<p>
+<label for="NullInt32">Null int32</label>
+<input type="number" id="NullInt32" name="NullInt32" value="123">
+</p>
+<p>
+<label for="NullInt64">Null int64</label>
+<input type="number" id="NullInt64" name="NullInt64" value="234">
+</p>
+<p>
+<label for="NullDate">Null date</label>
+<input type="date" id="NullDate" name="NullDate" value="1979-11-04">
+</p>
+<p>
+<label for="NullDateTime">Null date time</label>
+<input type="datetime-local" id="NullDateTime" name="NullDateTime" value="1979-11-04T17:18">
+</p>

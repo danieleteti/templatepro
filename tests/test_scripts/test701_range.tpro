@@ -1,0 +1,13 @@
+{{for i in range(3)}}{{:i}},{{endfor}}
+{{for i in range(1,5)}}{{:i}},{{endfor}}
+{{for i in range(10, 0, -2)}}{{:i}},{{endfor}}
+{{for i in range(5,1)}}{{:i}},{{else}}empty{{endfor}}
+{{for i in range(0, objects.Count)}}{{:i}}={{:i.@@index}}{{if i.@@first}}F{{endif}}{{if i.@@last}}L{{endif}}{{if i.@@odd}}o{{endif}}{{if i.@@even}}e{{endif}};{{endfor}}
+{{for i in range(1, intvalue2 + 1)}}{{:i}};{{endfor}}
+{{for i in range(@(intvalue1), @(intvalue10 / 2))}}{{:i}};{{endfor}}
+{{for i in range(1,4)}}{{for j in range(1,3)}}{{:i}}{{:j}} {{endfor}}{{endfor}}
+{{for i in range(6)}}{{if i|eq,1}}{{continue}}{{endif}}{{if i|eq,4}}{{continue}}{{endif}}{{:i}}{{endfor}}
+{{for i in range(3)}}{{@i * 10}} {{endfor}}
+{{for i in range(3)}}{{for obj in objects}}{{if obj.PropInt|eq,i}}{{:obj.Prop1}}{{endif}}{{endfor}}{{endfor}}
+{{for i in range(2)}}{{:i}}{{else}}never{{endfor}}
+{{for i in range( 2 )}}{{:i}}{{endfor}}

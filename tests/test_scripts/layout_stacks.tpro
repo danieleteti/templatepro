@@ -1,0 +1,7 @@
+<head>{{macro addstyle(href)}}{{push "styles"}}<link href="{{:href}}">{{endpush}}{{endmacro}}{{stack "styles"}}</head>
+<body>
+{{block "content"}}{{endblock}}
+{{stack "scripts"}}
+{{stack value2}}
+[{{stack "empty"}}]
+</body>

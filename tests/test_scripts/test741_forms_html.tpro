@@ -1,0 +1,20 @@
+{{import "../../lib/forms_html.tpro" as f}}
+{{set formModel := obj}}
+{{call f.form("/save", attrs="data-x=1 hx-target=#out")}}
+{{>f.input("Prop1", label="Prop 1", required=true, maxlength=20)}}
+{{>f.input("PropInt", label="Int", type="number", readonly=true, placeholder="0", class="w-25")}}
+{{>f.textarea("Prop3", label="Notes", rows=2, class="big", attrs="data-a=1")}}
+{{>f.select("Prop2", objects, label="Choose", valueprop="Prop2", textprop="Prop1", empty="-- none --")}}
+{{set person := jsonarray|first}}
+{{>f.select("first_name", jsonarray, valueprop="first_name", textprop="last_name", model=person)}}
+{{>f.checkbox("PropInt", label="Flag")}}
+{{>f.input("NullDate", type="date", model=dataitemnullable)}}
+{{>f.input("NullTime", type="time", model=dataitemnullable)}}
+{{>f.input("Missing", model=nothing)}}
+{{call f.actions()}}
+{{>f.submit("Save")}}
+{{>f.submit(class="btn-secondary", attrs="formnovalidate")}}
+{{endcall}}
+{{endcall}}
+{{>f.auto(customer)}}
+{{>f.auto(dataitemnullable, exclude="NullTime, nullcurrency")}}

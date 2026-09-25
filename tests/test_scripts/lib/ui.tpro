@@ -1,0 +1,5 @@
+{{# UI library: only macros, comments and imports #}}
+{{import "icons.tpro" as ic}}
+
+{{macro badge(text)}}<span class="badge">{{:text}}</span>{{endmacro}}
+{{macro card(title, n=1)}}<div>{{>ic.star()}} {{:title}} {{>badge(n)}}</div>{{endmacro}}

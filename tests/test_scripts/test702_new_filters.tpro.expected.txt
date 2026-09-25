@@ -1,0 +1,21 @@
+trim:[padded text][]
+replace:[Dan2][a+b+c][Ax][][DANIELE3][xY]
+join:[value1.1, value1.2, value1.3][Bruce/Reed/Scott/Daniele][Banner;Richards;Summers;Teti][]
+length:[8][3][4][13][0][0]
+first/last:[D2][none]
+objects:[value1.1][value1.3]
+json:[Bruce]
+striptags:[this HTML&#345;&#353;&#269;][]
+wordwrap:[the quick
+brown fox
+jumps over
+the lazy
+dog]
+wordwrap-long:[a
+verylongwordhere
+b]
+pluralize:[item][items][items][]
+nl2br:[a&lt;b&gt;<br>c][][&amp;LT;DIV&amp;GT;THIS &amp;LT;STRONG&amp;GT;HTML&amp;LT;/STRONG&amp;GT;&amp;#345;&amp;#353;&amp;#269;&amp;LT;/DIV&amp;GT;]
+nl2br-var:[x&amp;y<br>z][x&amp;y<br>z]
+nl2br-macro:[x&amp;y<br>z][x&amp;y<br>z]
+chain:[HI]

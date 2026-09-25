@@ -1,4 +1,4 @@
-﻿1.1
+﻿1.2
 PIPPO
 pippo
 
@@ -49,10 +49,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": False 
   Customer icontains "a": False 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -73,10 +73,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -97,10 +97,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": False 
   Customer icontains "a": False 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -121,10 +121,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": False 
   Customer icontains "a": True 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -145,10 +145,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -169,10 +169,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -193,10 +193,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": False 
   Customer icontains "a": False 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -217,10 +217,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -241,10 +241,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -265,10 +265,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -289,10 +289,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -313,10 +313,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": False 
   Customer icontains "a": True 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  
@@ -337,10 +337,10 @@ intvalue0 ne intvalue1
   Customer capitalize: K&#345;&iacute;&#382;ek P&#345;emysl       
   Customer contains "a": True 
   Customer icontains "a": True 
-  Customer round 1234,5678
-  Customer round 1234,568
-  Customer round 1234,57
-  Customer round 1234,6
+  Customer round 1234.5678
+  Customer round 1234.568
+  Customer round 1234.57
+  Customer round 1234.6
   Customer round 1235
   Customer round 1200  
   Customer formatfloat 1235  

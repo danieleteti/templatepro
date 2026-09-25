@@ -1,0 +1,82 @@
+﻿<form action="/save" method="post" data-x=1 hx-target=#out>
+<div class="mb-3">
+<label for="Prop1" class="form-label">Prop 1</label>
+<input type="text" class="form-control" id="Prop1" name="Prop1" value="value1.1" required maxlength="20">
+</div>
+<div class="mb-3">
+<label for="PropInt" class="form-label">Int</label>
+<input type="number" class="form-control w-25" id="PropInt" name="PropInt" value="1" readonly>
+</div>
+<div class="mb-3">
+<label for="Prop3" class="form-label">Notes</label>
+<textarea class="form-control big" id="Prop3" name="Prop3" rows="2" data-a=1>value3.1</textarea>
+</div>
+<div class="mb-3">
+<label for="Prop2" class="form-label">Choose</label>
+<select class="form-select" id="Prop2" name="Prop2">
+<option value="">-- none --</option>
+<option value="value2.1" selected>value1.1</option>
+<option value="value2.2">value1.2</option>
+<option value="value2.3">value1.3</option>
+</select>
+</div>
+<div class="mb-3">
+<select class="form-select" id="first_name" name="first_name">
+<option value="Bruce" selected>Banner</option>
+<option value="Reed">Richards</option>
+<option value="Scott">Summers</option>
+<option value="Daniele">Teti</option>
+</select>
+</div>
+<div class="mb-3 form-check">
+<input type="hidden" name="PropInt" value="false">
+<input type="checkbox" class="form-check-input" id="PropInt" name="PropInt" value="true" checked>
+<label for="PropInt" class="form-check-label">Flag</label>
+</div>
+<div class="mb-3">
+<input type="date" class="form-control" id="NullDate" name="NullDate" value="1979-11-04">
+</div>
+<div class="mb-3">
+<input type="time" class="form-control" id="NullTime" name="NullTime" value="17:18">
+</div>
+<div class="mb-3">
+<input type="text" class="form-control" id="Missing" name="Missing" value="">
+</div>
+<div class="d-flex gap-2">
+<button type="submit" class="btn btn-primary">Save</button>
+<button type="submit" class="btn btn-primary btn-secondary" formnovalidate>Submit</button>
+</div>
+</form>
+<div class="mb-3">
+<label for="Code" class="form-label">Code</label>
+<input type="number" class="form-control" id="Code" name="Code" value="1">
+</div>
+<div class="mb-3">
+<label for="Name" class="form-label">Name</label>
+<input type="text" class="form-control" id="Name" name="Name" value="Ford" maxlength="20">
+</div>
+<div class="mb-3">
+<label for="NullString" class="form-label">Null string</label>
+<input type="text" class="form-control" id="NullString" name="NullString" value="Daniele">
+</div>
+<div class="mb-3 form-check">
+<input type="hidden" name="NullBoolean" value="false">
+<input type="checkbox" class="form-check-input" id="NullBoolean" name="NullBoolean" value="true" checked>
+<label for="NullBoolean" class="form-check-label">Null boolean</label>
+</div>
+<div class="mb-3">
+<label for="NullInt32" class="form-label">Null int32</label>
+<input type="number" class="form-control" id="NullInt32" name="NullInt32" value="123">
+</div>
+<div class="mb-3">
+<label for="NullInt64" class="form-label">Null int64</label>
+<input type="number" class="form-control" id="NullInt64" name="NullInt64" value="234">
+</div>
+<div class="mb-3">
+<label for="NullDate" class="form-label">Null date</label>
+<input type="date" class="form-control" id="NullDate" name="NullDate" value="1979-11-04">
+</div>
+<div class="mb-3">
+<label for="NullDateTime" class="form-label">Null date time</label>
+<input type="datetime-local" class="form-control" id="NullDateTime" name="NullDateTime" value="1979-11-04T17:18">
+</div>

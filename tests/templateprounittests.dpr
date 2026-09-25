@@ -32,6 +32,7 @@ uses
   System.Rtti,
   System.Classes,
   System.StrUtils,
+  System.RegularExpressions,
   System.DateUtils,
   System.Diagnostics,
   Data.DB,
@@ -1280,6 +1281,393 @@ begin
   WriteLn('TestRenderNestingLimit'.PadRight(45) + ' : OK');
 end;
 
+procedure TestCustomFilterOverridesBuiltIn;
+// 1.2: a custom filter registered with the name of a built-in replaces the built-in
+var
+  lCompiler: TTProCompiler;
+  lTemplate: ITProCompiledTemplate;
+begin
+  lCompiler := TTProCompiler.Create;
+  try
+    lTemplate := lCompiler.Compile('{{:v|uppercase}}-{{:v|lowercase}}');
+    lTemplate.AddFilter('UpperCase',
+      function(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue
+      begin
+        Result := 'custom:' + aValue.AsString;
+      end);
+    lTemplate.SetData('v', 'Abc');
+    Assert(lTemplate.Render = 'custom:Abc-abc', 'Custom filter must override the built-in: ' + lTemplate.Render);
+    lTemplate := nil;
+  finally
+    lCompiler.Free;
+  end;
+  WriteLn('TestCustomFilterOverridesBuiltIn'.PadRight(45) + ' : OK');
+end;
+
+function CompileStr(const aTemplate: string): ITProCompiledTemplate;
+var
+  lCompiler: TTProCompiler;
+begin
+  lCompiler := TTProCompiler.Create;
+  try
+    Result := lCompiler.Compile(aTemplate);
+  finally
+    lCompiler.Free;
+  end;
+end;
+
+procedure AssertRenderRaises(const aTemplate: ITProCompiledTemplate; const aMsgPart, aCase: string);
+var
+  lRaised: Boolean;
+begin
+  lRaised := False;
+  try
+    aTemplate.Render;
+  except
+    on E: ETProRenderException do
+    begin
+      lRaised := True;
+      Assert(ContainsText(E.Message, aMsgPart), aCase + ' - unexpected message: ' + E.Message);
+    end;
+    on E: Exception do
+      Assert(False, aCase + ' - expected ETProRenderException, got ' + E.ClassName + ': ' + E.Message);
+  end;
+  Assert(lRaised, aCase + ' - no exception raised');
+end;
+
+procedure AssertCompileRaises(const aTemplateSrc, aMsgPart, aCase: string);
+var
+  lRaised: Boolean;
+begin
+  lRaised := False;
+  try
+    CompileStr(aTemplateSrc);
+  except
+    on E: ETProCompilerException do
+    begin
+      lRaised := True;
+      Assert(ContainsText(E.Message, aMsgPart), aCase + ' - unexpected message: ' + E.Message);
+    end;
+    on E: Exception do
+      Assert(False, aCase + ' - expected ETProCompilerException, got ' + E.ClassName + ': ' + E.Message);
+  end;
+  Assert(lRaised, aCase + ' - no compile error raised');
+end;
+
+procedure TestExpressionErrorsAreRenderExceptions;
+// 1.2: an error inside an expression surfaces as ETProRenderException carrying the original message
+var
+  lTemplate: ITProCompiledTemplate;
+begin
+  AssertRenderRaises(CompileStr('{{@1/0}}'), 'Error evaluating expression [1/0]', 'Output expression');
+  AssertRenderRaises(CompileStr('{{if @(1/0)}}x{{endif}}'), 'Error evaluating expression [1/0]', 'If expression');
+  AssertRenderRaises(CompileStr('{{set x := @(1/0)}}'), 'Error evaluating expression [1/0]', 'Set expression');
+  AssertRenderRaises(CompileStr('{{include @(1/0)}}'), 'Error evaluating expression [1/0]', 'Dynamic include name');
+  AssertRenderRaises(CompileStr('{{@1/0|uppercase}}'), 'Error evaluating expression [1/0]', 'Expression with filter');
+  AssertRenderRaises(CompileStr('{{macro m()}}{{@1/0}}{{endmacro}}{{>m()}}'), 'Error evaluating expression [1/0]', 'Expression in macro');
+  // the original message is kept
+  lTemplate := CompileStr('{{@1/0}}');
+  try
+    lTemplate.Render;
+  except
+    on E: Exception do
+      Assert(ContainsText(E.Message, 'zero'), 'Original message lost: ' + E.Message);
+  end;
+  WriteLn('TestExpressionErrorsAreRenderExceptions'.PadRight(45) + ' : OK');
+end;
+
+procedure TestRoundUsesTemplateFormatSettings;
+// 1.2: "round" formats with the template FormatSettings, not with the process-wide ones
+var
+  lTemplate: ITProCompiledTemplate;
+  lSavedSeparator: Char;
+begin
+  lSavedSeparator := FormatSettings.DecimalSeparator;
+  FormatSettings.DecimalSeparator := ',';
+  try
+    lTemplate := CompileStr('{{:v|round,-2}}');
+    lTemplate.SetData('v', 19.5);
+    Assert(lTemplate.Render = '19.50', 'round must use the template FormatSettings, got: ' + lTemplate.Render);
+  finally
+    FormatSettings.DecimalSeparator := lSavedSeparator;
+  end;
+  WriteLn('TestRoundUsesTemplateFormatSettings'.PadRight(45) + ' : OK');
+end;
+
+procedure AssertSurvivesSaveLoad(const aTemplateSrc: string; const aSetup: TProc<ITProCompiledTemplate>; const aCase: string);
+// a compiled template saved to disk and loaded back must render the same
+const
+  TPC_FILE = 'output\roundtrip.tpc';
+var
+  lTemplate, lLoaded: ITProCompiledTemplate;
+  lExpected, lActual: string;
+begin
+  lTemplate := CompileStr(aTemplateSrc);
+  if Assigned(aSetup) then
+    aSetup(lTemplate);
+  lExpected := lTemplate.Render;
+  lTemplate.SaveToFile(TPC_FILE);
+  lLoaded := TTProCompiledTemplate.CreateFromFile(TPC_FILE);
+  if Assigned(aSetup) then
+    aSetup(lLoaded);
+  lActual := lLoaded.Render;
+  TFile.Delete(TPC_FILE);
+  Assert(lActual = lExpected, aCase + ' - loaded template renders "' + lActual + '" instead of "' + lExpected + '"');
+end;
+
+procedure TestSwitchCase;
+// 1.2: {{switch}} / {{case}} / {{default}} / {{endswitch}}
+begin
+  AssertCompileRaises('{{case "a"}}', '"case" without "switch"', 'Case outside switch');
+  AssertCompileRaises('{{default}}', '"default" without "switch"', 'Default outside switch');
+  AssertCompileRaises('{{endswitch}}', '"endswitch" without "switch"', 'Endswitch without switch');
+  AssertCompileRaises('{{switch x}}{{case 1}}a', 'expected "endswitch"', 'Missing endswitch');
+  AssertCompileRaises('{{switch x}}{{default}}d{{case 1}}a{{endswitch}}', '"case" after "default"', 'Case after default');
+  AssertCompileRaises('{{switch x}}{{default}}d{{default}}e{{endswitch}}', 'Duplicated "default"', 'Two defaults');
+  AssertCompileRaises('{{switch x}}text{{case 1}}a{{endswitch}}', 'between "switch" and the first "case"', 'Text before first case');
+  AssertCompileRaises('{{switch x}}{{:y}}{{case 1}}a{{endswitch}}', 'between "switch" and the first "case"', 'Tag before first case');
+  AssertCompileRaises('{{switch x}}{{case 1}}{{if y}}{{case 2}}{{endif}}{{endswitch}}', '"case" without "switch"', 'Case inside if');
+  AssertCompileRaises('{{switch}}{{endswitch}}', 'Expected', 'Switch without value');
+  AssertCompileRaises('{{switch x}}{{case}}{{endswitch}}', 'Expected', 'Case without value');
+  AssertSurvivesSaveLoad('{{switch v|uppercase}}{{case "A", w}}A{{case 1.5}}F{{default}}D{{endswitch}}',
+    procedure(aTemplate: ITProCompiledTemplate)
+    begin
+      aTemplate.SetData('v', 'a');
+      aTemplate.SetData('w', 'B');
+    end, 'Switch');
+  WriteLn('TestSwitchCase'.PadRight(45) + ' : OK');
+end;
+
+procedure TestForRange;
+// 1.2: {{for i in range(...)}} - Python semantics, arguments are expressions
+var
+  lTemplate: ITProCompiledTemplate;
+  lArr: TJDOJsonArray;
+begin
+  AssertRenderRaises(CompileStr('{{for i in range(1, 5, 0)}}{{:i}}{{endfor}}'), 'range step cannot be zero', 'Step zero');
+  AssertRenderRaises(CompileStr('{{for i in range(1.5)}}{{:i}}{{endfor}}'), 'integer', 'Float argument');
+  AssertRenderRaises(CompileStr('{{for i in range("a")}}{{:i}}{{endfor}}'), 'integer', 'String argument');
+  AssertCompileRaises('{{for i in range()}}{{endfor}}', 'range expects', 'No arguments');
+  AssertCompileRaises('{{for i in range(1,2,3,4)}}{{endfor}}', 'range expects', 'Too many arguments');
+  AssertCompileRaises('{{for i in range(1,2}}{{endfor}}', 'range', 'Unclosed range');
+  // a variable whose name starts with "range" is still a variable
+  lArr := TJDOJsonArray.Parse('[1,2]') as TJDOJsonArray;
+  try
+    lTemplate := CompileStr('{{for r in ranges}}{{:r}}{{endfor}}');
+    lTemplate.SetData('ranges', lArr);
+    Assert(lTemplate.Render = '12', 'Variable named ranges: ' + lTemplate.Render);
+    lTemplate := nil;
+  finally
+    lArr.Free;
+  end;
+  AssertSurvivesSaveLoad('{{for i in range(n, n + 3)}}{{:i}}{{endfor}}',
+    procedure(aTemplate: ITProCompiledTemplate)
+    begin
+      aTemplate.SetData('n', 2);
+    end, 'Range');
+  WriteLn('TestForRange'.PadRight(45) + ' : OK');
+end;
+
+procedure TestNewFilters;
+// 1.2 built-in filters: parameters from variables, line endings, ownership, wrong parameter count
+var
+  lTemplate: ITProCompiledTemplate;
+  lNames: TList<string>;
+  lItems: TObjectList<TDataItem>;
+begin
+  lNames := TList<string>.Create;
+  lItems := GetItems;
+  try
+    lNames.AddRange(['ann', 'bob', 'carl']);
+    lTemplate := CompileStr('{{:v|replace,from,to}}|{{:names|join,sep}}|{{:items|join,sep,prop}}|{{:v|wordwrap,w}}|' +
+      '{{:n|pluralize,one,many}}|{{:names|length}}|{{:names|first}}{{:names|last}}');
+    lTemplate.SetData('v', 'aa bb');
+    lTemplate.SetData('from', 'a');
+    lTemplate.SetData('to', 'x');
+    lTemplate.SetData('names', lNames);
+    lTemplate.SetData('items', lItems);
+    lTemplate.SetData('sep', '-');
+    lTemplate.SetData('prop', 'PropInt');
+    lTemplate.SetData('w', 2);
+    lTemplate.SetData('n', 1);
+    lTemplate.SetData('one', 'child');
+    lTemplate.SetData('many', 'children');
+    lTemplate.OutputLineEnding := lesCRLF;
+    Assert(lTemplate.Render = 'xx bb|ann-bob-carl|1-2-3|aa'#13#10'bb|child|3|anncarl', 'Variable parameters: ' + lTemplate.Render);
+
+    lTemplate := CompileStr('{{:v|nl2br}}');
+    lTemplate.SetData('v', 'a'#13#10'b'#13'c'#10'd');
+    Assert(lTemplate.Render = 'a<br>b<br>c<br>d', 'nl2br line endings: ' + lTemplate.Render);
+
+    // first/last never free: the element of a filter-created list stays valid until Render ends
+    lTemplate := CompileStr('{{set f := x|mklist|first}}{{:f.Prop1}}');
+    lTemplate.AddFilter('mklist',
+      function(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue
+      begin
+        Result := GetItems;
+      end);
+    Assert(lTemplate.Render = 'value1.1', 'first of a filter-created list: ' + lTemplate.Render);
+    lTemplate := nil;
+  finally
+    lItems.Free;
+    lNames.Free;
+  end;
+  AssertRenderRaises(CompileStr('{{:v|replace,"a"}}'), 'Expected 2 parameters', 'replace with 1 parameter');
+  AssertRenderRaises(CompileStr('{{:v|trim,1}}'), 'Expected 0 parameters', 'trim with 1 parameter');
+  AssertRenderRaises(CompileStr('{{:v|join}}'), 'parameters', 'join without separator');
+  AssertRenderRaises(CompileStr('{{:v|pluralize,"a"}}'), 'Expected 2 parameters', 'pluralize with 1 parameter');
+  AssertRenderRaises(CompileStr('{{:v|wordwrap}}'), 'Expected 1 parameters', 'wordwrap without width');
+  // expression and float parameters survive the compiled-template file
+  AssertSurvivesSaveLoad('{{:v|replace,@(1 + 1),"x"}}|{{:n|default,1.5}}|{{:v|nl2br}}',
+    procedure(aTemplate: ITProCompiledTemplate)
+    begin
+      aTemplate.SetData('v', 'a2'#10'b');
+    end, 'Filter parameters');
+  WriteLn('TestNewFilters'.PadRight(45) + ' : OK');
+end;
+
+procedure TestMacroNamedAndOptionalArgs;
+// 1.2: macro parameters with defaults, named arguments at call time
+const
+  MACRO_B = '{{macro b(a, size="md")}}{{:a}}{{:size}}{{endmacro}}';
+begin
+  AssertCompileRaises('{{macro b(a="x", c)}}{{endmacro}}',
+    'Macro "b": parameter "c" without default after a parameter with default', 'Required after optional');
+  AssertCompileRaises(MACRO_B + '{{>b(size="x", "y")}}', 'Positional argument after named argument', 'Positional after named');
+  AssertRenderRaises(CompileStr(MACRO_B + '{{>b("x", colour="red")}}'), 'Unknown parameter "colour" for macro "b"', 'Unknown named');
+  AssertRenderRaises(CompileStr(MACRO_B + '{{>b("x", size="lg", size="xl")}}'), 'Parameter "size" passed twice to macro "b"', 'Named twice');
+  AssertRenderRaises(CompileStr(MACRO_B + '{{>b("x", a="y")}}'), 'Parameter "a" passed twice to macro "b"', 'Positional and named');
+  AssertRenderRaises(CompileStr(MACRO_B + '{{>b(size="lg")}}'), 'Missing required parameter "a"', 'Missing required');
+  AssertSurvivesSaveLoad('{{macro m(a, b="B", c=v, d=2.5, e=true)}}{{:a}}{{:b}}{{:c}}{{:d}}{{if e}}E{{endif}}{{endmacro}}' +
+    '{{>m("x")}}/{{>m("y", c="C", e=false)}}',
+    procedure(aTemplate: ITProCompiledTemplate)
+    begin
+      aTemplate.SetData('v', 'V');
+    end, 'Macro defaults and named arguments');
+  WriteLn('TestMacroNamedAndOptionalArgs'.PadRight(45) + ' : OK');
+end;
+
+procedure TestPushStack;
+// 1.2: {{push "name"}}...{{endpush}} collects content, {{stack "name"}} emits it (even if it comes first)
+var
+  lTemplate: ITProCompiledTemplate;
+
+  function Render(const aTemplateSrc: string; const aVarName: string = ''; const aVarValue: string = ''): string;
+  begin
+    lTemplate := CompileStr(aTemplateSrc);
+    if aVarName <> '' then
+      lTemplate.SetData(aVarName, aVarValue);
+    Result := lTemplate.Render;
+  end;
+
+  procedure CheckRender(const aTemplateSrc, aExpected, aCase: string; const aVarName: string = ''; const aVarValue: string = '');
+  var
+    lActual: string;
+  begin
+    lActual := Render(aTemplateSrc, aVarName, aVarValue);
+    Assert(lActual = aExpected, aCase + ' - expected "' + aExpected + '", got "' + lActual + '"');
+  end;
+
+  procedure SetDynamicInclude(const aContent: string);
+  begin
+    lTemplate.SetData('page', 'dyn.tpro');
+    lTemplate.OnGetDynamicallyIncludedTemplate :=
+      procedure(const TemplateName: string; var TemplateContent: string; var Handled: Boolean)
+      begin
+        TemplateContent := aContent;
+        Handled := True;
+      end;
+  end;
+
+begin
+  CheckRender('{{stack "s"}}|{{push "s"}}A{{endpush}}{{push "s"}}B{{endpush}}', 'AB|', 'Stack before pushes');
+  CheckRender('{{push "s" once}}X{{endpush}}{{push "s" once}}X{{endpush}}{{push "s" once}}Y{{endpush}}{{stack "s"}}', 'XY', 'Once');
+  CheckRender('[{{stack "s"}}]', '[]', 'Empty stack');
+  CheckRender('{{push "nowhere"}}X{{endpush}}ok', 'ok', 'Push without stack');
+  CheckRender('{{stack n}}{{push "abc"}}Z{{endpush}}', 'Z', 'Stack name from a variable', 'n', 'abc');
+  CheckRender('{{stack "s"}}{{push "s"}}{{:v}}{{endpush}}', '&lt;b&gt;', 'Autoescape in push', 'v', '<b>');
+  CheckRender('{{:v}}{{stack "s"}}{{push "s"}}X{{endpush}}', '{{stack &quot;s&quot;}}X', 'Data looking like a stack', 'v', '{{stack "s"}}');
+  CheckRender('{{macro m()}}<{{stack "s"}}>{{endmacro}}{{>m()}}{{push "s"}}Q{{endpush}}', '<Q>', 'Stack in a macro');
+
+  // every render starts with empty stacks
+  lTemplate := CompileStr('{{stack "s"}}{{push "s"}}A{{endpush}}');
+  Assert((lTemplate.Render = 'A') and (lTemplate.Render = 'A'), 'Stacks not reset between renders');
+
+  // a dynamically included template pushes to the parent's stacks, and can host a stack
+  lTemplate := CompileStr('{{stack "s"}}-{{include @(page)}}');
+  SetDynamicInclude('inc{{push "s"}}P{{endpush}}');
+  Assert(lTemplate.Render = 'P-inc', 'Push from a dynamic include: ' + lTemplate.Render);
+  lTemplate := CompileStr('{{push "s"}}P{{endpush}}[{{include @(page)}}]');
+  SetDynamicInclude('H{{stack "s"}}');
+  Assert(lTemplate.Render = '[HP]', 'Stack in a dynamic include: ' + lTemplate.Render);
+  lTemplate := nil;
+
+  AssertCompileRaises('{{endpush}}', '"endpush" without "push"', 'Endpush without push');
+  AssertCompileRaises('{{push "s"}}x', 'expected "endpush"', 'Missing endpush');
+  AssertCompileRaises('{{push}}{{endpush}}', 'Expected', 'Push without name');
+  AssertCompileRaises('{{stack}}', 'Expected', 'Stack without name');
+  AssertRenderRaises(CompileStr('{{push "a"}}{{stack "s"}}{{endpush}}'), 'inside "push"', 'Stack inside push');
+  AssertSurvivesSaveLoad('<{{stack "s"}}>{{push "s" once}}A{{endpush}}{{push n}}B{{endpush}}',
+    procedure(aTemplate: ITProCompiledTemplate)
+    begin
+      aTemplate.SetData('n', 's');
+    end, 'Push and stack');
+  WriteLn('TestPushStack'.PadRight(45) + ' : OK');
+end;
+
+procedure TestRangeKeepsStringLiterals;
+// "@(" inside a string literal of a range argument is text, not the @(expr) marker
+var
+  lCompiler: TTProCompiler;
+  lTemplate: ITProCompiledTemplate;
+begin
+  lCompiler := TTProCompiler.Create;
+  try
+    lTemplate := lCompiler.Compile('{{for i in range(0, Length("@(x"))}}{{:i}}{{endfor}}|{{for i in range(@(1 + 1))}}{{:i}}{{endfor}}');
+    Assert(lTemplate.Render = '012|01', 'Unexpected output: ' + lTemplate.Render);
+    lTemplate := nil;
+  finally
+    lCompiler.Free;
+  end;
+  WriteLn('TestRangeKeepsStringLiterals'.PadRight(45) + ' : OK');
+end;
+
+procedure TestExpressionShortCircuitAndModByZero;
+// IF..THEN..ELSE evaluates only the selected branch; MOD/DIV by zero raise like "/"
+var
+  lCompiler: TTProCompiler;
+  lTemplate: ITProCompiledTemplate;
+  lRaised: Boolean;
+begin
+  lCompiler := TTProCompiler.Create;
+  try
+    lTemplate := lCompiler.Compile('[{{@IF n > 0 THEN total / n ELSE 0}}]');
+    lTemplate.SetData('n', 0);
+    lTemplate.SetData('total', 10);
+    Assert(lTemplate.Render = '[0]', 'IF must not evaluate the untaken branch: ' + lTemplate.Render);
+
+    for var lExpr in ['10 MOD 0', '10 DIV 0'] do
+    begin
+      lTemplate := lCompiler.Compile('{{@' + lExpr + '}}');
+      lRaised := False;
+      try
+        lTemplate.Render;
+      except
+        on E: ETProRenderException do
+        begin
+          lRaised := True;
+          Assert(ContainsText(E.Message, 'Division by zero'), lExpr + ' - unexpected message: ' + E.Message);
+        end;
+      end;
+      Assert(lRaised, lExpr + ' did not raise ETProRenderException');
+    end;
+    lTemplate := nil;
+  finally
+    lCompiler.Free;
+  end;
+  WriteLn('TestExpressionShortCircuitAndModByZero'.PadRight(45) + ' : OK');
+end;
+
 procedure TestHTMLEncodeLinearTime;
 // HTML-encoding must be linear: 40,000 escapable chars took ~2s (and 80,000 ~60s) with the old implementation
 const
@@ -1439,6 +1827,915 @@ begin
   TFile.Delete(CORRUPTED_FILE);
 
   WriteLn('TestLoadCorruptedCompiledTemplate'.PadRight(45) + ' : OK');
+end;
+
+function MapResolver(const aPairs: TArray<string>): TTProTemplateResolver;
+// name1, content1, name2, content2, ...
+var
+  lPairs: TArray<string>;
+begin
+  lPairs := aPairs;
+  Result := procedure(const TemplateName: string; var TemplateContent: string; var Handled: Boolean)
+    var
+      I: Integer;
+    begin
+      I := 0;
+      while I < High(lPairs) do
+      begin
+        if SameText(lPairs[I], TemplateName) then
+        begin
+          TemplateContent := lPairs[I + 1];
+          Handled := True;
+          Exit;
+        end;
+        Inc(I, 2);
+      end;
+    end;
+end;
+
+function CompileWith(const aResolver: TTProTemplateResolver; const aTemplate: string): ITProCompiledTemplate;
+var
+  lCompiler: TTProCompiler;
+begin
+  lCompiler := TTProCompiler.Create;
+  try
+    lCompiler.OnGetIncludedTemplate := aResolver;
+    Result := lCompiler.Compile(aTemplate);
+  finally
+    lCompiler.Free;
+  end;
+end;
+
+procedure AssertCompileWithRaises(const aResolver: TTProTemplateResolver; const aTemplateSrc, aMsgPart, aCase: string);
+var
+  lRaised: Boolean;
+begin
+  lRaised := False;
+  try
+    CompileWith(aResolver, aTemplateSrc);
+  except
+    on E: ETProCompilerException do
+    begin
+      lRaised := True;
+      Assert(ContainsText(E.Message, aMsgPart), aCase + ' - unexpected message: ' + E.Message);
+    end;
+    on E: Exception do
+      Assert(False, aCase + ' - expected ETProCompilerException, got ' + E.ClassName + ': ' + E.Message);
+  end;
+  Assert(lRaised, aCase + ' - no compile error raised');
+end;
+
+procedure AssertRendersAs(const aTemplate: ITProCompiledTemplate; const aExpected, aCase: string);
+var
+  lActual: string;
+begin
+  lActual := aTemplate.Render;
+  Assert(lActual = aExpected, aCase + ' - expected "' + aExpected + '", got "' + lActual + '"');
+end;
+
+procedure AssertSurvivesSaveLoadWith(const aResolver: TTProTemplateResolver; const aTemplateSrc: string; const aCase: string);
+const
+  TPC_FILE = 'output\roundtrip_with.tpc';
+var
+  lTemplate, lLoaded: ITProCompiledTemplate;
+  lExpected, lActual: string;
+begin
+  lTemplate := CompileWith(aResolver, aTemplateSrc);
+  lExpected := lTemplate.Render;
+  lTemplate.SaveToFile(TPC_FILE);
+  lLoaded := TTProCompiledTemplate.CreateFromFile(TPC_FILE);
+  lActual := lLoaded.Render;
+  TFile.Delete(TPC_FILE);
+  Assert(lActual = lExpected, aCase + ' - loaded template renders "' + lActual + '" instead of "' + lExpected + '"');
+end;
+
+procedure TestImportLibrary;
+// 1.2: {{import "file" as ns}} embeds the macros of a library as ns.<name>
+const
+  UI_LIB = '{{macro button(text)}}<b>{{:text}}</b>{{endmacro}}'#13#10 +
+    '{{# a comment #}}'#13#10 +
+    '{{import "icons.tpro" as ic}}'#13#10 +
+    '  '#13#10 +
+    '{{macro card(title)}}[{{:title}}{{>button("x")}}{{>ic.star()}}]{{endmacro}}'#13#10 +
+    '{{macro panel()}}<{{slot}}>{{endmacro}}{{macro framed()}}{{call panel()}}{{slot}}{{endcall}}{{endmacro}}';
+var
+  lRes: TTProTemplateResolver;
+begin
+  lRes := MapResolver(['lib/ui.tpro', UI_LIB,
+    'icons.tpro', '{{macro star()}}*{{endmacro}}',
+    'lib/bad.tpro', '{{macro m()}}{{endmacro}}text',
+    'lib/badset.tpro', '{{set x := 1}}{{macro m()}}{{endmacro}}',
+    'lib/self.tpro', '{{import "self.tpro" as s}}']);
+  AssertRendersAs(CompileWith(lRes, '{{import "lib/ui.tpro" as ui}}'#13#10'{{>ui.button("OK")}}|{{>ui.card("T")}}'),
+    '<b>OK</b>|[T<b>x</b>*]', 'Qualified calls, internal and nested calls');
+  AssertRendersAs(CompileWith(lRes, '{{import "lib/ui.tpro" as a}}{{import "lib/ui.tpro" as b}}{{>a.button("1")}}{{>b.button("2")}}'),
+    '<b>1</b><b>2</b>', 'Same file, two aliases');
+  AssertRendersAs(CompileWith(lRes, '{{import "lib/ui.tpro" as ui}}{{macro button(t)}}P{{endmacro}}{{>button("z")}}{{>ui.card("T")}}'),
+    'P[T<b>x</b>*]', 'Page macro with the name of a library macro');
+  AssertRendersAs(CompileWith(lRes, '{{>ui.button("late")}}{{import "lib/ui.tpro" as ui}}'),
+    '<b>late</b>', 'Library macros are available before the import tag');
+  AssertRendersAs(CompileWith(lRes, '{{import "lib/ui.tpro" as ui}}{{call ui.panel()}}P{{endcall}}{{call ui.framed()}}F{{endcall}}'),
+    '<P><F>', 'Library macros with slots');
+  AssertRenderRaises(CompileWith(lRes, '{{import "lib/ui.tpro" as ui}}{{>ic.star()}}'), 'Macro "ic.star" not defined', 'Nested import not visible');
+  AssertRenderRaises(CompileWith(lRes, '{{import "lib/ui.tpro" as ui}}{{>ui.nope()}}'), 'Macro "ui.nope" not defined', 'Unknown library macro');
+  AssertCompileWithRaises(lRes, '{{import "lib/ui.tpro" as ui}}{{import "icons.tpro" as ui}}', 'Namespace "ui" already imported', 'Duplicated alias');
+  AssertCompileWithRaises(lRes, '{{import "lib/bad.tpro" as b}}', 'Library "lib/bad.tpro" can contain only macros and imports', 'Text in library');
+  AssertCompileWithRaises(lRes, '{{import "lib/badset.tpro" as b}}', 'Library "lib/badset.tpro" can contain only macros and imports', 'Set in library');
+  AssertCompileWithRaises(lRes, '{{import "lib/self.tpro" as s}}', 'Circular', 'Circular import');
+  AssertCompileWithRaises(lRes, '{{import "lib/missing.tpro" as m}}', 'Cannot read "lib/missing.tpro"', 'Missing library');
+  AssertCompileWithRaises(lRes, '{{if v}}{{import "lib/ui.tpro" as ui}}{{endif}}', '"import" is allowed only at the top level', 'Import inside if');
+  AssertCompileWithRaises(lRes, '{{macro m()}}{{import "lib/ui.tpro" as ui}}{{endmacro}}', '"import" is allowed only at the top level', 'Import inside macro');
+  AssertCompileWithRaises(lRes, '{{import "lib/ui.tpro"}}', 'Expected "as"', 'Import without alias');
+  AssertCompileWithRaises(lRes, '{{import ui}}', 'Expected string', 'Import without a string');
+  AssertCompileRaises('{{macro a.b()}}{{endmacro}}', 'Macro name "a.b" cannot contain "."', 'Dotted page macro');
+  AssertSurvivesSaveLoadWith(lRes, '{{import "lib/ui.tpro" as ui}}{{>ui.card("T")}}', 'Import');
+  WriteLn('TestImportLibrary'.PadRight(45) + ' : OK');
+end;
+
+procedure TestSlots;
+// 1.2: {{call m(args)}}...{{endcall}} passes content to the macro, rendered by {{slot}}/{{slot "name"}}
+const
+  CARD = '{{macro card(title)}}<{{:title}}|{{slot}}|{{if slots.footer}}F:{{slot "footer"}}{{endif}}|{{slot "note"}}no note{{endslot}}>{{endmacro}}';
+  WRAP = '{{macro wrap()}}[{{slot}}]{{endmacro}}';
+var
+  lTemplate: ITProCompiledTemplate;
+
+  function T(const aSrc: string): ITProCompiledTemplate;
+  begin
+    lTemplate := CompileStr(aSrc);
+    lTemplate.SetData('v', 'V');
+    lTemplate.SetData('t', 'T');
+    lTemplate.SetData('k', 'a');
+    Result := lTemplate;
+  end;
+
+begin
+  AssertRendersAs(T(CARD + '{{call card(title=t)}}body {{:v}}{{fill "footer"}}foot {{:v|lowercase}}{{endfill}}{{endcall}}'),
+    '<T|body V|F:foot v|no note>', 'Default and named slot');
+  AssertRendersAs(T(CARD + '{{>card("T")}}'), '<T|||no note>', 'Macro called without a body');
+  AssertRendersAs(T(CARD + '{{call card("T")}}{{fill "note"}}N{{endfill}}{{endcall}}'), '<T|||N>', 'Fallback replaced');
+  AssertRendersAs(T(CARD + '{{call card("T")}}   {{fill "note"}} {{endfill}}{{endcall}}'), '<T|||no note>', 'Blank slots are not filled');
+  AssertRendersAs(T('{{macro twice()}}{{slot}}{{slot}}{{endmacro}}{{call twice()}}x{{:v}}{{endcall}}'), 'xVxV', 'Slot rendered twice');
+  AssertRendersAs(T('{{macro m()}}{{if slots.default}}Y{{else}}N{{endif}}{{endmacro}}{{call m()}}x{{endcall}}{{call m()}} {{endcall}}{{>m()}}'),
+    'YNN', 'slots.default');
+  AssertRendersAs(T(WRAP + '{{for i in range(3)}}{{call wrap()}}{{:i}}{{:i.@@index}}{{endcall}}{{endfor}}'),
+    '[01][12][23]', 'Loop variables of the caller');
+  AssertRendersAs(T('{{macro m()}}({{:v}}){{slot}}{{endmacro}}{{call m()}}{{:v}}{{endcall}}'), '()V', 'The macro does not see the caller');
+  AssertRendersAs(T('{{macro m(p)}}{{slot}}{{endmacro}}{{call m("P")}}[{{:p}}]{{endcall}}'), '[]', 'The slot does not see the macro');
+  AssertRendersAs(T(WRAP + '{{call wrap()}}{{call wrap()}}{{:v}}{{endcall}}{{endcall}}'), '[[V]]', 'Call inside a slot');
+  AssertRendersAs(T(WRAP + '{{macro outer()}}O({{call wrap()}}{{slot}}{{endcall}}){{endmacro}}{{call outer()}}{{:v}}{{endcall}}'),
+    'O([V])', 'Slot passed through a nested call');
+  AssertRendersAs(T(WRAP + '{{call wrap()}}{{>wrap()}}{{endcall}}'), '[[]]', 'Macro call inside a slot');
+  AssertRendersAs(T(WRAP + '{{stack "s"}}{{call wrap()}}{{push "s"}}P{{endpush}}X{{endcall}}'), 'P[X]', 'Push inside a slot');
+  AssertRendersAs(T(WRAP + '{{call wrap()}}{{set z := "Z"}}{{endcall}}{{:z}}'), '[]Z', 'Set inside a slot writes the caller scope');
+  AssertRendersAs(T('{{macro m(n)}}{{slot n}}|{{slot @(n + "b")}}{{endmacro}}{{call m("a")}}{{fill k}}A{{endfill}}{{fill "ab"}}B{{endfill}}{{endcall}}'),
+    'A|B', 'Slot and fill names from variables and expressions');
+  AssertRendersAs(T(WRAP + '{{call wrap()}}{{switch v}}{{case "V"}}sw{{endswitch}}{{if v}}if{{endif}}{{endcall}}'), '[swif]', 'Control flow in a slot');
+  AssertRenderRaises(T('{{macro r()}}{{call r()}}{{slot}}{{endcall}}{{endmacro}}{{call r()}}x{{endcall}}'), 'nesting too deep', 'Recursion limit');
+  AssertCompileRaises('{{fill "a"}}{{endfill}}', '"fill" must be directly inside "call"', 'Fill outside call');
+  AssertCompileRaises(WRAP + '{{call wrap()}}{{if v}}{{fill "a"}}{{endfill}}{{endif}}{{endcall}}', '"fill" must be directly inside "call"', 'Fill inside if');
+  AssertCompileRaises(WRAP + '{{call wrap()}}{{fill "a"}}{{endfill}}{{fill "A"}}{{endfill}}{{endcall}}', 'Duplicated fill "A"', 'Duplicated fill');
+  AssertCompileRaises(WRAP + '{{call wrap()}}{{fill "default"}}{{endfill}}{{endcall}}', 'reserved', 'Fill named default');
+  AssertCompileRaises('{{slot}}', '"slot" can be used only inside a macro', 'Slot outside macro');
+  AssertCompileRaises('{{macro m(a, slots)}}{{endmacro}}', 'cannot be named "slots"', 'Parameter named slots');
+  AssertCompileRaises('{{macro m(slots=1)}}{{endmacro}}', 'cannot be named "slots"', 'Optional parameter named slots');
+  AssertCompileRaises(WRAP + '{{call wrap()}}x', 'Unbalanced "call"', 'Missing endcall');
+  AssertCompileRaises('{{endcall}}', '"endcall" without "call"', 'Endcall without call');
+  AssertCompileRaises(WRAP + '{{call wrap()}}{{fill "a"}}x{{endcall}}', 'expected "endfill"', 'Missing endfill');
+  AssertCompileRaises('{{endfill}}', '"endfill" without "fill"', 'Endfill without fill');
+  AssertCompileRaises('{{macro m()}}{{endslot}}{{endmacro}}', '"endslot" without "slot"', 'Endslot without slot');
+  AssertCompileRaises('{{call}}{{endcall}}', 'Expected macro name', 'Call without name');
+  AssertSurvivesSaveLoad(CARD + '{{call card(title=t)}}b{{:v}}{{fill "footer"}}f{{endfill}}{{endcall}}{{>card("x")}}',
+    procedure(aTemplate: ITProCompiledTemplate)
+    begin
+      aTemplate.SetData('v', 'V');
+      aTemplate.SetData('t', 'T');
+    end, 'Slots');
+  // the "slots" object belongs to the macro: nothing is left behind after the call
+  lTemplate := T(WRAP + '{{call wrap()}}x{{endcall}}{{:slots}}');
+  AssertRendersAs(lTemplate, '[x]', 'No slots variable in the caller');
+  lTemplate := nil;
+  WriteLn('TestSlots'.PadRight(45) + ' : OK');
+end;
+
+procedure TestGlobalTemplateResolver;
+// 1.2: TTProConfiguration.OnGetTemplate serves static includes, extends, imports and dynamic includes.
+// Precedence: the instance resolver (if it handles the name), then the global one, then the file system.
+var
+  lCompiler: TTProCompiler;
+  lTemplate: ITProCompiledTemplate;
+begin
+  TFile.WriteAllText(TPath.Combine('output', 'fs_inc.tpro'), 'FS');
+  TTProConfiguration.OnGetTemplate := MapResolver(['g_inc.tpro', 'G-INC',
+    'g_layout.tpro', 'L[{{block "c"}}{{endblock}}]',
+    'g_lib.tpro', '{{macro m()}}GM{{endmacro}}',
+    'g_dyn.tpro', 'G-DYN{{include "g_inc.tpro"}}',
+    'both.tpro', 'GLOBAL']);
+  try
+    AssertRendersAs(CompileStr('{{include "g_inc.tpro"}}'), 'G-INC', 'Static include');
+    AssertRendersAs(CompileStr('{{extends "g_layout.tpro"}}{{block "c"}}X{{endblock}}'), 'L[X]', 'Extends');
+    AssertRendersAs(CompileStr('{{import "g_lib.tpro" as g}}{{>g.m()}}'), 'GM', 'Import');
+    lTemplate := CompileStr('{{include @(n)}}');
+    lTemplate.SetData('n', 'g_dyn.tpro');
+    AssertRendersAs(lTemplate, 'G-DYNG-INC', 'Dynamic include');
+    // the instance resolver comes first...
+    AssertRendersAs(CompileWith(MapResolver(['both.tpro', 'INSTANCE']), '{{include "both.tpro"}}'), 'INSTANCE', 'Instance first');
+    lTemplate := CompileStr('{{include @(n)}}');
+    lTemplate.SetData('n', 'both.tpro');
+    lTemplate.OnGetDynamicallyIncludedTemplate := MapResolver(['both.tpro', 'DYN-INSTANCE']);
+    AssertRendersAs(lTemplate, 'DYN-INSTANCE', 'Dynamic instance first');
+    // ...but when it does not handle the name, the global one does
+    AssertRendersAs(CompileWith(MapResolver(['other.tpro', 'X']), '{{include "both.tpro"}}'), 'GLOBAL', 'Global after instance');
+    lTemplate := CompileStr('{{include @(n)}}'); // a new one: dynamic includes are cached
+    lTemplate.SetData('n', 'both.tpro');
+    lTemplate.OnGetDynamicallyIncludedTemplate := MapResolver(['other.tpro', 'X']);
+    AssertRendersAs(lTemplate, 'GLOBAL', 'Dynamic global after instance');
+    // names nobody handles come from the file system
+    lCompiler := TTProCompiler.Create;
+    try
+      AssertRendersAs(lCompiler.Compile('{{include "fs_inc.tpro"}}', TPath.Combine('output', 'main.tpro')), 'FS', 'File system last');
+    finally
+      lCompiler.Free;
+    end;
+    lTemplate := nil;
+  finally
+    TTProConfiguration.OnGetTemplate := nil;
+    TFile.Delete(TPath.Combine('output', 'fs_inc.tpro'));
+  end;
+  WriteLn('TestGlobalTemplateResolver'.PadRight(45) + ' : OK');
+end;
+
+procedure TestIsStale;
+// 1.2: a compiled template records its dependencies (static includes, extends, imports) and knows when they changed
+var
+  lDir, lMain, lInc, lLib, lTpc: string;
+  lCompiler: TTProCompiler;
+  lTemplate, lLoaded: ITProCompiledTemplate;
+
+  function CompileMain: ITProCompiledTemplate;
+  begin
+    Result := lCompiler.Compile(TFile.ReadAllText(lMain), lMain);
+  end;
+
+  function SaveAndLoad(const aTemplate: ITProCompiledTemplate): ITProCompiledTemplate;
+  begin
+    aTemplate.SaveToFile(lTpc);
+    Result := TTProCompiledTemplate.CreateFromFile(lTpc);
+  end;
+
+begin
+  lDir := TPath.GetFullPath(TPath.Combine('output', 'stale'));
+  TDirectory.CreateDirectory(TPath.Combine(lDir, 'sub'));
+  lMain := TPath.Combine(lDir, 'main.tpro');
+  lInc := TPath.Combine(lDir, 'inc.tpro');
+  lLib := TPath.Combine(lDir, TPath.Combine('sub', 'lib.tpro'));
+  lTpc := TPath.Combine(lDir, 'main.tpc');
+  TFile.WriteAllText(lMain, '{{include "inc.tpro"}}{{import "sub/lib.tpro" as l}}{{>l.m()}}');
+  TFile.WriteAllText(lInc, 'INC');
+  TFile.WriteAllText(lLib, '{{macro m()}}M{{endmacro}}');
+  lCompiler := TTProCompiler.Create;
+  try
+    Assert(not CompileStr('no dependencies').IsStale, 'A template without dependencies is never stale');
+
+    lLoaded := SaveAndLoad(CompileMain);
+    Assert(lLoaded.Render = 'INCM', 'Unexpected render: ' + lLoaded.Render);
+    Assert(not lLoaded.IsStale, 'Just compiled: not stale');
+
+    // the main source is not a dependency: the caller checks it
+    TFile.WriteAllText(lMain, TFile.ReadAllText(lMain) + ' ');
+    Assert(not lLoaded.IsStale, 'The main template is not a dependency');
+
+    // an included file changes (content and time)
+    TFile.WriteAllText(lInc, 'INC changed');
+    TFile.SetLastWriteTime(lInc, IncHour(Now, 1));
+    Assert(lLoaded.IsStale, 'Included file changed');
+
+    // an imported file changes only its time
+    lLoaded := SaveAndLoad(CompileMain);
+    Assert(not lLoaded.IsStale, 'Recompiled: not stale');
+    TFile.SetLastWriteTime(lLib, IncHour(Now, 2));
+    Assert(lLoaded.IsStale, 'Imported file touched');
+
+    // an imported file disappears
+    lLoaded := SaveAndLoad(CompileMain);
+    TFile.Delete(lLib);
+    Assert(lLoaded.IsStale, 'Imported file deleted');
+
+    // resolver-provided dependencies follow TTProConfiguration.TemplateChanged
+    lCompiler.OnGetIncludedTemplate := MapResolver(['r_lib.tpro', '{{import "r_icons.tpro" as i}}{{macro m()}}R{{endmacro}}',
+      'r_icons.tpro', '{{macro x()}}{{endmacro}}', 'r_inc.tpro', 'RI', 'r_layout.tpro', '[{{block "b"}}{{endblock}}]']);
+    lLoaded := SaveAndLoad(lCompiler.Compile('{{import "r_lib.tpro" as r}}{{include "r_inc.tpro"}}{{>r.m()}}'));
+    Assert(lLoaded.Render = 'RIR', 'Unexpected render: ' + lLoaded.Render);
+    Assert(not lLoaded.IsStale, 'Resolver dependencies: not stale');
+    TTProConfiguration.TemplateChanged('unrelated.tpro');
+    Assert(not lLoaded.IsStale, 'Unrelated template changed');
+    TTProConfiguration.TemplateChanged('R_LIB.TPRO'); // names are case-insensitive
+    Assert(lLoaded.IsStale, 'Resolver-provided library changed');
+    lLoaded := SaveAndLoad(lCompiler.Compile('{{include "r_inc.tpro"}}'));
+    Assert(not lLoaded.IsStale, 'Recompiled after TemplateChanged');
+    TTProConfiguration.TemplateChanged('r_inc.tpro');
+    Assert(lLoaded.IsStale, 'Resolver-provided include changed');
+    lLoaded := SaveAndLoad(lCompiler.Compile('{{import "r_lib.tpro" as r}}{{extends "r_layout.tpro"}}{{block "b"}}X{{endblock}}'));
+    Assert(lLoaded.Render = '[X]', 'Unexpected render: ' + lLoaded.Render);
+    Assert(not lLoaded.IsStale, 'Extends: not stale');
+    TTProConfiguration.TemplateChanged('r_icons.tpro');
+    Assert(lLoaded.IsStale, 'Library imported by a library changed');
+    lLoaded := SaveAndLoad(lCompiler.Compile('{{import "r_lib.tpro" as r}}{{extends "r_layout.tpro"}}{{block "b"}}X{{endblock}}'));
+    TTProConfiguration.TemplateChanged('r_layout.tpro');
+    Assert(lLoaded.IsStale, 'Layout changed');
+    lTemplate := nil;
+    lLoaded := nil;
+  finally
+    lCompiler.Free;
+    TDirectory.Delete(lDir, True);
+  end;
+  WriteLn('TestIsStale'.PadRight(45) + ' : OK');
+end;
+
+procedure TestMacroBodyFullRenderer;
+// 1.2: a macro body runs through the full renderer (loops included), keeping the macro semantics
+const
+  LIST_MACRO = '{{macro lst(items)}}({{for x in items}}{{:x}}{{if !x.@@last}},{{endif}}{{else}}empty{{endfor}}){{endmacro}}';
+var
+  lTemplate: ITProCompiledTemplate;
+  lArr, lEmpty: TJDOJsonArray;
+
+  function T(const aSrc: string): ITProCompiledTemplate;
+  begin
+    lTemplate := CompileStr(aSrc);
+    lTemplate.SetData('arr', lArr);
+    lTemplate.SetData('empty', lEmpty);
+    lTemplate.SetData('v', 'V');
+    Result := lTemplate;
+  end;
+
+begin
+  lArr := TJDOJsonArray.Parse('[1,2,3]') as TJDOJsonArray;
+  lEmpty := TJDOJsonArray.Create;
+  try
+    AssertRendersAs(T(LIST_MACRO + '{{>lst(arr)}}'), '(1,2,3)', 'For loop in a macro');
+    AssertRendersAs(T(LIST_MACRO + '{{>lst(empty)}}'), '(empty)', 'For..else in a macro');
+    AssertRendersAs(T('{{macro m(n)}}{{for i in range(n)}}{{:i}}{{endfor}}{{endmacro}}{{>m(3)}}'), '012', 'Range in a macro');
+    // the same loop expression in the caller and in the macro: two different loops
+    AssertRendersAs(T('{{macro m(a)}}{{for x in a}}{{:x}}{{endfor}}{{endmacro}}{{set a := arr}}{{for x in a}}[{{>m(a)}}]{{endfor}}'),
+      '[123][123][123]', 'Same loop in caller and macro');
+    // the caller's loop variables are not visible in the macro...
+    AssertRendersAs(T('{{macro m()}}<{{:x}}>{{endmacro}}{{for x in arr}}{{>m()}}{{endfor}}'), '<><><>', 'Caller loop not visible');
+    // ...but they are in the slot content, even while the macro loops
+    AssertRendersAs(T('{{macro m()}}{{for i in range(2)}}{{slot}}{{endfor}}{{endmacro}}{{for x in arr}}{{call m()}}{{:x}}{{endcall}}{{endfor}}'),
+      '112233', 'Slot inside a macro loop sees the caller loop');
+    AssertRendersAs(T('{{macro inner(a)}}{{for i in range(2)}}{{:a}}{{endfor}}{{endmacro}}' +
+      '{{macro outer(arr)}}{{for x in arr}}{{>inner(x)}}|{{endfor}}{{endmacro}}{{>outer(arr)}}'), '11|22|33|', 'Macro loop calling a macro loop');
+    // continue inside a macro loop
+    AssertRendersAs(T('{{macro m(arr)}}{{for x in arr}}{{if x.@@first}}{{continue}}{{endif}}{{:x}}{{endfor}}{{endmacro}}{{>m(arr)}}'), '23', 'Continue in a macro loop');
+    // an error inside a macro loop leaves the template usable
+    lTemplate := T('{{macro m(arr)}}{{for x in arr}}{{@1/0}}{{endfor}}{{endmacro}}{{>m(arr)}}');
+    AssertRenderRaises(lTemplate, 'Error evaluating expression', 'Error in a macro loop');
+    AssertRendersAs(T(LIST_MACRO + '{{>lst(arr)}}'), '(1,2,3)', 'Render after an error');
+    // the other statements behave as outside a macro
+    AssertRendersAs(T('{{macro m(h)}}{{switch h}}{{case "<b>"}}S{{endswitch}}{{set z := "Z"}}{{:z}}{{raw}}{{:v}}{{endraw}}' +
+      '{{autoescape false}}{{:h}}{{endautoescape}}{{:h}}{{endmacro}}{{>m("<b>")}}'),
+      'SZ{{:v}}<b>&lt;b&gt;', 'switch, set, raw, autoescape in a macro');
+    // include with mapping and dynamic include: in 1.1 the mapping was ignored and the dynamic include skipped
+    lTemplate := CompileWith(MapResolver(['inc.tpro', '[{{:q}}]']),
+      '{{macro m(p)}}{{include "inc.tpro", q = p}}{{include @(p + ".tpro")}}{{endmacro}}{{>m("inc")}}');
+    lTemplate.OnGetDynamicallyIncludedTemplate := MapResolver(['inc.tpro', '<{{:p}}>']);
+    AssertRendersAs(lTemplate, '[inc]<inc>', 'Includes in a macro');
+    lTemplate := nil;
+  finally
+    lEmpty.Free;
+    lArr.Free;
+  end;
+  WriteLn('TestMacroBodyFullRenderer'.PadRight(45) + ' : OK');
+end;
+
+procedure TestAttrFilter;
+// 1.2: {{:model|attr,name}} reads a member by name from objects, datasets, JSON objects, dictionaries, TStrings
+var
+  lTemplate: ITProCompiledTemplate;
+  lItem: TDataItem;
+  lNullables: TDataItemNullables;
+  lDS: TDataSet;
+  lJSON: TJDOJsonObject;
+  lDict: TDictionary<string, string>;
+  lDictV: TDictionary<string, TValue>;
+  lSL: TStringList;
+begin
+  lItem := TDataItem.Create('a', 'b', 'c', 7);
+  lNullables := TDataItemNullables.Create('s', nil, 5, nil, nil, nil, nil, nil);
+  lDS := GetDatasetWithNulls;
+  lJSON := TJDOJsonObject.Parse('{"a":"x","b":2,"n":null}') as TJDOJsonObject;
+  lDict := TDictionary<string, string>.Create;
+  lDictV := TDictionary<string, TValue>.Create;
+  lSL := TStringList.Create;
+  try
+    lDS.First;
+    lDS.Next; // Bruce, 40, Salary NULL
+    lDict.Add('email', 'e@x');
+    lDictV.Add('age', 42);
+    lSL.Add('k=v');
+    lTemplate := CompileStr(
+      '{{:o|attr,"prop1"}}|{{:o|attr,n}}|{{:o|attr,@("Prop" + "Int")}}|{{:o|attr,"missing"|default,"D"}}|{{:nothing|attr,"x"|default,"N"}}' +
+      '#{{:nb|attr,"NullInt32"}}|{{:nb|attr,"NullBoolean"|default,"null"}}' +
+      '#{{:ds|attr,"name"}}|{{:ds|attr,"Salary"|default,"null"}}|{{:ds|attr,"Age"}}|{{:ds|attr,"nope"|default,"-"}}' +
+      '#{{:j|attr,"a"}}|{{:j|attr,"b"}}|{{:j|attr,"c"|default,"-"}}|{{:j|attr,"n"|default,"null"}}' +
+      '#{{:d|attr,"email"}}|{{:d|attr,"no"|default,"-"}}|{{:dv|attr,"age"}}|{{:dv|attr,"no"|default,"-"}}' +
+      '#{{:sl|attr,"k"}}|{{:sl|attr,"z"|default,"-"}}' +
+      '#{{:o|attr,"Prop1"|uppercase}}{{if o|attr,"PropInt"|eq,7}}=7{{endif}}');
+    lTemplate.SetData('o', lItem);
+    lTemplate.SetData('n', 'Prop2');
+    lTemplate.SetData('nb', lNullables);
+    lTemplate.SetData('ds', lDS);
+    lTemplate.SetData('j', lJSON);
+    lTemplate.SetData('d', lDict);
+    lTemplate.SetData('dv', lDictV);
+    lTemplate.SetData('sl', lSL);
+    AssertRendersAs(lTemplate, 'a|b|7|D|N#5|null#Bruce|null|40|-#x|2|-|null#e@x|-|42|-#v|-#A=7', 'attr');
+    AssertRenderRaises(CompileStr('{{:o|attr}}'), 'Expected 1 parameters', 'attr without parameters');
+    AssertRenderRaises(CompileStr('{{:o|attr,"a","b"}}'), 'Expected 1 parameters', 'attr with 2 parameters');
+    // a custom filter named attr wins
+    lTemplate := CompileStr('{{:o|attr,"Prop1"}}');
+    lTemplate.SetData('o', lItem);
+    lTemplate.AddFilter('attr',
+      function(const aValue: TValue; const aParameters: TArray<TFilterParameter>): TValue
+      begin
+        Result := 'custom';
+      end);
+    AssertRendersAs(lTemplate, 'custom', 'custom attr');
+    lTemplate := nil;
+  finally
+    lSL.Free;
+    lDictV.Free;
+    lDict.Free;
+    lJSON.Free;
+    lDS.Free;
+    lNullables.Free;
+    lItem.Free;
+  end;
+  WriteLn('TestAttrFilter'.PadRight(45) + ' : OK');
+end;
+
+type
+  TFormModel = class
+  private
+    fCustomerName: string;
+    fVAT_Number: string;
+    fAge: Integer;
+    fBig: Int64;
+    fPrice: Double;
+    fAmount: Currency;
+    fBirthDate: TDate;
+    fCreatedAt: TDateTime;
+    fStartTime: TTime;
+    fActive: Boolean;
+    fNick: NullableString;
+    fNoNick: NullableInt32;
+    fChild: TDataItem;
+    fTags: TArray<string>;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property CustomerName: string read fCustomerName write fCustomerName;
+    property VAT_Number: string read fVAT_Number write fVAT_Number;
+    property Age: Integer read fAge write fAge;
+    property Big: Int64 read fBig write fBig;
+    property Price: Double read fPrice write fPrice;
+    property Amount: Currency read fAmount write fAmount;
+    property BirthDate: TDate read fBirthDate write fBirthDate;
+    property CreatedAt: TDateTime read fCreatedAt write fCreatedAt;
+    property StartTime: TTime read fStartTime write fStartTime;
+    property Active: Boolean read fActive write fActive;
+    property Nick: NullableString read fNick write fNick;
+    property NoNick: NullableInt32 read fNoNick write fNoNick;
+    property Code: string read fCustomerName; // read-only
+    property Child: TDataItem read fChild; // an object: skipped
+    property Tags: TArray<string> read fTags; // an array: skipped
+  end;
+
+constructor TFormModel.Create;
+begin
+  inherited;
+  fCustomerName := 'ACME';
+  fVAT_Number := 'IT01';
+  fAge := 42;
+  fBig := 10000000000;
+  fPrice := 1.5;
+  fAmount := 2.25;
+  fBirthDate := EncodeDate(2024, 8, 20);
+  fCreatedAt := EncodeDateTime(2024, 8, 20, 10, 20, 30, 0);
+  fStartTime := EncodeTime(9, 30, 0, 0);
+  fActive := True;
+  fNick := 'nn';
+  fNoNick := nil;
+  fChild := TDataItem.Create('a', 'b', 'c', 1);
+end;
+
+destructor TFormModel.Destroy;
+begin
+  fChild.Free;
+  inherited;
+end;
+
+procedure TestFieldsMetadata;
+// 1.2: {{for f in x.@@fields}} gives the same field metadata for datasets and objects
+const
+  META = '{{for f in m.@@fields}}{{:f.@@index}}:{{:f.FieldName}}/{{:f.DisplayLabel}}/{{:f.DataType}}/{{:f.Required}}/{{:f.ReadOnly}}/' +
+    '{{:f.Size}}/{{:f.Visible}}/{{:f.Hidden}}{{if f.@@last}}.{{else}};{{endif}}{{endfor}}';
+  VALUES = '{{for f in m.@@fields}}{{switch f.DataType}}{{case "ftDate"}}{{:f.Value|formatdatetime,"yyyy-mm-dd"}}' +
+    '{{case "ftTime"}}{{:f.Value|formatdatetime,"hh:nn"}}{{case "ftDateTime"}}{{:f.Value|formatdatetime,"yyyy-mm-dd hh:nn"}}' +
+    '{{default}}{{:f.Value}}{{endswitch}};{{endfor}}';
+var
+  lTemplate: ITProCompiledTemplate;
+  lModel: TFormModel;
+  lDS: TDataSet;
+  lItems: TObjectList<TDataItem>;
+  lCalls: string;
+begin
+  lModel := TFormModel.Create;
+  lDS := GetCustomersDataset;
+  lItems := GetItems;
+  try
+    lTemplate := CompileStr(META);
+    lTemplate.SetData('m', lModel);
+    AssertRendersAs(lTemplate,
+      '1:CustomerName/Customer name/ftString/False/False/0/True/False;' +
+      '2:VAT_Number/Vat number/ftString/False/False/0/True/False;' +
+      '3:Age/Age/ftInteger/False/False/0/True/False;' +
+      '4:Big/Big/ftLargeint/False/False/0/True/False;' +
+      '5:Price/Price/ftFloat/False/False/0/True/False;' +
+      '6:Amount/Amount/ftCurrency/False/False/0/True/False;' +
+      '7:BirthDate/Birth date/ftDate/False/False/0/True/False;' +
+      '8:CreatedAt/Created at/ftDateTime/False/False/0/True/False;' +
+      '9:StartTime/Start time/ftTime/False/False/0/True/False;' +
+      '10:Active/Active/ftBoolean/False/False/0/True/False;' +
+      '11:Nick/Nick/ftString/False/False/0/True/False;' +
+      '12:NoNick/No nick/ftInteger/False/False/0/True/False;' +
+      '13:Code/Code/ftString/False/True/0/True/False.', 'Object metadata');
+    lTemplate := CompileStr(VALUES);
+    lTemplate.SetData('m', lModel);
+    AssertRendersAs(lTemplate, 'ACME;IT01;42;10000000000;1.5;2.25;2024-08-20;2024-08-20 10:20;09:30;True;nn;;ACME;', 'Object values');
+    // the hook changes the metadata of objects
+    lCalls := '';
+    TTProConfiguration.OnGetFieldMetadata :=
+      procedure(const aObject: TObject; const aPropertyName: string; const aMetadata: TTProFieldMetadata)
+      begin
+        Assert(aObject = lModel, 'Hook: wrong object');
+        lCalls := lCalls + aPropertyName.Substring(0, 1);
+        if aPropertyName = 'CustomerName' then
+        begin
+          aMetadata.DisplayLabel := 'Customer';
+          aMetadata.Size := 50;
+          aMetadata.Required := True;
+        end
+        else if aPropertyName = 'Age' then
+          aMetadata.ReadOnly := True
+        else if aPropertyName = 'Big' then
+          aMetadata.Hidden := True
+        else if aPropertyName = 'VAT_Number' then
+        begin
+          aMetadata.DataType := 'ftMemo';
+          aMetadata.Visible := False;
+        end;
+      end;
+    try
+      lTemplate := CompileStr('{{for f in m.@@fields}}{{if f.@@index|le,4}}{{:f.FieldName}}/{{:f.DisplayLabel}}/{{:f.DataType}}/' +
+        '{{:f.Required}}/{{:f.ReadOnly}}/{{:f.Size}}/{{:f.Visible}}/{{:f.Hidden}};{{endif}}{{endfor}}');
+      lTemplate.SetData('m', lModel);
+      AssertRendersAs(lTemplate, 'CustomerName/Customer/ftString/True/False/50/True/False;VAT_Number/Vat number/ftMemo/False/False/0/False/False;' +
+        'Age/Age/ftInteger/False/True/0/True/False;Big/Big/ftLargeint/False/False/0/True/True;', 'Hook');
+      Assert(lCalls = 'CVABPABCSANNC', 'Hook calls: ' + lCalls);
+    finally
+      TTProConfiguration.OnGetFieldMetadata := nil;
+    end;
+    // a dataset answers the same names, @@fields is an alias of fields
+    lTemplate := CompileStr('{{for f in m.@@fields}}{{:f.@@index}}:{{:f.FieldName}}/{{:f.DisplayLabel}}/{{:f.DataType}}/{{:f.Required}}/' +
+      '{{:f.ReadOnly}}/{{:f.Size}}/{{:f.Visible}}/{{:f.Hidden}}={{:f.Value}}{{if f.@@last}}.{{else}};{{endif}}{{endfor}}');
+    lTemplate.SetData('m', lDS);
+    AssertRendersAs(lTemplate, '1:Code/Code/ftInteger/False/False/0/True/False=1;2:Name/Name/ftString/False/False/20/True/False=Ford.', 'Dataset');
+    // inside a macro, on a loop variable, and on a null model (nothing to iterate)
+    lTemplate := CompileStr('{{macro m(model)}}{{for f in model.@@fields}}{{:f.FieldName}}{{else}}none{{endfor}}{{endmacro}}' +
+      '{{>m(o)}}|{{>m(nothing)}}|{{for x in list}}{{for f in x.@@fields}}{{:f.FieldName}}{{endfor}}{{endfor}}');
+    lTemplate.SetData('o', lModel.Child);
+    lTemplate.SetData('list', lItems);
+    AssertRendersAs(lTemplate, 'Prop1Prop2Prop3PropInt|none|Prop1Prop2Prop3PropIntProp1Prop2Prop3PropIntProp1Prop2Prop3PropInt', 'Macro, loop variable, null');
+    lTemplate := nil;
+  finally
+    lItems.Free;
+    lDS.Free;
+    lModel.Free;
+  end;
+  WriteLn('TestFieldsMetadata'.PadRight(45) + ' : OK');
+end;
+
+procedure TestJsonItemsAsObjects;
+// 1.2: the items of a JSON array are JSON objects for filters and macros (attr, macro parameters); the output is unchanged
+var
+  lTemplate: ITProCompiledTemplate;
+  lArr: TJDOJsonArray;
+  lObj: TJDOJsonObject;
+begin
+  lArr := TJDOJsonArray.Parse('[{"id":1,"t":"a"},{"id":2,"t":"b"}]') as TJDOJsonArray;
+  lObj := TJDOJsonObject.Parse('{"list":[{"id":3}]}') as TJDOJsonObject;
+  try
+    lTemplate := CompileStr('{{macro m(x)}}<{{:x.t}}>{{endmacro}}{{for o in arr}}{{:o|attr,"id"}}{{>m(o)}}{{:o$}}{{endfor}}' +
+      '|{{for o in obj.list}}{{:o|attr,"id"}}{{:o$}}{{endfor}}');
+    lTemplate.SetData('arr', lArr);
+    lTemplate.SetData('obj', lObj);
+    AssertRendersAs(lTemplate, '1<a>{"id":1,"t":"a"}2<b>{"id":2,"t":"b"}|3{"id":3}', 'JSON items');
+    lTemplate := nil;
+  finally
+    lObj.Free;
+    lArr.Free;
+  end;
+  WriteLn('TestJsonItemsAsObjects'.PadRight(45) + ' : OK');
+end;
+
+procedure TestFilteredValueOutput;
+// 1.2: a filtered value is printed as an unfiltered one: null -> nothing, floats and dates with the template FormatSettings
+var
+  lTemplate: ITProCompiledTemplate;
+  lModel: TFormModel;
+  lSavedSeparator: Char;
+begin
+  lModel := TFormModel.Create;
+  lSavedSeparator := FormatSettings.DecimalSeparator;
+  FormatSettings.DecimalSeparator := ',';
+  try
+    lTemplate := CompileStr('[{{:m|attr,"missing"}}][{{:m|attr,"NoNick"}}]{{:m|attr,"Price"}}|{{:m|attr,"BirthDate"}}');
+    lTemplate.SetData('m', lModel);
+    AssertRendersAs(lTemplate, '[][]1.5|2024-08-20', 'Filtered values');
+    lTemplate := nil;
+  finally
+    FormatSettings.DecimalSeparator := lSavedSeparator;
+    lModel.Free;
+  end;
+  WriteLn('TestFilteredValueOutput'.PadRight(45) + ' : OK');
+end;
+
+procedure TestExpressionOutputUsesTemplateFormatSettings;
+// 1.2: {{@expr}} prints floats and dates with the template FormatSettings, not with the process-wide ones
+var
+  lTemplate: ITProCompiledTemplate;
+  lSavedSeparator: Char;
+begin
+  lSavedSeparator := FormatSettings.DecimalSeparator;
+  FormatSettings.DecimalSeparator := ',';
+  try
+    lTemplate := CompileStr('{{@1.5 + 1}}|{{@2 + 3}}|{{@"a" + "b"}}|{{@1 < 2}}|{{@today()}}');
+    AssertRendersAs(lTemplate, '2.5|5|ab|True|' + FormatDateTime('yyyy-mm-dd', Date), 'Invariant template FormatSettings');
+    lTemplate := CompileStr('{{macro m()}}{{@1.5 + 1}}{{endmacro}}{{>m()}}');
+    AssertRendersAs(lTemplate, '2.5', 'Expression in macro body');
+    lTemplate := CompileStr('{{set x := @(1.5 + 1)}}{{:x}}|{{@1.5 + 1|default,"x"}}');
+    AssertRendersAs(lTemplate, '2.5|2.5','Set from expression, filtered expression');
+    FormatSettings.DecimalSeparator := '.';
+    lTemplate := CompileStr('{{@1.5 + 1}}');
+    lTemplate.FormatSettings^.DecimalSeparator := ',';
+    AssertRendersAs(lTemplate, '2,5', 'Comma template FormatSettings');
+    lTemplate := nil;
+  finally
+    FormatSettings.DecimalSeparator := lSavedSeparator;
+  end;
+  WriteLn('TestExpressionOutputUsesTemplateFormatSettings'.PadRight(45) + ' : OK');
+end;
+
+procedure TestMacroArgumentsWithFilters;
+// 1.2: macro arguments (positional, named, defaults) accept filters, like {{:value|filter}}
+const
+  M = '{{macro m(a, b="-")}}[{{:a}}|{{:b}}]{{endmacro}}';
+  P = '{{macro p(model)}}{{:model}}{{endmacro}}';
+  D = '{{macro d(x=name|uppercase, y="k"|uppercase)}}[{{:x}}{{:y}}]{{endmacro}}';
+var
+  lSetup: TProc<ITProCompiledTemplate>;
+  lTemplate: ITProCompiledTemplate;
+  lArr: TJDOJsonArray;
+  lSrc: string;
+begin
+  lArr := TJDOJsonArray.Parse('[10,20]') as TJDOJsonArray;
+  try
+    lSetup := procedure(aTemplate: ITProCompiledTemplate)
+      begin
+        aTemplate.SetData('name', 'Bob');
+        aTemplate.SetData('num', 7);
+        aTemplate.SetData('items', lArr);
+      end;
+    lSrc := M + P + D +
+      '{{>m(name|uppercase)}}' +                      // positional
+      '{{>m(a=name|uppercase, b="lg")}}' +            // named
+      '{{>m(name, b = name|lowercase|uppercase)}}' +  // chained
+      '{{>m(a=num|lpad,3, b="x")}}' +                 // filter with parameters, then a named argument
+      '{{>m("y", num|lpad,3)}}' +                     // filter with parameters on the last positional
+      '{{>m("abc"|uppercase, b=@("a" + "b")|uppercase)}}' +    // literal and expression with filters
+      '{{>p(model=items|first)}}' +                   // object value through a filter
+      '{{call m(a=name|lowercase)}}{{endcall}}' +     // call
+      '{{>d()}}{{>d(y="z")}}';                        // defaults with filters
+    AssertCompileRaises('{{macro r(a|uppercase)}}{{endmacro}}', 'filters are allowed only on a default value', 'Filter on a required parameter');
+    lTemplate := CompileStr(lSrc);
+    lSetup(lTemplate);
+    AssertRendersAs(lTemplate, '[BOB|-][BOB|lg][Bob|BOB][  7|x][y|  7][ABC|AB]10[bob|-][BOBK][BOBz]', 'Macro arguments with filters');
+    lTemplate := nil;
+    AssertSurvivesSaveLoad(lSrc, lSetup, 'Macro arguments with filters');
+  finally
+    lArr.Free;
+  end;
+  WriteLn('TestMacroArgumentsWithFilters'.PadRight(45) + ' : OK');
+end;
+
+procedure TestContainsFilters;
+// 1.2: icontains ignores the case of the parameter too; contains/icontains work on any value (as printed)
+var
+  lTemplate: ITProCompiledTemplate;
+begin
+  lTemplate := CompileStr('{{:v|icontains,"AbC"}}|{{:v|icontains,@("A" + "B")}}|{{:n|contains,"2"}}|{{:n|icontains,"4"}}|{{:nothing|contains,"a"}}');
+  lTemplate.SetData('v', 'xxabcxx');
+  lTemplate.SetData('n', 123);
+  AssertRendersAs(lTemplate, 'True|True|True|False|False', 'contains');
+  lTemplate := nil;
+  WriteLn('TestContainsFilters'.PadRight(45) + ' : OK');
+end;
+
+procedure TestListOfSimpleValues;
+// 1.2: a list of simple values (e.g. TList<string>) can be iterated, its items are the values
+var
+  lTemplate: ITProCompiledTemplate;
+  lNames: TList<string>;
+  lInts: TList<Integer>;
+begin
+  lNames := TList<string>.Create;
+  lInts := TList<Integer>.Create;
+  try
+    lNames.AddRange(['a', 'b']);
+    lInts.AddRange([1, 2]);
+    lTemplate := CompileStr('{{for s in names}}{{:s}}{{:s.@@index}}{{if s|eq,"b"}}!{{endif}},{{endfor}}{{for i in ints}}{{:i}}{{endfor}}');
+    lTemplate.SetData('names', lNames);
+    lTemplate.SetData('ints', lInts);
+    AssertRendersAs(lTemplate, 'a1,b2!,12', 'List of simple values');
+    lTemplate := nil;
+  finally
+    lInts.Free;
+    lNames.Free;
+  end;
+  WriteLn('TestListOfSimpleValues'.PadRight(45) + ' : OK');
+end;
+
+procedure TestFormLibraries;
+// 1.2: lib\forms_html.tpro and lib\forms_bootstrap5.tpro: same macros and parameters (the contract), different markup
+const
+  FORM = '{{import "forms.tpro" as f}}'#10 +
+    '{{call f.form("/save", method="get", class="my-form", attrs=hx)}}'#10 +
+    '{{>f.input("email", label="E-mail", type="email", required=true, readonly=true, placeholder="you@x", maxlength=50, class="c1", attrs=hx)}}'#10 +
+    '{{>f.input("quote")}}'#10 +
+    '{{>f.textarea("notes", label="Notes", rows=5, required=true, readonly=true, class="c2", attrs=hx)}}'#10 +
+    '{{>f.select("country", countries, label="Country", valueprop="PropInt", textprop="Prop1", empty="--", required=true, class="c3", attrs=hx)}}'#10 +
+    '{{>f.select("color", colors, label="Color")}}'#10 +
+    '{{>f.select("size", sizes, valueprop="v", textprop="t")}}'#10 +
+    '{{>f.checkbox("active", label="Active", class="c4", attrs=hx)}}'#10 +
+    '{{>f.checkbox("off", label="Off")}}'#10 +
+    '{{call f.actions()}}'#10'{{>f.submit("Go", class="c5", attrs=hx)}}'#10'{{>f.submit()}}'#10'{{endcall}}'#10 +
+    '{{endcall}}'#10 +
+    '{{>f.auto(obj, exclude="Big, nothing")}}'#10 +
+    '{{>f.auto(ds, errors=dserrors)}}'#10;
+var
+  lModel: TDictionary<string, TValue>;
+  lErrors, lDSErrors: TDictionary<string, string>;
+  lCountries: TObjectList<TDataItem>;
+  lColors: TList<string>;
+  lSizes: TJDOJsonArray;
+  lObj: TFormModel;
+  lDS: TDataSet;
+
+  function MacroSignatures(const aLibFile: string): string;
+  var
+    lMatch: TMatch;
+  begin
+    Result := '';
+    for lMatch in TRegEx.Matches(TFile.ReadAllText(aLibFile), '\{\{macro [^}]*\}\}') do
+      Result := Result + lMatch.Value + #10;
+  end;
+
+  function RenderWith(const aLibFile: string): string;
+  var
+    lCompiler: TTProCompiler;
+    lTemplate: ITProCompiledTemplate;
+  begin
+    lCompiler := TTProCompiler.Create;
+    try
+      lCompiler.OnGetIncludedTemplate := MapResolver(['forms.tpro', TFile.ReadAllText(aLibFile)]);
+      lTemplate := lCompiler.Compile(FORM);
+    finally
+      lCompiler.Free;
+    end;
+    lTemplate.SetData('formModel', lModel);
+    lTemplate.SetData('formErrors', lErrors);
+    lTemplate.SetData('dserrors', lDSErrors);
+    lTemplate.SetData('countries', lCountries);
+    lTemplate.SetData('colors', lColors);
+    lTemplate.SetData('sizes', lSizes);
+    lTemplate.SetData('obj', lObj);
+    lTemplate.SetData('ds', lDS);
+    lTemplate.SetData('hx', 'hx-post="/x"');
+    Result := lTemplate.Render;
+  end;
+
+  procedure AssertHas(const aOutput, aMarker, aCase: string);
+  begin
+    Assert(aOutput.Contains(aMarker), aCase + ': missing [' + aMarker + '] in:'#10 + aOutput);
+  end;
+
+  procedure AssertContract(const aOutput, aCase: string);
+  var
+    lMarker: string;
+  begin
+    for lMarker in ['action="/save" method="get" class="my-form" hx-post="/x">', 'for="email"', 'id="email" name="email"',
+      'type="email"', 'value="a&quot;b&lt;c&gt;"', 'value="x &quot;y&quot;"', ' required', ' readonly', 'placeholder="you@x"',
+      'maxlength="50"', 'Bad &lt;email&gt;', 'rows="5"', '>n &amp; m</textarea>', '<option value="">--</option>',
+      '<option value="1">Italy</option>', '<option value="2" selected>Spain</option>', 'Pick one',
+      '<option value="red">red</option>', '<option value="green" selected>green</option>',
+      '<option value="S">Small</option>', '<option value="M" selected>Medium</option>',
+      '<input type="hidden" name="active" value="false">', 'name="active" value="true"', ' checked', 'name="off" value="true">',
+      'Go</button>', 'Submit</button>',
+      // auto on an object
+      'for="CustomerName"', '>Customer name<', '>Vat number<', 'name="CustomerName" value="ACME"', 'name="Age" value="42"',
+      'type="number"', 'name="Price" value="1.5"', 'step=any', 'type="date"', 'name="BirthDate" value="2024-08-20"',
+      'type="datetime-local"', 'name="CreatedAt" value="2024-08-20T10:20"', 'type="time"', 'name="StartTime" value="09:30"',
+      'name="Active" value="true" checked', 'name="NoNick" value=""', 'name="Code" value="ACME" readonly',
+      '<input type="hidden" id="Age" name="Age" value="42">', 'name="CustomerName" value="ACME" required',
+      // auto on a dataset
+      'name="Code" value="1"', 'name="Name" value="Ford" maxlength="20"', 'Too short'] do
+      AssertHas(aOutput, lMarker, aCase);
+    Assert(not aOutput.Contains('name="Big"'), aCase + ': excluded field rendered');
+    Assert(not aOutput.Contains('name="Nick"'), aCase + ': not Visible field rendered');
+    Assert(not aOutput.Contains('name="Child"') and not aOutput.Contains('name="Tags"'), aCase + ': object/array property rendered');
+    Assert(not aOutput.Contains(#10#10), aCase + ': blank line in:'#10 + aOutput);
+  end;
+
+var
+  lHtml, lBS: string;
+begin
+  lModel := TDictionary<string, TValue>.Create;
+  lErrors := TDictionary<string, string>.Create;
+  lDSErrors := TDictionary<string, string>.Create;
+  lCountries := TObjectList<TDataItem>.Create(True);
+  lColors := TList<string>.Create;
+  lSizes := TJDOJsonArray.Parse('[{"v":"S","t":"Small"},{"v":"M","t":"Medium"}]') as TJDOJsonArray;
+  lObj := TFormModel.Create;
+  lDS := GetCustomersDataset;
+  try
+    lModel.Add('email', 'a"b<c>');
+    lModel.Add('quote', 'x "y"');
+    lModel.Add('notes', 'n & m');
+    lModel.Add('country', 2);
+    lModel.Add('color', 'green');
+    lModel.Add('size', 'M');
+    lModel.Add('active', True);
+    lModel.Add('off', False);
+    lErrors.Add('email', 'Bad <email>');
+    lErrors.Add('country', 'Pick one');
+    lDSErrors.Add('Name', 'Too short');
+    lCountries.Add(TDataItem.Create('Italy', '', '', 1));
+    lCountries.Add(TDataItem.Create('Spain', '', '', 2));
+    lColors.AddRange(['red', 'green']);
+    Assert(MacroSignatures('..\..\lib\forms_html.tpro') = MacroSignatures('..\..\lib\forms_bootstrap5.tpro'),
+      'The two libraries must declare the same macros with the same parameters');
+    // the metadata hook drives auto on objects
+    TTProConfiguration.OnGetFieldMetadata :=
+      procedure(const aObject: TObject; const aPropertyName: string; const aMetadata: TTProFieldMetadata)
+      begin
+        if aPropertyName = 'Age' then
+          aMetadata.Hidden := True
+        else if aPropertyName = 'Nick' then
+          aMetadata.Visible := False
+        else if aPropertyName = 'CustomerName' then
+          aMetadata.Required := True;
+      end;
+    try
+      lHtml := RenderWith('..\..\lib\forms_html.tpro');
+      lBS := RenderWith('..\..\lib\forms_bootstrap5.tpro');
+    finally
+      TTProConfiguration.OnGetFieldMetadata := nil;
+    end;
+    AssertContract(lHtml, 'forms_html');
+    AssertContract(lBS, 'forms_bootstrap5');
+    // variant markup
+    AssertHas(lBS, 'class="form-control is-invalid c1"', 'forms_bootstrap5');
+    AssertHas(lBS, '<div class="invalid-feedback">Bad &lt;email&gt;</div>', 'forms_bootstrap5');
+    AssertHas(lBS, 'class="form-select is-invalid c3"', 'forms_bootstrap5');
+    AssertHas(lBS, 'class="form-check-input c4"', 'forms_bootstrap5');
+    AssertHas(lBS, 'class="btn btn-primary c5"', 'forms_bootstrap5');
+    AssertHas(lHtml, 'aria-invalid="true" aria-describedby="email-error"', 'forms_html');
+    AssertHas(lHtml, '<small id="email-error">Bad &lt;email&gt;</small>', 'forms_html');
+    // classless: the only classes are the ones passed
+    Assert(TRegEx.Matches(lHtml, 'class="').Count = 6, 'forms_html: unexpected class attributes in:'#10 + lHtml);
+  finally
+    lDS.Free;
+    lObj.Free;
+    lSizes.Free;
+    lColors.Free;
+    lCountries.Free;
+    lDSErrors.Free;
+    lErrors.Free;
+    lModel.Free;
+  end;
+  WriteLn('TestFormLibraries'.PadRight(45) + ' : OK');
 end;
 
 var
@@ -1858,6 +3155,31 @@ begin
       RunRegressionTest('TestIncludeCycleDetected', TestIncludeCycleDetected);
       RunRegressionTest('TestDynamicIncludeRootPath', TestDynamicIncludeRootPath);
       RunRegressionTest('TestLoadCorruptedCompiledTemplate', TestLoadCorruptedCompiledTemplate);
+      // 1.2 features
+      RunRegressionTest('TestCustomFilterOverridesBuiltIn', TestCustomFilterOverridesBuiltIn);
+      RunRegressionTest('TestRangeKeepsStringLiterals', TestRangeKeepsStringLiterals);
+      RunRegressionTest('TestExpressionShortCircuitAndModByZero', TestExpressionShortCircuitAndModByZero);
+      RunRegressionTest('TestExpressionErrorsAreRenderExceptions', TestExpressionErrorsAreRenderExceptions);
+      RunRegressionTest('TestRoundUsesTemplateFormatSettings', TestRoundUsesTemplateFormatSettings);
+      RunRegressionTest('TestSwitchCase', TestSwitchCase);
+      RunRegressionTest('TestForRange', TestForRange);
+      RunRegressionTest('TestNewFilters', TestNewFilters);
+      RunRegressionTest('TestMacroNamedAndOptionalArgs', TestMacroNamedAndOptionalArgs);
+      RunRegressionTest('TestPushStack', TestPushStack);
+      RunRegressionTest('TestImportLibrary', TestImportLibrary);
+      RunRegressionTest('TestSlots', TestSlots);
+      RunRegressionTest('TestGlobalTemplateResolver', TestGlobalTemplateResolver);
+      RunRegressionTest('TestIsStale', TestIsStale);
+      RunRegressionTest('TestMacroBodyFullRenderer', TestMacroBodyFullRenderer);
+      RunRegressionTest('TestAttrFilter', TestAttrFilter);
+      RunRegressionTest('TestFieldsMetadata', TestFieldsMetadata);
+      RunRegressionTest('TestJsonItemsAsObjects', TestJsonItemsAsObjects);
+      RunRegressionTest('TestFilteredValueOutput', TestFilteredValueOutput);
+      RunRegressionTest('TestContainsFilters', TestContainsFilters);
+      RunRegressionTest('TestListOfSimpleValues', TestListOfSimpleValues);
+      RunRegressionTest('TestFormLibraries', TestFormLibraries);
+      RunRegressionTest('TestExpressionOutputUsesTemplateFormatSettings', TestExpressionOutputUsesTemplateFormatSettings);
+      RunRegressionTest('TestMacroArgumentsWithFilters', TestMacroArgumentsWithFilters);
       if gRegressionFailed then
         Halt(1);
     end;

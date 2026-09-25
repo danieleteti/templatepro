@@ -19,5 +19,5 @@ Negation: -10
 Negative calc: -8
 
 Float operations:
-Float value: 1234,5678
-Float calc: 123,45678
+Float value: 1234.5678
+Float calc: 123.45678

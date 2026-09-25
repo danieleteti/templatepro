@@ -1,0 +1,16 @@
+{{extends "layout_stacks.tpro"}}
+{{block "content"}}
+Page body
+{{push "scripts"}}
+<script src="/a.js"></script>
+{{endpush}}
+{{include "included_stacks_partial.tpro"}}
+{{include "included_stacks_partial.tpro"}}
+{{for obj in objects}}{{push "scripts"}}<script>{{:obj.Prop1}}</script>{{endpush}}{{endfor}}
+{{push "scripts" once}}<script src="/once.js"></script>{{endpush}}
+{{push "scripts" once}}<script src="/once.js"></script>{{endpush}}
+{{push "nowhere"}}dropped{{endpush}}
+{{push value2}}<var>{{endpush}}
+{{include @("included_stacks_dynamic.tpro")}}
+{{>addstyle("/m.css")}}
+{{endblock}}

@@ -1,4 +1,4 @@
 ﻿
 SELECT * FROM products
-WHERE category_id IN (,)
+WHERE category_id IN (1,2,3)
 

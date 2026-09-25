@@ -1,0 +1,7 @@
+<span class="badge">DANIELE2</span>
+<span class="badge">second alias</span>
+<div>&#9733; Title <span class="badge">10</span></div>
+<span class="badge">value1.1</span>
+<span class="badge">value1.2</span>
+<span class="badge">value1.3</span>
+end

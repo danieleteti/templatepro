@@ -1,0 +1,17 @@
+trim:[{{"  padded text  "|trim}}][{{:notexists|trim}}]
+replace:[{{:value2|replace,"DANIELE","Dan"}}][{{"a-b-c"|replace,"-","+"}}][{{"Aa"|replace,"a","x"}}][{{:notexists|replace,"a","b"}}][{{:value2|replace,value2,value3}}][{{"x1"|replace,@(intvalue0 + 1),"Y"}}]
+join:[{{:objects|join,", ","Prop1"}}][{{:jsonarray|join,"/","first_name"}}][{{:jsonobj.people|join,";","last_name"}}][{{:notexists|join,","}}]
+length:[{{:value2|length}}][{{:objects|length}}][{{:jsonarray|length}}][{{:customers|length}}][{{:notexists|length}}][{{""|length}}]
+first/last:[{{:value2|first}}{{:value2|last}}][{{:notexists|first|default,"none"}}]
+{{set firstobj := objects|first}}{{set lastobj := objects|last}}objects:[{{:firstobj.Prop1}}][{{:lastobj.Prop1}}]
+{{set firstperson := jsonarray|first}}json:[{{:firstperson.first_name}}]
+striptags:[{{:myhtml|striptags}}][{{:notexists|striptags}}]
+wordwrap:[{{"the quick brown fox jumps over the lazy dog"|wordwrap,10}}]
+wordwrap-long:[{{"a verylongwordhere b"|wordwrap,5}}]
+pluralize:[{{:intvalue1|pluralize,"item","items"}}][{{:intvalue2|pluralize,"item","items"}}][{{:intvalue0|pluralize,"item","items"}}][{{:notexists|pluralize,"item","items"}}]
+nl2br:[{{"a<b>
+c"|nl2br}}][{{:notexists|nl2br}}][{{:myhtml|nl2br|uppercase}}]
+{{set note := "x&y
+z"}}nl2br-var:[{{:note|nl2br}}][{{@note|nl2br}}]
+{{macro shownote(n)}}[{{:n|nl2br}}][{{@n|nl2br}}]{{endmacro}}nl2br-macro:{{>shownote(note)}}
+chain:[{{"  <i>Hi</i>  "|striptags|trim|uppercase}}]

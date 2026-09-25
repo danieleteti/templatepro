@@ -1,0 +1,14 @@
+{{macro button(text, variant="primary", size="md", disabled=false)}}<button class="{{:variant}} {{:size}}"{{if disabled}} disabled{{endif}}>{{:text}}</button>{{endmacro}}
+{{>button("Salva")}}
+{{>button("Elimina", "danger")}}
+{{>button("Invia", size="lg")}}
+{{>button("Attendi", disabled=true, variant="secondary")}}
+{{>button(value2, size=value3)}}
+{{>button(text = "Spaces", size = intvalue10)}}
+{{macro defvar(a, b=value2, c=intvalue1, d=1.5, e=@(intvalue10 * 2))}}{{:a}}|{{:b}}|{{:c}}|{{:d}}|{{:e}}{{endmacro}}
+{{>defvar("x")}}
+{{>defvar("x", e=@(1+2), c="C")}}
+{{for obj in objects}}{{>defvar(obj.Prop1, b=obj.Prop2)}};{{endfor}}
+{{macro inner(x, y=localv)}}{{:x}}-{{:y}}{{endmacro}}
+{{macro outer(localv)}}{{>inner("i")}}{{endmacro}}
+{{>outer("fromouter")}}
