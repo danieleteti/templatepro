@@ -1,0 +1,2 @@
+# Test fixtures are compared byte for byte: keep LF even with core.autocrlf=true
+tests/test_scripts/** text eol=lf
